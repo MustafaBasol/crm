@@ -8,6 +8,7 @@ import { getCustomers, Customer } from '../../api/customers';
 import { organizationsApi, OrganizationMember } from '../../api/organizations';
 import { useAuth } from '../../contexts/AuthContext';
 import CrmActivitiesPage from './CrmActivitiesPage';
+import CrmTasksPage from './CrmTasksPage';
 
 export default function CrmDealDetailPage(props: { opportunityId: string }) {
   const { t } = useTranslation('common');
@@ -51,6 +52,27 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
   const opportunities: crmApi.CrmOpportunity[] = board?.opportunities ?? [];
 
   const opportunity = useMemo(() => opportunities.find((o) => o.id === opportunityId) ?? null, [opportunities, opportunityId]);
+
+  const taskAssignees = useMemo(() => {
+    if (!opportunity) return [] as Array<{ id: string; label: string }>;
+    const allowedIds = new Set<string>([
+      ...(opportunity.ownerUserId ? [opportunity.ownerUserId] : []),
+      ...((Array.isArray(opportunity.teamUserIds) ? opportunity.teamUserIds : []).filter(Boolean) as string[]),
+    ]);
+
+    const list = (Array.isArray(members) ? members : [])
+      .filter((m) => !!m?.user?.id && allowedIds.has(m.user.id))
+      .map((m) => {
+        const name = [m.user.firstName, m.user.lastName].filter(Boolean).join(' ').trim();
+        return {
+          id: m.user.id,
+          label: name || m.user.email || m.user.id,
+        };
+      });
+
+    list.sort((a, b) => a.label.localeCompare(b.label));
+    return list;
+  }, [members, opportunity]);
 
   const customerNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -358,7 +380,7 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
             {members.length === 0 && <div className="text-sm text-gray-500">{t('crm.pipeline.noMembers')}</div>}
             <div className="space-y-2">
               {members.map((m) => {
-                const memberUserId = m.user.id;
+              <CrmTasksPage opportunityId={opportunityId} dealName={opportunity.name} assignees={taskAssignees} />
                 const isOwner = user?.id && memberUserId === user.id;
                 const checked = (opportunity.teamUserIds ?? []).includes(memberUserId) || !!isOwner;
                 return (
@@ -384,6 +406,10 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
       </div>
 
       <CrmActivitiesPage opportunityId={opportunity.id} dealName={opportunity.name} />
+
+      <div className="mt-6">
+        <CrmTasksPage opportunityId={opportunity.id} dealName={opportunity.name} />
+      </div>
     </div>
   );
 }

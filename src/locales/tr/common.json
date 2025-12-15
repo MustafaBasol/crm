@@ -12,6 +12,7 @@
       "status": "Durum",
       "title": "Başlık",
       "type": "Tip",
+      "assignee": "Atanan",
       "dueAt": "Tarih / Vade",
       "completed": "Tamamlandı",
       "actions": "İşlemler"
@@ -85,11 +86,33 @@
       "title": "Aktiviteler",
       "subtitle": "Arama, e-posta ve görevleri takip edin.",
       "subtitleForDeal": "\"{{dealName}}\" için aktiviteler",
+      "subtitleForAccount": "\"{{accountName}}\" için aktiviteler",
       "empty": "Henüz aktivite yok.",
       "dueAtPlaceholder": "Örn: 2025-12-15 veya 15.12.2025",
+      "filters": {
+        "all": "Tümü",
+        "open": "Açık",
+        "completed": "Tamamlandı"
+      },
       "modal": {
         "createTitle": "Aktivite Ekle",
         "editTitle": "Aktivite Düzenle"
+      }
+    },
+    "tasks": {
+      "title": "Görevler",
+      "subtitleForDeal": "\"{{dealName}}\" için görevler",
+      "empty": "Henüz görev yok.",
+      "dueAtPlaceholder": "Örn: 2025-12-15 veya 15.12.2025",
+      "unassigned": "Atanmamış",
+      "filters": {
+        "all": "Tümü",
+        "open": "Açık",
+        "completed": "Tamamlandı"
+      },
+      "modal": {
+        "createTitle": "Görev Ekle",
+        "editTitle": "Görev Düzenle"
       }
     },
     "dealDetail": {
@@ -129,15 +152,6 @@
       "noStageData": "Henüz aşama verisi yok.",
       "unknownStage": "Bilinmeyen aşama"
     }
-  },
-  "presets": {
-    "thisMonth": "Bu Ay",
-    "lastMonth": "Geçen Ay",
-    "thisYear": "Bu Yıl",
-    "addedThisMonth": "Bu Ay Eklenenler",
-    "withEmail": "E-posta var",
-    "withPhone": "Telefon var",
-    "withCompany": "Şirketi olanlar"
   },
   "presets": {
     "thisMonth": "Bu Ay",

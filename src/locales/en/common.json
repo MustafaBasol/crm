@@ -12,6 +12,7 @@
       "status": "Status",
       "title": "Title",
       "type": "Type",
+      "assignee": "Assignee",
       "dueAt": "Date / Due",
       "completed": "Completed",
       "actions": "Actions"
@@ -87,9 +88,30 @@
       "subtitleForDeal": "Activities for \"{{dealName}}\"",
       "empty": "No activities yet.",
       "dueAtPlaceholder": "e.g. 2025-12-15",
+      "filters": {
+        "all": "All",
+        "open": "Open",
+        "completed": "Completed"
+      },
       "modal": {
         "createTitle": "Add Activity",
         "editTitle": "Edit Activity"
+      }
+    },
+    "tasks": {
+      "title": "Tasks",
+      "subtitleForDeal": "Tasks for \"{{dealName}}\"",
+      "empty": "No tasks yet.",
+      "dueAtPlaceholder": "e.g. 2025-12-15 or 15.12.2025",
+      "unassigned": "Unassigned",
+      "filters": {
+        "all": "All",
+        "open": "Open",
+        "completed": "Completed"
+      },
+      "modal": {
+        "createTitle": "Add Task",
+        "editTitle": "Edit Task"
       }
     },
     "dealDetail": {
@@ -375,8 +397,6 @@
   "forgotPassword": "Forgot password",
   "forgotPasswordHelp": "Enter your email to receive a reset link.",
   "resetEmailSent": "If this email is registered, a password reset link has been sent.",
-  "sendResetLink": "Send Link",
-  "resendIn": "Please wait to resend: {{seconds}}s",
     "resetPassword": "Reset Password",
     "resetPasswordHelp": "Set your new password.",
     "newPassword": "New Password",
@@ -475,6 +495,7 @@
       "clear": "Clear",
       "view": "View",
       "copyLink": "Copy link",
+      "subtitleForAccount": "Activities for \"{{accountName}}\"",
       "downloadPDF": "Download PDF"
     },
   "exportCSV": "Export CSV",

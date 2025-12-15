@@ -1,12 +1,17 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '../common/decorators/user.decorator';
 import type { CurrentUser } from '../common/decorators/user.decorator';
 import { CrmService } from './crm.service';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
+import { CreateActivityDto } from './dto/create-activity.dto';
+import { CreateTaskDto } from './dto/create-task.dto';
 import { MoveOpportunityDto } from './dto/move-opportunity.dto';
 import { SetOpportunityTeamDto } from './dto/set-opportunity-team.dto';
+import { UpdateActivityDto } from './dto/update-activity.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
+import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
 
 @ApiTags('crm')
 @Controller('crm')
@@ -43,5 +48,81 @@ export class CrmController {
   @ApiOperation({ summary: 'Set opportunity team (owner is always included)' })
   async setTeam(@User() user: CurrentUser, @Param('id') id: string, @Body() dto: SetOpportunityTeamDto) {
     return this.crmService.setOpportunityTeam(user.tenantId, user, id, dto);
+  }
+
+  @Patch('opportunities/:id')
+  @ApiOperation({ summary: 'Update opportunity fields (name, account, amount, currency, expectedCloseDate)' })
+  async updateOpportunity(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateOpportunityDto,
+  ) {
+    return this.crmService.updateOpportunity(user.tenantId, user, id, dto);
+  }
+
+  @Get('activities')
+  @ApiOperation({ summary: 'List CRM activities (optionally filtered by opportunityId)' })
+  async listActivities(
+    @User() user: CurrentUser,
+    @Query('opportunityId') opportunityId?: string,
+    @Query('accountId') accountId?: string,
+  ) {
+    return this.crmService.listActivities(user.tenantId, user, {
+      opportunityId,
+      accountId,
+    });
+  }
+
+  @Post('activities')
+  @ApiOperation({ summary: 'Create CRM activity' })
+  async createActivity(@User() user: CurrentUser, @Body() dto: CreateActivityDto) {
+    return this.crmService.createActivity(user.tenantId, user, dto);
+  }
+
+  @Patch('activities/:id')
+  @ApiOperation({ summary: 'Update CRM activity' })
+  async updateActivity(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateActivityDto,
+  ) {
+    return this.crmService.updateActivity(user.tenantId, user, id, dto);
+  }
+
+  @Delete('activities/:id')
+  @ApiOperation({ summary: 'Delete CRM activity' })
+  async deleteActivity(@User() user: CurrentUser, @Param('id') id: string) {
+    return this.crmService.deleteActivity(user.tenantId, user, id);
+  }
+
+  @Get('tasks')
+  @ApiOperation({ summary: 'List CRM tasks (filtered by opportunityId)' })
+  async listTasks(
+    @User() user: CurrentUser,
+    @Query('opportunityId') opportunityId?: string,
+  ) {
+    return this.crmService.listTasks(user.tenantId, user, { opportunityId });
+  }
+
+  @Post('tasks')
+  @ApiOperation({ summary: 'Create CRM task' })
+  async createTask(@User() user: CurrentUser, @Body() dto: CreateTaskDto) {
+    return this.crmService.createTask(user.tenantId, user, dto);
+  }
+
+  @Patch('tasks/:id')
+  @ApiOperation({ summary: 'Update CRM task' })
+  async updateTask(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateTaskDto,
+  ) {
+    return this.crmService.updateTask(user.tenantId, user, id, dto);
+  }
+
+  @Delete('tasks/:id')
+  @ApiOperation({ summary: 'Delete CRM task' })
+  async deleteTask(@User() user: CurrentUser, @Param('id') id: string) {
+    return this.crmService.deleteTask(user.tenantId, user, id);
   }
 }

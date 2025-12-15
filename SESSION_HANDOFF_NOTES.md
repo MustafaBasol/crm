@@ -1,6 +1,34 @@
 # Dev Session Notes (2025-11-24)
 
+# Dev Session Notes (2025-12-15)
+
+## Biten işler (CRM)
+
+- Deal detay ekranı eklendi: `#crm-deal:<id>` hash rotası ile açılıyor.
+- Pipeline board kartından deal adına tıklayınca deal detay ekranına gidiyor.
+- Deal detay ekranında güncellenebilir alanlar: ad, müşteri (accountId), tutar, para birimi, beklenen kapanış tarihi; ayrıca stage değişimi ve takım (team) yönetimi.
+- Aktiviteler deal’e bağlandı:
+  - Mock API tarafında activity modeline `opportunityId` eklendi.
+  - `GET /api/crm/activities?opportunityId=...` filtrelemesi eklendi.
+  - Deal detay ekranında sadece o deal’e bağlı aktiviteler listeleniyor; yeni eklenen aktiviteler otomatik olarak o deal’e `opportunityId` ile bağlanıyor.
+- Hash routing ve başlık:
+  - `AppImpl` hash sync `crm-deal:` için genişletildi.
+  - Header title `crm.dealDetail.title` ile i18n.
+- i18n: `crm.dealDetail.*` ve `crm.activities.subtitleForDeal` anahtarları EN/TR/FR/DE eklendi.
+
+## Doğrulamalar
+
+- `npm run lint` temiz.
+- `npm run build` başarılı (sadece Vite chunk uyarıları).
+
+## Yeni sohbette devam (net yapılacaklar)
+
+1. Deal detay ekranındaki aktiviteleri “timeline” gibi göstermek (en basit: tarih alanına göre sıralama + tamamlandı filtresi/etiketi).
+2. `CrmActivity` modelini ileride Account/Contact’a da bağlayabilmek için ilişki tasarımını netleştirmek (şimdilik sadece deal/opportunity).
+3. Bu MVP akışını mock backend’den NestJS backend’e taşıma planı (Faz 1): entity/service/controller setleri.
+
 ## Biten işler
+
 - `src/App.tsx` içindeki legacy runtime `sales` göç efekti tamamen kaldırıldı; tenant scoped cache yazımı artık yalnızca `persistSalesState`/`writeTenantScopedArray` üzerinden gerçekleşiyor ve render sırasında gereksiz localStorage taramaları yapılmıyor.
 - Tek seferlik tarayıcı yardımcısı `legacy-sales-migrator.html` eklendi; bu araç legacy `sales`/`sales_cache` anahtarlarını tenant scoped anahtarlara taşıyıp isteğe bağlı olarak eski global anahtarları siliyor. Operasyon akışı `MIGRATIONS.md` içine adım adım belgelendi.
 - Bildirim hidrasyon helper'ı (`normalizeStoredNotifications`) ve silme uyarısı modalı tiplenerek `any` kullanımları azaltıldı; API'den gelen `relatedItems` listeleri normalize edilip `DeleteWarningRelatedItem` tipine dönüştürülüyor, böylece `App.tsx` lint borcu birkaç uyarı daha azaldı.
@@ -33,6 +61,7 @@
 - Dashboard `metrics` `useMemo`su sadece kullanılan bağımlılıkları (özellikle `formatCurrency`) izliyor; gereksiz `customers` bağımlılığı kaldırıldı ve lint uyarısı temizlendi.
 
 ## Doğrulamalar
+
 - `npx eslint src/App.tsx` (24 Kas 2025, 1x) → 408 warning (konsole temizliği + import logger refaktörleri sonrası `no-console` uyarıları 36 adet azaldı; kalan borç `no-explicit-any` ve `no-empty`).
 - `npx eslint src/App.tsx` (24 Kas 2025, 2x) → 445 warning (`tenantScopedId` memo + `salesHasDataRef` sayesinde hedeflenen `react-hooks/exhaustive-deps` uyarıları kapandı; kalanlar çoğunlukla `no-console`/`no-explicit-any`).
 - `npx eslint src/App.tsx` (24 Kas 2025, 1x) → 444 warning (banka cache logger geçişi sonrası tek `no-console` uyarısı daha temizlendi; toplam uyarı sayısı 23 Kas 2025'e göre 75 azaldı).
@@ -44,12 +73,14 @@
 - `npx eslint src/App.tsx` (24 Kas 2025, 1x) → 498 warning (`openSaleModal`/`closeSaleModal` logger geçişi sonrası 7 `no-console` uyarısı kapandı; sıradaki hedef 1077. satırdaki tenant cache hidrasyon efekti ve çevresindeki hook eksikleri).
 
 ## Notlar
+
 - Sales state artık yalnızca `persistSalesState` üzerinden değişiyor; yeni kod eklerken storage event'lerinin gereksiz tetiklenmemesi için `runWithSalesPersistenceSuppressed` sarmalayıcısı kullanılmalı (örn. legacy cache hidrasyonları/tenant switch).
 - `ReportsPage`/`SalesList` tarafında hâlâ doğrudan cache okuyan/parallel state tutan parçalar var; ileriki oturumda bu bileşenler yeni helper akışına geçirilmeli.
 
 # Dev Session Notes (2025-11-23)
 
 ## Biten işler
+
 - `ExpenseList`, `SimpleSalesPage` ve `ArchivePage` paginasyon/saklanan görünüm ayarları `safeLocalStorage` helper'larına geçirildi; page-size whitelist'leri tek yerden yönetiliyor ve hatalı değerler `logger` ile raporlanıyor.
 - `SettingsPage` içindeki billing/portal bekleme bayrakları artık doğrudan `safeLocalStorage` API'sini kullanıyor; custom `window.localStorage` sarmalayıcısı kaldırıldı.
 - `ReportsPage` quote cache hidrasyonunda `listLocalStorageKeys()` helper'ı kullanılarak `window.localStorage` erişimleri merkezi hale getirildi; `src/utils/localStorageSafe.ts` bu amaçla yeni anahtar enumerator sağlıyor.
@@ -102,15 +133,17 @@
 ## Kalan işler ve nasıl ilerleyeceğim
 
 1. **Legacy global storage temizliği**
+
    - `sales` migrasyonu ve login bootstrap'inde kalan `safeLocalStorage` erişimlerini tara.
    - Gerçekten gerekiyorsa helper'lara sar; değilse feature flag kaldırıp kodu sök.
    - Temizlik sonrası migrations dokümantasyonunu (`MIGRATIONS.md`) güncelle.
    - İnceleme notları (24 Kas 2025):
    - `src/App.tsx` içindeki **legacy sales migration** efekti tamamen kaldırıldı; bundan sonra sadece `legacy-sales-migrator.html` üzerinden manuel taşıma yapılacak.
-      - App + AuthContext + API client katmanları legacy helper'lara taşındı; sırada Admin UI/Settings gibi doğrudan `safeLocalStorage`'a dokunan kalan bileşenleri incelemek ve gerekirse aynı migrator mantığını paylaşmak var.
+     - App + AuthContext + API client katmanları legacy helper'lara taşındı; sırada Admin UI/Settings gibi doğrudan `safeLocalStorage`'a dokunan kalan bileşenleri incelemek ve gerekirse aynı migrator mantığını paylaşmak var.
    - ✅ `CurrencyContext` / `LanguageContext` yazma tarafı temizlendi; takipte sadece tenant scoped anahtarlar kalıyor.
 
 2. **Lint borcunu erit**
+
    - `npx eslint src/App.tsx` çıktılarını grupla (any, empty block, react-hooks, no-console).
    - Önce `react-hooks/exhaustive-deps` uyarılarını düzelt (dependency arraylerini sabitle veya `useRef`/callback patternine geç).
    - Ardından `any` tiplerini domain model tipleriyle değiştir; gerekirse `types/` altında paylaşılan arayüz aç.
@@ -121,11 +154,13 @@
    - (24 Kas 2025) `npx eslint src/App.tsx` çalıştırıldı; beklenen legacy uyarılar 507 seviyesine indi ve yeni dependency/durum değişiklikleri ekstra uyarı üretmedi.
 
 3. **Test/regresyon katmanı**
+
    - Tenant switch senaryosu için manuel script: iki farklı tenant ile giriş yap, bildirim ekranını takip et.
    - Storage helper refactor'ı için smoke test: dil/para birimi ayarlarını değiştirip refresh et.
    - Otomasyon gerekiyorsa Playwright senaryosu taslağı çıkar (henüz yoksa `tests/e2e/` altında yeni dosya aç).
 
 4. **Tip ve util sertleştirme**
+
    - `src/utils/localStorageSafe.ts` içine `TenantScopedReadOptions` vb. için JSDoc ekle (kendi referansın için yeterli).
    - `pickIdentifier` ve `sanitizeString` kullanımını paylaşan util'leri başka alanlarda da kullan (ör. auth parse eden yerler).
    - Uzun vadede `zod` veya benzeri runtime validator entegre etmeyi değerlendir.

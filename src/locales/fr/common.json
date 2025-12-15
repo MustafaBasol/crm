@@ -18,6 +18,7 @@
       "status": "Statut",
       "title": "Titre",
       "type": "Type",
+      "assignee": "Assigné à",
       "dueAt": "Date / Échéance",
       "completed": "Terminé",
       "actions": "Actions"
@@ -91,11 +92,33 @@
       "title": "Activités",
       "subtitle": "Suivez les appels, e-mails et tâches.",
       "subtitleForDeal": "Activités pour \"{{dealName}}\"",
+      "subtitleForAccount": "Activités pour \"{{accountName}}\"",
       "empty": "Aucune activité pour l’instant.",
       "dueAtPlaceholder": "ex. 2025-12-15",
+      "filters": {
+        "all": "Tous",
+        "open": "Ouvert",
+        "completed": "Terminé"
+      },
       "modal": {
         "createTitle": "Ajouter une activité",
         "editTitle": "Modifier l’activité"
+      }
+    },
+    "tasks": {
+      "title": "Tâches",
+      "subtitleForDeal": "Tâches pour \"{{dealName}}\"",
+      "empty": "Aucune tâche pour l’instant.",
+      "dueAtPlaceholder": "ex. 2025-12-15",
+      "unassigned": "Non assigné",
+      "filters": {
+        "all": "Toutes",
+        "open": "Ouvertes",
+        "completed": "Terminées"
+      },
+      "modal": {
+        "createTitle": "Ajouter une tâche",
+        "editTitle": "Modifier la tâche"
       }
     },
     "dealDetail": {
@@ -457,6 +480,12 @@
       }
     },
     "seo": {
+        "unassigned": "Non assigné",
+        "filters": {
+          "all": "Toutes",
+          "open": "Ouvertes",
+          "completed": "Terminées"
+        },
       "title": "Comptario – Logiciel de pré‑comptabilité",
       "description": "Comptario vous aide à gérer factures, dépenses et TVA dans un espace simple et sécurisé, avec prise en charge multi‑devises et génération de factures PDF."
     },

@@ -601,8 +601,9 @@ const server = createServer((req, res) => {
   return notFound(res, path);
 });
 
-const PORT = 3001;
+const PORT = Number(process.env.MOCK_PORT || 3002);
 server.listen(PORT, () => {
   console.log(`🚀 Mock API server running on http://localhost:${PORT}`);
   console.log('ℹ️  Supports /api/auth/login (any email/password)');
+  console.log('ℹ️  Tip: NestJS backend uses 3001 by default; keep ports separate to avoid conflicts.');
 });

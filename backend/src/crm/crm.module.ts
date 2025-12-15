@@ -6,6 +6,9 @@ import { CrmPipeline } from './entities/crm-pipeline.entity';
 import { CrmStage } from './entities/crm-stage.entity';
 import { CrmOpportunity } from './entities/crm-opportunity.entity';
 import { CrmOpportunityMember } from './entities/crm-opportunity-member.entity';
+import { CrmActivity } from './entities/crm-activity.entity';
+import { CrmTask } from './entities/crm-task.entity';
+import { Customer } from '../customers/entities/customer.entity';
 
 @Module({
   imports: [
@@ -14,6 +17,9 @@ import { CrmOpportunityMember } from './entities/crm-opportunity-member.entity';
       CrmStage,
       CrmOpportunity,
       CrmOpportunityMember,
+      CrmActivity,
+      CrmTask,
+      Customer,
     ]),
   ],
   controllers: [CrmController],

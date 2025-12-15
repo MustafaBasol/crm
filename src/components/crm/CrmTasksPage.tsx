@@ -1,50 +1,54 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
-import * as activitiesApi from '../../api/crm-activities';
+import * as tasksApi from '../../api/crm-tasks';
 
-type ActivityStatusFilter = 'all' | 'open' | 'completed';
+type TaskStatusFilter = 'all' | 'open' | 'completed';
 
-type ActivityFormState = {
+type TaskFormState = {
   title: string;
-  type: string;
   dueAt: string;
   completed: boolean;
+  assigneeUserId: string;
 };
 
-const emptyForm: ActivityFormState = {
+const emptyForm: TaskFormState = {
   title: '',
-  type: '',
   dueAt: '',
   completed: false,
+  assigneeUserId: '',
 };
 
-export default function CrmActivitiesPage(props: { opportunityId?: string; dealName?: string } = {}) {
+export default function CrmTasksPage(props: {
+  opportunityId: string;
+  dealName?: string;
+  assignees?: Array<{ id: string; label: string }>;
+}) {
   const { t, i18n } = useTranslation('common');
 
-  const opportunityId = props?.opportunityId;
-  const dealName = props?.dealName;
+  const opportunityId = props.opportunityId;
+  const dealName = props.dealName;
 
-  const [items, setItems] = useState<activitiesApi.CrmActivity[]>([]);
+  const [items, setItems] = useState<tasksApi.CrmTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<activitiesApi.CrmActivity | null>(null);
-  const [form, setForm] = useState<ActivityFormState>(emptyForm);
+  const [editing, setEditing] = useState<tasksApi.CrmTask | null>(null);
+  const [form, setForm] = useState<TaskFormState>(emptyForm);
 
   const [deleting, setDeleting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<activitiesApi.CrmActivity | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<tasksApi.CrmTask | null>(null);
 
-  const [statusFilter, setStatusFilter] = useState<ActivityStatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
 
   const reload = async () => {
     setError(null);
     setLoading(true);
     try {
-      const data = await activitiesApi.listCrmActivities(opportunityId ? { opportunityId } : undefined);
+      const data = await tasksApi.listCrmTasks({ opportunityId });
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(getErrorMessage(e));
@@ -65,8 +69,6 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
     const raw = String(value ?? '').trim();
     if (!raw) return null;
 
-    // Fast paths for common date-only formats used in UI placeholders
-    // ISO date: 2025-12-15
     const isoMatch = raw.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/);
     if (isoMatch) {
       const year = Number(isoMatch[1]);
@@ -77,7 +79,6 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
       }
     }
 
-    // TR/EU: 15.12.2025 or 15/12/2025 (also allow '-')
     const dmyMatch = raw.match(/^([0-9]{1,2})[./-]([0-9]{1,2})[./-]([0-9]{4})$/);
     if (dmyMatch) {
       const day = Number(dmyMatch[1]);
@@ -114,6 +115,13 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
     return '';
   };
 
+  const rows = useMemo(() => {
+    const base = Array.isArray(items) ? items : [];
+    if (statusFilter === 'all') return base;
+    const wantCompleted = statusFilter === 'completed';
+    return base.filter((t) => !!t.completed === wantCompleted);
+  }, [items, statusFilter]);
+
   const openCreate = () => {
     setModalError(null);
     setEditing(null);
@@ -121,14 +129,14 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
     setIsModalOpen(true);
   };
 
-  const openEdit = (activity: activitiesApi.CrmActivity) => {
+  const openEdit = (task: tasksApi.CrmTask) => {
     setModalError(null);
-    setEditing(activity);
+    setEditing(task);
     setForm({
-      title: activity.title ?? '',
-      type: activity.type ?? '',
-      dueAt: activity.dueAt ?? '',
-      completed: !!activity.completed,
+      title: task.title ?? '',
+      dueAt: task.dueAt ?? '',
+      completed: !!task.completed,
+      assigneeUserId: task.assigneeUserId ?? '',
     });
     setIsModalOpen(true);
   };
@@ -146,20 +154,20 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
       return;
     }
 
-    const payload: activitiesApi.CreateCrmActivityDto = {
+    const payload: tasksApi.CreateCrmTaskDto = {
       title,
-      type: form.type.trim() || undefined,
-      opportunityId: opportunityId || undefined,
+      opportunityId,
       dueAt: form.dueAt.trim() ? form.dueAt.trim() : null,
       completed: !!form.completed,
+      assigneeUserId: form.assigneeUserId ? form.assigneeUserId : null,
     };
 
     try {
       setSaving(true);
       if (editing) {
-        await activitiesApi.updateCrmActivity(editing.id, payload);
+        await tasksApi.updateCrmTask(editing.id, payload);
       } else {
-        await activitiesApi.createCrmActivity(payload);
+        await tasksApi.createCrmTask(payload);
       }
       await reload();
       setIsModalOpen(false);
@@ -170,8 +178,8 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
     }
   };
 
-  const startDelete = (activity: activitiesApi.CrmActivity) => {
-    setDeleteTarget(activity);
+  const startDelete = (task: tasksApi.CrmTask) => {
+    setDeleteTarget(task);
   };
 
   const cancelDelete = () => {
@@ -183,7 +191,7 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
     if (!deleteTarget) return;
     try {
       setDeleting(true);
-      await activitiesApi.deleteCrmActivity(deleteTarget.id);
+      await tasksApi.deleteCrmTask(deleteTarget.id);
       await reload();
       setDeleteTarget(null);
     } catch (e) {
@@ -193,138 +201,87 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
     }
   };
 
-  const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
-
-  const timelineRows = useMemo(() => {
-    const base = Array.isArray(rows) ? [...rows] : [];
-    const filtered = opportunityId
-      ? base.filter((a) => {
-          if (statusFilter === 'completed') return !!a.completed;
-          if (statusFilter === 'open') return !a.completed;
-          return true;
-        })
-      : base;
-
-    const sortKey = (a: activitiesApi.CrmActivity): number => {
-      return parseDateMs(a.dueAt) ?? parseDateMs(a.createdAt) ?? 0;
-    };
-
-    filtered.sort((a, b) => sortKey(b) - sortKey(a));
-    return filtered;
-  }, [opportunityId, rows, statusFilter]);
-
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-sm font-semibold text-gray-900">{t('crm.activities.title')}</div>
-          <div className="mt-2 text-sm text-gray-500">
-            {opportunityId
-              ? t('crm.activities.subtitleForDeal', { dealName: dealName || '' })
-              : t('crm.activities.subtitle')}
-          </div>
+          <div className="text-sm font-semibold text-gray-900">{t('crm.tasks.title')}</div>
+          <div className="mt-2 text-sm text-gray-500">{t('crm.tasks.subtitleForDeal', { dealName: dealName || '' })}</div>
         </div>
-        <div className="flex items-center gap-2">
-          {opportunityId && (
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as ActivityStatusFilter)}
-              className="border rounded-lg px-3 py-2 text-sm border-gray-300 text-gray-700"
-            >
-              <option value="all">{t('crm.activities.filters.all')}</option>
-              <option value="open">{t('crm.activities.filters.open')}</option>
-              <option value="completed">{t('crm.activities.filters.completed')}</option>
-            </select>
-          )}
-          <button
-            type="button"
-            onClick={openCreate}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
-          >
-            {t('common.add')}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={openCreate}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
+        >
+          {t('common.add')}
+        </button>
       </div>
 
-      {loading && (
-        <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>
-      )}
-      {error && (
-        <div className="mt-4 text-sm text-red-600">{error}</div>
-      )}
+      {loading && <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>}
+      {error && <div className="mt-4 text-sm text-red-600">{error}</div>}
 
-      {!loading && !error && rows.length === 0 && (
-        <div className="mt-6 text-sm text-gray-600">{t('crm.activities.empty')}</div>
-      )}
-
-      {!loading && !error && rows.length > 0 && opportunityId && (
-        <div className="mt-6 space-y-3">
-          {timelineRows.map((activity) => {
-            const isCompleted = !!activity.completed;
-            const dateLabel = formatDateLabel(activity.dueAt, activity.createdAt);
+      {!loading && !error && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {(
+            [
+              { key: 'all' as const, label: t('crm.tasks.filters.all') },
+              { key: 'open' as const, label: t('crm.tasks.filters.open') },
+              { key: 'completed' as const, label: t('crm.tasks.filters.completed') },
+            ] as const
+          ).map((opt) => {
+            const active = statusFilter === opt.key;
             return (
-              <div key={activity.id} className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className={isCompleted ? 'text-sm font-medium text-gray-700 line-through' : 'text-sm font-medium text-gray-900'}>
-                      {activity.title}
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                      {activity.type ? <span>{activity.type}</span> : null}
-                      {dateLabel ? <span>{dateLabel}</span> : null}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={isCompleted ? 'px-2 py-1 rounded-md text-xs bg-gray-200 text-gray-700' : 'px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-800'}>
-                      {isCompleted ? t('crm.activities.filters.completed') : t('crm.activities.filters.open')}
-                    </span>
-                    <button type="button" onClick={() => openEdit(activity)} className="text-blue-600 hover:underline text-sm">
-                      {t('common.edit')}
-                    </button>
-                    <button type="button" onClick={() => startDelete(activity)} className="text-red-600 hover:underline text-sm">
-                      {t('common.delete')}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setStatusFilter(opt.key)}
+                className={
+                  active
+                    ? 'px-3 py-1 rounded-full text-xs bg-blue-600 text-white'
+                    : 'px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }
+              >
+                {opt.label}
+              </button>
             );
           })}
         </div>
       )}
 
-      {!loading && !error && rows.length > 0 && !opportunityId && (
+      {!loading && !error && rows.length === 0 && (
+        <div className="mt-6 text-sm text-gray-600">{t('crm.tasks.empty')}</div>
+      )}
+
+      {!loading && !error && rows.length > 0 && (
         <div className="mt-6 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-gray-500 border-b">
                 <th className="py-2 pr-4">{t('crm.fields.title')}</th>
-                <th className="py-2 pr-4">{t('crm.fields.type')}</th>
+                <th className="py-2 pr-4">{t('crm.fields.assignee')}</th>
                 <th className="py-2 pr-4">{t('crm.fields.dueAt')}</th>
                 <th className="py-2 pr-4">{t('crm.fields.completed')}</th>
                 <th className="py-2">{t('crm.fields.actions')}</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((activity) => (
-                <tr key={activity.id} className="border-b last:border-b-0">
-                  <td className="py-2 pr-4 text-gray-900">{activity.title}</td>
-                  <td className="py-2 pr-4 text-gray-700">{activity.type || '-'}</td>
-                  <td className="py-2 pr-4 text-gray-700">{activity.dueAt || '-'}</td>
-                  <td className="py-2 pr-4 text-gray-700">{activity.completed ? t('common.yes') : t('common.no')}</td>
+              {rows.map((task) => (
+                <tr key={task.id} className="border-b last:border-b-0">
+                  <td className="py-2 pr-4 text-gray-900">{task.title}</td>
+                  <td className="py-2 pr-4 text-gray-700">
+                    {(() => {
+                      const label = (props.assignees ?? []).find((a) => a.id === task.assigneeUserId)?.label;
+                      return label || (task.assigneeUserId ? task.assigneeUserId : '-');
+                    })()}
+                  </td>
+                  <td className="py-2 pr-4 text-gray-700">{formatDateLabel(task.dueAt, task.createdAt) || '-'}</td>
+                  <td className="py-2 pr-4 text-gray-700">{task.completed ? t('common.yes') : t('common.no')}</td>
                   <td className="py-2">
                     <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(activity)}
-                        className="text-blue-600 hover:underline"
-                      >
+                      <button type="button" onClick={() => openEdit(task)} className="text-blue-600 hover:underline">
                         {t('common.edit')}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => startDelete(activity)}
-                        className="text-red-600 hover:underline"
-                      >
+                      <button type="button" onClick={() => startDelete(task)} className="text-red-600 hover:underline">
                         {t('common.delete')}
                       </button>
                     </div>
@@ -340,7 +297,7 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {editing ? t('crm.activities.modal.editTitle') : t('crm.activities.modal.createTitle')}
+              {editing ? t('crm.tasks.modal.editTitle') : t('crm.tasks.modal.createTitle')}
             </h3>
 
             {modalError && <div className="mb-4 text-sm text-red-600">{modalError}</div>}
@@ -355,15 +312,23 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
                   className="w-full border rounded-lg px-3 py-2 border-gray-300"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.fields.type')}</label>
-                <input
-                  type="text"
-                  value={form.type}
-                  onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.fields.assignee')}</label>
+                <select
+                  value={form.assigneeUserId}
+                  onChange={(e) => setForm((p) => ({ ...p, assigneeUserId: e.target.value }))}
                   className="w-full border rounded-lg px-3 py-2 border-gray-300"
-                />
+                >
+                  <option value="">{t('crm.tasks.unassigned')}</option>
+                  {(props.assignees ?? []).map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.fields.dueAt')}</label>
                 <input
@@ -371,18 +336,20 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
                   value={form.dueAt}
                   onChange={(e) => setForm((p) => ({ ...p, dueAt: e.target.value }))}
                   className="w-full border rounded-lg px-3 py-2 border-gray-300"
-                  placeholder={t('crm.activities.dueAtPlaceholder')}
+                  placeholder={t('crm.tasks.dueAtPlaceholder')}
                 />
               </div>
               <div className="flex items-center gap-2">
                 <input
-                  id="crm-activity-completed"
+                  id="crm-task-completed"
                   type="checkbox"
                   checked={form.completed}
                   onChange={(e) => setForm((p) => ({ ...p, completed: e.target.checked }))}
                   className="h-4 w-4"
                 />
-                <label htmlFor="crm-activity-completed" className="text-sm text-gray-700">{t('crm.fields.completed')}</label>
+                <label htmlFor="crm-task-completed" className="text-sm text-gray-700">
+                  {t('crm.fields.completed')}
+                </label>
               </div>
             </div>
 

@@ -1,0 +1,45 @@
+import apiClient from './client';
+
+export type CrmTask = {
+  id: string;
+  title: string;
+  opportunityId: string;
+  dueAt: string | null;
+  completed: boolean;
+  assigneeUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateCrmTaskDto = {
+  title: string;
+  opportunityId: string;
+  dueAt?: string | null;
+  completed?: boolean;
+  assigneeUserId?: string | null;
+};
+
+export type UpdateCrmTaskDto = Partial<Omit<CreateCrmTaskDto, 'opportunityId'>> & {
+  opportunityId?: string;
+};
+
+export const listCrmTasks = async (options: { opportunityId: string }): Promise<CrmTask[]> => {
+  const res = await apiClient.get<CrmTask[]>('/crm/tasks', {
+    params: { opportunityId: options.opportunityId },
+  });
+  return res.data;
+};
+
+export const createCrmTask = async (data: CreateCrmTaskDto): Promise<CrmTask> => {
+  const res = await apiClient.post<CrmTask>('/crm/tasks', data);
+  return res.data;
+};
+
+export const updateCrmTask = async (id: string, data: UpdateCrmTaskDto): Promise<CrmTask> => {
+  const res = await apiClient.patch<CrmTask>(`/crm/tasks/${id}`, data);
+  return res.data;
+};
+
+export const deleteCrmTask = async (id: string): Promise<void> => {
+  await apiClient.delete(`/crm/tasks/${id}`);
+};

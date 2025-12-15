@@ -1,5 +1,15 @@
 # Pipeline Odaklı Sales CRM Dönüşüm Yol Haritası
 
+## Durum (2025-12-15)
+
+- ✅ Faz 0: Analiz/tasarım ve navigasyon yaklaşımı netleşti (hash + `currentPage`).
+- ✅ Faz 2 (MVP Frontend): Pipeline board çalışıyor, deal oluşturma var, deal detay ekranı eklendi.
+- ✅ Aktivite–Deal ilişkisi (Faz 3’e köprü): Aktiviteler `opportunityId` ile deal’e bağlanabiliyor ve deal detay ekranında deal’e özel listeleniyor.
+- ✅ Faz 3 (Timeline/Tasks): Deal detail içinde aktiviteler timeline + görev listesi (CRUD) gösteriliyor.
+- ⏳ Faz 1 (MVP Backend): CRM Activities CRUD NestJS/TypeORM tarafına taşındı; kalan CRM uçları için mock → NestJS geçişi devam ediyor.
+
+Not (dev yönlendirme): Frontend geliştirmede varsayılan olarak `/api` isteklerini **Vite proxy ile `http://localhost:3001` (NestJS)** adresine yollar. Mock API server (`backend-mock.cjs`) artık varsayılan olarak **3002** portunda çalışır (`MOCK_PORT=3002`), böylece NestJS ile port çakışması olmaz.
+
 Bu repo bugün ağırlıklı olarak **ön muhasebe / pre‑accounting** (müşteriler, teklifler, satış kayıtları, faturalar, giderler, banka hesapları, raporlar) üzerine kurulu.
 
 Hedefimiz: **mevcut yapıyı (multi‑tenant, auth, audit, plan limits, modül organizasyonu, frontend navigasyon yaklaşımı) koruyarak** bunu bir **Sales CRM (pipeline odaklı)** sisteme dönüştürmek.
@@ -143,6 +153,7 @@ Kabul kriteri:
   - Atama (assigneeUserId), due date
 - UI:
   - Deal detail içinde timeline + task list
+  - (MVP) Customer detay modalında (Account=Customer) aktiviteler timeline + yeni aktivite ekleme
 
 Kabul kriteri:
 
@@ -191,6 +202,7 @@ Kabul kriteri:
 - `crm_activities`:
   - `id`, `tenantId`, `entityType(deal/account/contact)`, `entityId`,
   - `type(call/email/meeting/note)`, `body`, `occurredAt`, `createdById`
+  - Not (mevcut implementasyon): `opportunityId?` ve `accountId?(=customers.id)` nullable FK alanlarıyla ilerliyor (polymorphic yerine).
 - `crm_tasks`:
   - `id`, `tenantId`, `entityType`, `entityId`, `title`, `status`, `dueAt`, `assigneeUserId`
 
