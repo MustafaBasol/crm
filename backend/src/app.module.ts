@@ -176,24 +176,26 @@ const parseDatabaseUrl = (value?: string): PgUrlParts | null => {
           } as const;
         }
 
+        // Allow explicit DATABASE_* variables to override DATABASE_URL
+        // (useful for local dev / container setups where DATABASE_URL may be present)
         const host =
-          urlParts?.host ||
           process.env.DATABASE_HOST ||
+          urlParts?.host ||
           (isProd ? undefined : 'localhost');
         const port =
-          urlParts?.port ??
-          coercePort(process.env.DATABASE_PORT, isProd ? 0 : 5432);
+          coercePort(process.env.DATABASE_PORT, isProd ? 0 : 5432) ??
+          urlParts?.port;
         const username =
-          urlParts?.username ||
           process.env.DATABASE_USER ||
+          urlParts?.username ||
           (isProd ? undefined : 'postgres');
         const password =
-          urlParts?.password ||
           process.env.DATABASE_PASSWORD ||
+          urlParts?.password ||
           (isProd ? undefined : 'password123');
         const database =
-          urlParts?.database ||
           process.env.DATABASE_NAME ||
+          urlParts?.database ||
           (isProd ? undefined : 'postgres');
         if (!host || !port || !username || !password || !database) {
           throw new Error(
