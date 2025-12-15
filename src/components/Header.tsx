@@ -32,6 +32,8 @@ export interface HeaderNotification {
   i18nParams?: Record<string, any>;
 }
 
+export type HeaderAppArea = 'summary' | 'crm' | 'finance';
+
 interface HeaderProps {
   user?: {
     name: string;
@@ -50,6 +52,8 @@ interface HeaderProps {
   onCloseNotifications?: () => void;
   onNotificationClick?: (notification: HeaderNotification) => void;
   onOpenSettingsProfile?: () => void;
+  appArea?: HeaderAppArea;
+  onAppAreaChange?: (area: HeaderAppArea) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -67,6 +71,8 @@ const Header: React.FC<HeaderProps> = ({
   onCloseNotifications,
   onNotificationClick,
   onOpenSettingsProfile,
+  appArea = 'finance',
+  onAppAreaChange,
 }) => {
   const { currentLanguage, changeLanguage, languages } = useLanguage();
   const { t } = useTranslation();
@@ -115,6 +121,7 @@ const Header: React.FC<HeaderProps> = ({
   // Page title mapping to translation keys
   const getPageTitle = (page: string): string => {
     const pageMap: Record<string, string> = {
+      'summary': 'sidebar.summary',
       'dashboard': 'sidebar.dashboard',
       'invoices': 'sidebar.invoices',
       'expenses': 'sidebar.expenses',
@@ -123,6 +130,12 @@ const Header: React.FC<HeaderProps> = ({
       'suppliers': 'sidebar.suppliers',
       'banks': 'sidebar.banks',
       'sales': 'sidebar.sales',
+      'crm-dashboard': 'sidebar.crmDashboard',
+      'crm-pipeline': 'sidebar.crmPipeline',
+      'crm-leads': 'sidebar.crmLeads',
+      'crm-contacts': 'sidebar.crmContacts',
+      'crm-activities': 'sidebar.crmActivities',
+      'quotes': 'sidebar.quotes',
       'reports': 'sidebar.reports',
       'general-ledger': 'sidebar.accounting',
       'chart-of-accounts': 'sidebar.chartOfAccounts',
@@ -267,6 +280,37 @@ const Header: React.FC<HeaderProps> = ({
             >
               <Menu className="h-5 w-5" />
             </button>
+          )}
+
+          {onAppAreaChange && (
+            <div
+              className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-1 shadow-sm"
+              role="group"
+              aria-label={t('header.areas.label', { defaultValue: 'Alan seçimi' })}
+            >
+              {([
+                { key: 'summary' as const, label: t('header.areas.summary', { defaultValue: 'Özet' }) },
+                { key: 'crm' as const, label: t('header.areas.crm', { defaultValue: 'CRM' }) },
+                { key: 'finance' as const, label: t('header.areas.finance', { defaultValue: 'Finans' }) },
+              ] as const).map(item => {
+                const isActive = appArea === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => onAppAreaChange(item.key)}
+                    className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+                      isActive
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                    aria-pressed={isActive}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           )}
           <h1 className="text-xl font-bold text-gray-900 capitalize sm:text-2xl">
             {formattedTitle}

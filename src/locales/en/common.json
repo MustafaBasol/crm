@@ -431,6 +431,12 @@
     "newInvoice": "New Invoice",
     "newSale": "New Sale",
     "search": "Search...",
+    "areas": {
+      "label": "Area selection",
+      "summary": "Summary",
+      "crm": "CRM",
+      "finance": "Finance"
+    },
     "language": "Language",
     "notifications": "Notifications",
     "noNotifications": "No new notifications.",
@@ -520,6 +526,7 @@
     }
   },
   "sidebar": {
+    "summary": "Summary",
     "dashboard": "Dashboard",
     "invoices": "Invoices",
     "expenses": "Expenses",
@@ -529,6 +536,11 @@
     "banks": "Banks",
     "sales": "Sales",
     "crm": "CRM",
+    "crmDashboard": "CRM Dashboard",
+    "crmPipeline": "Pipeline",
+    "crmLeads": "Leads",
+    "crmContacts": "Contacts",
+    "crmActivities": "Activities",
     "quotes": "Quotes",
     "reports": "Reports",
     "accounting": "Accounting",

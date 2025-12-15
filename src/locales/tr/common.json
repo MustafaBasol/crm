@@ -523,6 +523,12 @@
     "newInvoice": "Yeni Fatura",
     "newSale": "Yeni Satış",
     "search": "Ara...",
+    "areas": {
+      "label": "Alan seçimi",
+      "summary": "Özet",
+      "crm": "CRM",
+      "finance": "Finans"
+    },
     "language": "Dil",
     "notifications": "Bildirimler",
     "noNotifications": "Yeni bildirim yok.",
@@ -612,6 +618,7 @@
     }
   },
   "sidebar": {
+    "summary": "Özet",
     "dashboard": "Ana Sayfa",
     "invoices": "Faturalar",
     "expenses": "Giderler",
@@ -621,6 +628,11 @@
     "banks": "Bankalar",
     "sales": "Satışlar",
     "crm": "CRM",
+    "crmDashboard": "CRM Dashboard",
+    "crmPipeline": "Pipeline",
+    "crmLeads": "Leads",
+    "crmContacts": "Contacts",
+    "crmActivities": "Activities",
     "quotes": "Teklifler",
     "reports": "Raporlar",
     "accounting": "Muhasebe",

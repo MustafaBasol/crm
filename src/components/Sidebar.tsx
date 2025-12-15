@@ -1,9 +1,7 @@
 ﻿import {
   LayoutDashboard,
   FileText,
-  Package,
   CreditCard,
-  TrendingUp,
   KanbanSquare,
   Settings,
   PieChart,
@@ -18,11 +16,14 @@
 import { useTranslation } from 'react-i18next';
 import { BrandLogo } from './BrandLogo';
 
+type AppArea = 'summary' | 'crm' | 'finance';
+
 interface SidebarProps {
   currentPage: string;
   onPageChange: (page: string) => void;
   invoices?: Array<{ status?: string }>;
   expenses?: Array<{ status?: string }>;
+  appArea?: AppArea;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -32,6 +33,7 @@ export default function Sidebar({
   onPageChange,
   invoices = [],
   expenses = [],
+  appArea = 'finance',
   isOpen = false,
   onClose,
 }: SidebarProps) {
@@ -45,24 +47,39 @@ export default function Sidebar({
     expense.status === 'draft' || expense.status === 'approved'
   ).length;
 
-  const menuItems = [
-    { icon: LayoutDashboard, label: t('sidebar.dashboard'), page: 'dashboard' },
-    { icon: FileText, label: t('sidebar.invoices'), page: 'invoices', badge: activeInvoiceCount > 0 ? activeInvoiceCount : null },
-    { icon: Receipt, label: t('sidebar.expenses'), page: 'expenses', badge: pendingExpenseCount > 0 ? pendingExpenseCount : null },
-    { icon: UserCircle, label: t('sidebar.customers'), page: 'customers' },
-    { icon: Package, label: t('sidebar.products'), page: 'products' },
-    { icon: Building2, label: t('sidebar.suppliers'), page: 'suppliers' },
-    { icon: CreditCard, label: t('sidebar.banks'), page: 'banks' },
-    { icon: TrendingUp, label: t('sidebar.sales'), page: 'sales' },
-    { icon: KanbanSquare, label: t('sidebar.crm'), page: 'crm-pipeline' },
-    // Quotes page (Teklifler)
-    { icon: FileText, label: t('sidebar.quotes'), page: 'quotes' },
-    { icon: PieChart, label: t('sidebar.reports'), page: 'reports' },
-    { icon: Calculator, label: t('sidebar.accounting'), page: 'general-ledger' },
-    { icon: BookOpen, label: t('sidebar.chartOfAccounts'), page: 'chart-of-accounts' },
-    { icon: Archive, label: t('sidebar.archive'), page: 'archive' },
-    { icon: Settings, label: t('sidebar.settings'), page: 'settings' },
-  ];
+  const menuItems = (() => {
+    if (appArea === 'summary') {
+      return [
+        { icon: LayoutDashboard, label: t('sidebar.summary'), page: 'summary' },
+      ];
+    }
+
+    if (appArea === 'crm') {
+      return [
+        { icon: LayoutDashboard, label: t('sidebar.crmDashboard'), page: 'crm-dashboard' },
+        { icon: KanbanSquare, label: t('sidebar.crmPipeline'), page: 'crm-pipeline' },
+        { icon: UserCircle, label: t('sidebar.crmLeads'), page: 'crm-leads' },
+        { icon: Building2, label: t('sidebar.customers'), page: 'customers' },
+        { icon: UserCircle, label: t('sidebar.crmContacts'), page: 'crm-contacts' },
+        { icon: Receipt, label: t('sidebar.crmActivities'), page: 'crm-activities' },
+        { icon: FileText, label: t('sidebar.quotes'), page: 'quotes' },
+        { icon: PieChart, label: t('sidebar.reports'), page: 'reports' },
+      ];
+    }
+
+    // finance
+    return [
+      { icon: LayoutDashboard, label: t('sidebar.dashboard'), page: 'dashboard' },
+      { icon: FileText, label: t('sidebar.invoices'), page: 'invoices', badge: activeInvoiceCount > 0 ? activeInvoiceCount : null },
+      { icon: Receipt, label: t('sidebar.expenses'), page: 'expenses', badge: pendingExpenseCount > 0 ? pendingExpenseCount : null },
+      { icon: CreditCard, label: t('sidebar.banks'), page: 'banks' },
+      { icon: PieChart, label: t('sidebar.reports'), page: 'reports' },
+      { icon: Calculator, label: t('sidebar.accounting'), page: 'general-ledger' },
+      { icon: BookOpen, label: t('sidebar.chartOfAccounts'), page: 'chart-of-accounts' },
+      { icon: Archive, label: t('sidebar.archive'), page: 'archive' },
+      { icon: Settings, label: t('sidebar.settings'), page: 'settings' },
+    ];
+  })();
 
   const handleNavigation = (page: string) => {
     onPageChange(page);

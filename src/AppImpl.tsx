@@ -96,6 +96,8 @@ import GeneralLedger from "./components/GeneralLedger";
 import SimpleSalesPage from "./components/SimpleSalesPage";
 import QuotesPage from "./components/QuotesPage";
 import CrmPipelineBoardPage from "./components/crm/CrmPipelineBoardPage";
+import CrmDashboardPage from "./components/crm/CrmDashboardPage";
+import SummaryPage from "./components/summary/SummaryPage";
 import QuoteCreateModal, { type QuoteCreatePayload } from "./components/QuoteCreateModal";
 import FiscalPeriodsWidget from "./components/FiscalPeriodsWidget";
 import LoginPage from "./components/LoginPage";
@@ -312,6 +314,7 @@ const initialProductCategoryObjects: ProductCategory[] = []; // Kategori nesnele
 
 const LAST_PAGE_STORAGE_KEY = 'app:lastPage';
 const HASH_SYNC_PAGES = [
+  'summary',
   'dashboard',
   'invoices',
   'expenses',
@@ -320,6 +323,10 @@ const HASH_SYNC_PAGES = [
   'suppliers',
   'banks',
   'sales',
+  'crm-dashboard',
+  'crm-leads',
+  'crm-contacts',
+  'crm-activities',
   'crm-pipeline',
   'quotes',
   'reports',
@@ -331,6 +338,14 @@ const HASH_SYNC_PAGES = [
   'organization-members',
 ] as const;
 const HASH_SYNC_PAGE_SET = new Set<string>(HASH_SYNC_PAGES);
+
+type AppArea = 'summary' | 'crm' | 'finance';
+
+const inferAreaFromPage = (page: string): AppArea => {
+  if (page === 'summary') return 'summary';
+  if (page === 'crm-pipeline' || page.startsWith('crm-')) return 'crm';
+  return 'finance';
+};
 
 interface ImportedCustomer {
   id?: string;
@@ -439,6 +454,7 @@ const AppContent: React.FC = () => {
   }, [t]);
   
   const [currentPage, setCurrentPage] = useState(() => readLastVisitedPage() || "dashboard");
+  const [appArea, setAppArea] = useState<AppArea>(() => inferAreaFromPage(readLastVisitedPage() || 'dashboard'));
   const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
   
   // Debug currentPage değişikliklerini
@@ -448,6 +464,17 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     persistLastVisitedPage(currentPage);
+  }, [currentPage]);
+
+  // Sayfa CRM/Summary ise alanı otomatik uyumla (paylaşılan sayfalar için otomatik finance'e dönme yok)
+  useEffect(() => {
+    if (currentPage === 'summary') {
+      setAppArea('summary');
+      return;
+    }
+    if (currentPage === 'crm-pipeline' || currentPage.startsWith('crm-')) {
+      setAppArea('crm');
+    }
   }, [currentPage]);
 
   // Keep URL hash in sync for primary in-app routes so refresh restores page reliably
@@ -753,6 +780,32 @@ const AppContent: React.FC = () => {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, []);
+
+  const handleAppAreaChange = React.useCallback((area: AppArea) => {
+    setAppArea(area);
+    if (area === 'summary') {
+      navigateTo('summary');
+      return;
+    }
+    if (area === 'crm') {
+      // CRM landing
+      navigateTo('crm-dashboard');
+      return;
+    }
+    // finance
+    navigateTo('dashboard');
+  }, [navigateTo]);
+
+  const readQuotesCacheForSummary = React.useCallback((): any[] => {
+    try {
+      const tenantScopedId = resolveTenantScopedId(tenant, authUser?.tenantId);
+      const list = readTenantScopedArray<any>('quotes_cache', { tenantId: tenantScopedId, fallbackToBase: true }) ?? [];
+      return Array.isArray(list) ? list : [];
+    } catch (error) {
+      reportSilentError('app.summary.quotesCache.readFailed', error);
+      return [];
+    }
+  }, [tenant, authUser?.tenantId]);
 
   const openSettingsOn = React.useCallback((tabId: string) => {
     setSettingsInitialTab(tabId);
@@ -5299,8 +5352,28 @@ const AppContent: React.FC = () => {
       );
     }
     switch (currentPage) {
+      case "summary":
+        return (
+          <SummaryPage
+            invoices={invoices}
+            products={products}
+            sales={sales}
+            quotes={readQuotesCacheForSummary()}
+          />
+        );
       case "dashboard":
         return renderDashboard();
+      case "crm-dashboard":
+        return <CrmDashboardPage />;
+      case "crm-leads":
+      case "crm-contacts":
+      case "crm-activities":
+        return (
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="text-sm font-semibold text-gray-900">Yakında</div>
+            <div className="mt-2 text-sm text-gray-500">Bu sayfa için MVP entegrasyonu sırada.</div>
+          </div>
+        );
       case "customers":
         return (
           <CustomerList
@@ -6409,6 +6482,7 @@ const AppContent: React.FC = () => {
           onPageChange={navigateTo}
           invoices={invoices}
           expenses={expenses}
+          appArea={appArea}
           isOpen={isSidebarOpen}
           onClose={handleCloseSidebar}
         />
@@ -6423,6 +6497,8 @@ const AppContent: React.FC = () => {
             activePage={currentPage}
             customTitle={customHeaderTitle}
             onToggleSidebar={handleToggleSidebar}
+            appArea={appArea}
+            onAppAreaChange={handleAppAreaChange}
             notifications={notifications}
             unreadCount={unreadNotificationCount}
             isNotificationsOpen={isNotificationsOpen}

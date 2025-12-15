@@ -1016,6 +1016,12 @@
     "newInvoice": "Nouvelle Facture",
     "newSale": "Nouvelle Vente",
     "search": "Rechercher...",
+    "areas": {
+      "label": "Sélection de l’espace",
+      "summary": "Résumé",
+      "crm": "CRM",
+      "finance": "Finance"
+    },
     "language": "Langue",
     "notifications": "Notifications",
     "noNotifications": "Aucune nouvelle notification.",
@@ -1105,6 +1111,7 @@
     }
   },
   "sidebar": {
+    "summary": "Résumé",
     "dashboard": "Tableau de Bord",
     "invoices": "Factures",
     "expenses": "Dépenses",
@@ -1113,6 +1120,12 @@
     "suppliers": "Fournisseurs",
     "banks": "Banques",
     "sales": "Ventes",
+    "crm": "CRM",
+    "crmDashboard": "CRM Dashboard",
+    "crmPipeline": "Pipeline",
+    "crmLeads": "Leads",
+    "crmContacts": "Contacts",
+    "crmActivities": "Activités",
     "quotes": "Devis",
     "reports": "Rapports",
     "accounting": "Comptabilité",

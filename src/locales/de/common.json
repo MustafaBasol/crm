@@ -945,6 +945,12 @@
     "newInvoice": "Neue Rechnung",
     "newSale": "Neuer Verkauf",
     "search": "Suchen...",
+    "areas": {
+      "label": "Bereichsauswahl",
+      "summary": "Übersicht",
+      "crm": "CRM",
+      "finance": "Finanzen"
+    },
     "language": "Sprache",
     "notifications": "Benachrichtigungen",
     "noNotifications": "Keine neuen Benachrichtigungen.",
@@ -1035,6 +1041,7 @@
     }
   },
   "sidebar": {
+    "summary": "Übersicht",
     "dashboard": "Dashboard",
     "invoices": "Rechnungen",
     "expenses": "Ausgaben",
@@ -1043,6 +1050,12 @@
     "suppliers": "Lieferanten",
     "banks": "Banken",
     "sales": "Verkäufe",
+    "crm": "CRM",
+    "crmDashboard": "CRM Dashboard",
+    "crmPipeline": "Pipeline",
+    "crmLeads": "Leads",
+    "crmContacts": "Kontakte",
+    "crmActivities": "Aktivitäten",
     "quotes": "Angebote",
     "reports": "Berichte",
     "accounting": "Buchhaltung",
