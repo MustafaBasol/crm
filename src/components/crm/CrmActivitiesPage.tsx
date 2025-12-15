@@ -17,8 +17,11 @@ const emptyForm: ActivityFormState = {
   completed: false,
 };
 
-export default function CrmActivitiesPage() {
+export default function CrmActivitiesPage(props: { opportunityId?: string; dealName?: string } = {}) {
   const { t } = useTranslation('common');
+
+  const opportunityId = props?.opportunityId;
+  const dealName = props?.dealName;
 
   const [items, setItems] = useState<activitiesApi.CrmActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +40,7 @@ export default function CrmActivitiesPage() {
     setError(null);
     setLoading(true);
     try {
-      const data = await activitiesApi.listCrmActivities();
+      const data = await activitiesApi.listCrmActivities(opportunityId ? { opportunityId } : undefined);
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(getErrorMessage(e));
@@ -48,7 +51,7 @@ export default function CrmActivitiesPage() {
 
   useEffect(() => {
     void reload();
-  }, []);
+  }, [opportunityId]);
 
   const openCreate = () => {
     setModalError(null);
@@ -85,6 +88,7 @@ export default function CrmActivitiesPage() {
     const payload: activitiesApi.CreateCrmActivityDto = {
       title,
       type: form.type.trim() || undefined,
+      opportunityId: opportunityId || undefined,
       dueAt: form.dueAt.trim() ? form.dueAt.trim() : null,
       completed: !!form.completed,
     };
@@ -135,7 +139,11 @@ export default function CrmActivitiesPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-sm font-semibold text-gray-900">{t('crm.activities.title')}</div>
-          <div className="mt-2 text-sm text-gray-500">{t('crm.activities.subtitle')}</div>
+          <div className="mt-2 text-sm text-gray-500">
+            {opportunityId
+              ? t('crm.activities.subtitleForDeal', { dealName: dealName || '' })
+              : t('crm.activities.subtitle')}
+          </div>
         </div>
         <button
           type="button"

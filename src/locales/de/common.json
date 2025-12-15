@@ -79,13 +79,19 @@
     },
     "activities": {
       "title": "Aktivitäten",
-      "subtitle": "Die MVP-Integration für diese Seite folgt als Nächstes.",
+      "subtitle": "Verfolgen Sie Anrufe, E-Mails und Aufgaben.",
+      "subtitleForDeal": "Aktivitäten für \"{{dealName}}\"",
       "empty": "Noch keine Aktivitäten.",
       "dueAtPlaceholder": "z. B. 2025-12-15",
       "modal": {
         "createTitle": "Aktivität hinzufügen",
         "editTitle": "Aktivität bearbeiten"
       }
+    },
+    "dealDetail": {
+      "title": "Deal-Details",
+      "backToPipeline": "Zurück zum Pipeline",
+      "notFound": "Deal nicht gefunden."
     },
     "errors": {
       "boardFetch": "CRM-Daten konnten nicht geladen werden"

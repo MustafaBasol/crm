@@ -37,6 +37,8 @@ export type CreateOpportunityRequest = {
   teamUserIds?: string[];
 };
 
+export type UpdateOpportunityRequest = Partial<Pick<CrmOpportunity, 'name' | 'amount' | 'currency' | 'accountId' | 'expectedCloseDate'>>;
+
 export const bootstrapPipeline = async () => {
   const res = await apiClient.post('/crm/pipeline/bootstrap');
   return res.data;
@@ -59,5 +61,10 @@ export const moveOpportunity = async (opportunityId: string, stageId: string): P
 
 export const setOpportunityTeam = async (opportunityId: string, userIds: string[]): Promise<CrmOpportunity> => {
   const res = await apiClient.post<CrmOpportunity>(`/crm/opportunities/${opportunityId}/team`, { userIds });
+  return res.data;
+};
+
+export const updateOpportunity = async (opportunityId: string, data: UpdateOpportunityRequest): Promise<CrmOpportunity> => {
+  const res = await apiClient.patch<CrmOpportunity>(`/crm/opportunities/${opportunityId}`, data);
   return res.data;
 };

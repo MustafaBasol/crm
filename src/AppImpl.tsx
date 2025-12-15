@@ -527,7 +527,10 @@ const AppContent: React.FC = () => {
     if (typeof window === 'undefined') {
       return;
     }
-    const isHashSyncCandidate = HASH_SYNC_PAGE_SET.has(currentPage) || currentPage.startsWith('customer-history:');
+    const isHashSyncCandidate =
+      HASH_SYNC_PAGE_SET.has(currentPage) ||
+      currentPage.startsWith('customer-history:') ||
+      currentPage.startsWith('crm-deal:');
     if (!isHashSyncCandidate) {
       return;
     }
@@ -2367,6 +2370,8 @@ const AppContent: React.FC = () => {
       } else if (hash === 'api') {
         navigate('api');
       } else if (hash.startsWith('customer-history:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-deal:')) {
         navigate(hash);
       }
     };
@@ -5393,6 +5398,16 @@ const AppContent: React.FC = () => {
       return (
         <React.Suspense fallback={<div className="p-6">Yükleniyor...</div>}>
           <CustomerHistoryPage />
+        </React.Suspense>
+      );
+    }
+    // Dinamik rota: crm-deal:<opportunityId>
+    if (currentPage.startsWith('crm-deal:')) {
+      const opportunityId = currentPage.replace('crm-deal:', '');
+      const CrmDealDetailPage = React.lazy(() => import('./components/crm/CrmDealDetailPage'));
+      return (
+        <React.Suspense fallback={<div className="p-6">Yükleniyor...</div>}>
+          <CrmDealDetailPage opportunityId={opportunityId} />
         </React.Suspense>
       );
     }

@@ -4,6 +4,7 @@ export type CrmActivity = {
   id: string;
   title: string;
   type: string;
+  opportunityId: string | null;
   dueAt: string | null;
   completed: boolean;
   createdAt: string;
@@ -13,14 +14,17 @@ export type CrmActivity = {
 export type CreateCrmActivityDto = {
   title: string;
   type?: string;
+  opportunityId?: string | null;
   dueAt?: string | null;
   completed?: boolean;
 };
 
 export type UpdateCrmActivityDto = Partial<CreateCrmActivityDto>;
 
-export const listCrmActivities = async (): Promise<CrmActivity[]> => {
-  const res = await apiClient.get<CrmActivity[]>('/crm/activities');
+export const listCrmActivities = async (options?: { opportunityId?: string }): Promise<CrmActivity[]> => {
+  const res = await apiClient.get<CrmActivity[]>('/crm/activities', {
+    params: options?.opportunityId ? { opportunityId: options.opportunityId } : undefined,
+  });
   return res.data;
 };
 

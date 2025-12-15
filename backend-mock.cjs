@@ -182,6 +182,7 @@ let crmActivities = [
     id: 'activity-1',
     title: 'İlk görüşme planla',
     type: 'Call',
+    opportunityId: null,
     dueAt: null,
     completed: false,
     createdAt: new Date().toISOString(),
@@ -392,6 +393,31 @@ const server = createServer((req, res) => {
     });
   }
 
+  const crmOpportunityMatch = path.match(/^\/api\/crm\/opportunities\/([^/]+)$/);
+  if (crmOpportunityMatch && req.method === 'PATCH') {
+    const oppId = crmOpportunityMatch[1];
+    return readJsonBody(req).then((body) => {
+      const idx = crmOpportunities.findIndex((o) => o.id === oppId);
+      if (idx < 0) return json(res, 404, { message: 'Opportunity bulunamadı' });
+
+      const next = { ...crmOpportunities[idx] };
+      if (typeof body.name === 'string') next.name = body.name.trim();
+      if (typeof body.accountId === 'string') next.accountId = body.accountId;
+      if (typeof body.currency === 'string') next.currency = body.currency;
+
+      if (typeof body.amount === 'number' || typeof body.amount === 'string') {
+        const amount = Number(body.amount);
+        next.amount = Number.isFinite(amount) ? amount : next.amount;
+      }
+
+      if (typeof body.expectedCloseDate === 'string') next.expectedCloseDate = body.expectedCloseDate;
+      if (body.expectedCloseDate === null) next.expectedCloseDate = null;
+
+      crmOpportunities[idx] = next;
+      return json(res, 200, next);
+    });
+  }
+
   // CRM Leads
   if (path === '/api/crm/leads' && req.method === 'GET') {
     return json(res, 200, Array.isArray(crmLeads) ? crmLeads : []);
@@ -494,7 +520,12 @@ const server = createServer((req, res) => {
 
   // CRM Activities
   if (path === '/api/crm/activities' && req.method === 'GET') {
-    return json(res, 200, Array.isArray(crmActivities) ? crmActivities : []);
+    const opportunityId = url.searchParams.get('opportunityId');
+    const list = Array.isArray(crmActivities) ? crmActivities : [];
+    if (opportunityId) {
+      return json(res, 200, list.filter((a) => a.opportunityId === opportunityId));
+    }
+    return json(res, 200, list);
   }
   if (path === '/api/crm/activities' && req.method === 'POST') {
     return readJsonBody(req).then((body) => {
@@ -505,6 +536,7 @@ const server = createServer((req, res) => {
         id: randomId('activity'),
         title,
         type: typeof body.type === 'string' ? body.type.trim() : '',
+        opportunityId: typeof body.opportunityId === 'string' ? body.opportunityId : null,
         dueAt: typeof body.dueAt === 'string' ? body.dueAt : null,
         completed: !!body.completed,
         createdAt: new Date().toISOString(),
@@ -524,6 +556,8 @@ const server = createServer((req, res) => {
       const next = { ...crmActivities[idx] };
       if (typeof body.title === 'string') next.title = body.title.trim();
       if (typeof body.type === 'string') next.type = body.type.trim();
+      if (typeof body.opportunityId === 'string') next.opportunityId = body.opportunityId;
+      if (body.opportunityId === null) next.opportunityId = null;
       if (typeof body.dueAt === 'string') next.dueAt = body.dueAt;
       if (body.dueAt === null) next.dueAt = null;
       if (typeof body.completed === 'boolean') next.completed = body.completed;

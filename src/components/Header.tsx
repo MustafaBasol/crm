@@ -120,6 +120,9 @@ const Header: React.FC<HeaderProps> = ({
   
   // Page title mapping to translation keys
   const getPageTitle = (page: string): string => {
+    if (page.startsWith('crm-deal:')) {
+      return t('crm.dealDetail.title');
+    }
     const pageMap: Record<string, string> = {
       'summary': 'sidebar.summary',
       'dashboard': 'sidebar.dashboard',

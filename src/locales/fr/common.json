@@ -89,13 +89,19 @@
     },
     "activities": {
       "title": "Activités",
-      "subtitle": "L’intégration MVP de cette page arrive ensuite.",
+      "subtitle": "Suivez les appels, e-mails et tâches.",
+      "subtitleForDeal": "Activités pour \"{{dealName}}\"",
       "empty": "Aucune activité pour l’instant.",
       "dueAtPlaceholder": "ex. 2025-12-15",
       "modal": {
         "createTitle": "Ajouter une activité",
         "editTitle": "Modifier l’activité"
       }
+    },
+    "dealDetail": {
+      "title": "Détails de l’opportunité",
+      "backToPipeline": "Retour au pipeline",
+      "notFound": "Opportunité introuvable."
     },
     "errors": {
       "boardFetch": "Impossible de charger les données CRM"

@@ -83,13 +83,19 @@
     },
     "activities": {
       "title": "Aktiviteler",
-      "subtitle": "Bu sayfa için MVP entegrasyonu sırada.",
+      "subtitle": "Arama, e-posta ve görevleri takip edin.",
+      "subtitleForDeal": "\"{{dealName}}\" için aktiviteler",
       "empty": "Henüz aktivite yok.",
       "dueAtPlaceholder": "Örn: 2025-12-15 veya 15.12.2025",
       "modal": {
         "createTitle": "Aktivite Ekle",
         "editTitle": "Aktivite Düzenle"
       }
+    },
+    "dealDetail": {
+      "title": "Fırsat detayları",
+      "backToPipeline": "Pipeline'a dön",
+      "notFound": "Fırsat bulunamadı."
     },
     "errors": {
       "boardFetch": "CRM verisi alınamadı"

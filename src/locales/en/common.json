@@ -83,13 +83,19 @@
     },
     "activities": {
       "title": "Activities",
-      "subtitle": "The MVP integration for this page comes next.",
+      "subtitle": "Track calls, emails, and tasks.",
+      "subtitleForDeal": "Activities for \"{{dealName}}\"",
       "empty": "No activities yet.",
       "dueAtPlaceholder": "e.g. 2025-12-15",
       "modal": {
         "createTitle": "Add Activity",
         "editTitle": "Edit Activity"
       }
+    },
+    "dealDetail": {
+      "title": "Deal details",
+      "backToPipeline": "Back to Pipeline",
+      "notFound": "Deal not found."
     },
     "errors": {
       "boardFetch": "Could not fetch CRM data"

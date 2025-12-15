@@ -420,7 +420,19 @@ export default function CrmPipelineBoardPage() {
               <div className="p-2 space-y-2">
                 {list.map((opp: crmApi.CrmOpportunity) => (
                   <div key={opp.id} className="border rounded p-2">
-                    <div className="text-sm font-medium truncate">{opp.name}</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          window.location.hash = `crm-deal:${opp.id}`;
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      className="text-sm font-medium truncate text-left w-full text-blue-600 hover:underline"
+                    >
+                      {opp.name}
+                    </button>
                     <div className="text-xs text-gray-600">
                       {formatCurrency(Number(opp.amount ?? 0), (opp.currency as any) ?? 'TRY')}
                     </div>
