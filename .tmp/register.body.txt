@@ -1,0 +1,1 @@
+{"statusCode":500,"timestamp":"2025-12-15T21:48:48.837Z","path":"/api/auth/register","method":"POST","message":"Internal server error","error":"InternalServerError"}

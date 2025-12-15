@@ -1,4 +1,4 @@
-import { Controller, Headers, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Controller, Headers, HttpCode, Post, Req, Res, Logger } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import Stripe from 'stripe';
@@ -12,15 +12,24 @@ type RequestWithRawBody = Request & {
 @SkipThrottle()
 @Controller('webhooks/stripe')
 export class StripeWebhookController {
+  private readonly logger = new Logger(StripeWebhookController.name);
   private stripe: Stripe;
   private webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
   constructor(private readonly billing: BillingService) {
     const apiKey = process.env.STRIPE_SECRET_KEY;
+    const isProd = process.env.NODE_ENV === 'production';
     if (!apiKey) {
-      throw new Error('STRIPE_SECRET_KEY is not set');
+      if (isProd) {
+        throw new Error('STRIPE_SECRET_KEY is not set');
+      }
+      this.logger.warn(
+        'STRIPE_SECRET_KEY is not set; Stripe webhook verification will fail if this endpoint is called (development only).',
+      );
     }
-    this.stripe = new Stripe(apiKey, { apiVersion: '2023-10-16' });
+    this.stripe = new Stripe(apiKey || 'sk_test_dummy', {
+      apiVersion: '2023-10-16',
+    });
   }
 
   // Not: main.ts içinde bu route için raw body gerekecek; burada sadece tipi any kabul ediyoruz.

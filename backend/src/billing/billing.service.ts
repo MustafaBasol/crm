@@ -70,10 +70,16 @@ export class BillingService {
     private readonly tenantRepo: Repository<Tenant>,
   ) {
     const apiKey = process.env.STRIPE_SECRET_KEY;
+    const isProd = process.env.NODE_ENV === 'production';
     if (!apiKey) {
-      throw new Error('STRIPE_SECRET_KEY is not set');
+      if (isProd) {
+        throw new Error('STRIPE_SECRET_KEY is not set');
+      }
+      this.logger.warn(
+        'STRIPE_SECRET_KEY is not set; Stripe calls will fail if billing endpoints are used (development only).',
+      );
     }
-    this.stripe = new Stripe(apiKey, {
+    this.stripe = new Stripe(apiKey || 'sk_test_dummy', {
       apiVersion: '2023-10-16',
     });
   }

@@ -1,0 +1,7 @@
+pid=36289
+DATABASE_URL=
+EMAIL_VERIFICATION_REQUIRED=false
+DATABASE_NAME=moneyflow_dev
+JWT_SECRET=dev-jwt-secret-change-me
+NODE_ENV=development
+DATABASE_HOST=127.0.0.1
