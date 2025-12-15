@@ -1,13 +1,24 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateTaskDto {
   @IsString()
   @MaxLength(220)
   title: string;
 
+  @IsOptional()
   @IsUUID()
-  opportunityId: string;
+  opportunityId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  accountId?: string | null;
 
   // UI currently treats this as a free-form string (e.g. ISO date or localized date)
   @ApiPropertyOptional({ example: '2025-12-15' })

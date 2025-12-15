@@ -15,6 +15,8 @@ import {
 import { CrmOpportunityMember } from './entities/crm-opportunity-member.entity';
 import { CrmActivity } from './entities/crm-activity.entity';
 import { CrmTask } from './entities/crm-task.entity';
+import { CrmLead } from './entities/crm-lead.entity';
+import { CrmContact } from './entities/crm-contact.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
@@ -24,6 +26,10 @@ import { SetOpportunityTeamDto } from './dto/set-opportunity-team.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
+import { CreateLeadDto } from './dto/create-lead.dto';
+import { UpdateLeadDto } from './dto/update-lead.dto';
+import { CreateContactDto } from './dto/create-contact.dto';
+import { UpdateContactDto } from './dto/update-contact.dto';
 import type { CurrentUser } from '../common/decorators/user.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -55,39 +61,258 @@ export class CrmService {
     @InjectRepository(CrmTask)
     private readonly taskRepo: Repository<CrmTask>,
 
+    @InjectRepository(CrmLead)
+    private readonly leadRepo: Repository<CrmLead>,
+
+    @InjectRepository(CrmContact)
+    private readonly contactRepo: Repository<CrmContact>,
+
     @InjectRepository(Customer)
     private readonly customerRepo: Repository<Customer>,
   ) {}
 
+  async listLeads(tenantId: string) {
+    return this.leadRepo.find({
+      where: { tenantId },
+      order: { updatedAt: 'DESC' },
+    });
+  }
+
+  async createLead(tenantId: string, user: CurrentUser, dto: CreateLeadDto) {
+    const name = String(dto.name ?? '').trim();
+    if (!name) throw new BadRequestException('Name is required');
+
+    const entity = this.leadRepo.create({
+      tenantId,
+      name,
+      email: dto.email ? String(dto.email).trim() : null,
+      phone: dto.phone ? String(dto.phone).trim() : null,
+      company: dto.company ? String(dto.company).trim() : null,
+      status: dto.status ? String(dto.status).trim() : null,
+      createdByUserId: user.id,
+      updatedByUserId: null,
+    });
+
+    return this.leadRepo.save(entity);
+  }
+
+  async updateLead(
+    tenantId: string,
+    user: CurrentUser,
+    id: string,
+    dto: UpdateLeadDto,
+  ) {
+    const lead = await this.leadRepo.findOne({ where: { tenantId, id } });
+    if (!lead) throw new NotFoundException('Lead not found');
+    if (!this.isAdmin(user) && lead.createdByUserId !== user.id) {
+      throw new ForbiddenException('Not allowed');
+    }
+
+    if ('name' in dto) {
+      const name = String(dto.name ?? '').trim();
+      if (!name) throw new BadRequestException('Name is required');
+      lead.name = name;
+    }
+    if ('email' in dto)
+      lead.email = dto.email ? String(dto.email).trim() : null;
+    if ('phone' in dto)
+      lead.phone = dto.phone ? String(dto.phone).trim() : null;
+    if ('company' in dto)
+      lead.company = dto.company ? String(dto.company).trim() : null;
+    if ('status' in dto)
+      lead.status = dto.status ? String(dto.status).trim() : null;
+
+    lead.updatedByUserId = user.id;
+    return this.leadRepo.save(lead);
+  }
+
+  async deleteLead(tenantId: string, user: CurrentUser, id: string) {
+    const lead = await this.leadRepo.findOne({ where: { tenantId, id } });
+    if (!lead) throw new NotFoundException('Lead not found');
+    if (!this.isAdmin(user) && lead.createdByUserId !== user.id) {
+      throw new ForbiddenException('Not allowed');
+    }
+    await this.leadRepo.delete({ tenantId, id });
+    return { ok: true };
+  }
+
+  async listContacts(tenantId: string) {
+    return this.contactRepo.find({
+      where: { tenantId },
+      order: { updatedAt: 'DESC' },
+    });
+  }
+
+  async createContact(
+    tenantId: string,
+    user: CurrentUser,
+    dto: CreateContactDto,
+  ) {
+    const name = String(dto.name ?? '').trim();
+    if (!name) throw new BadRequestException('Name is required');
+
+    const entity = this.contactRepo.create({
+      tenantId,
+      name,
+      email: dto.email ? String(dto.email).trim() : null,
+      phone: dto.phone ? String(dto.phone).trim() : null,
+      company: dto.company ? String(dto.company).trim() : null,
+      createdByUserId: user.id,
+      updatedByUserId: null,
+    });
+
+    return this.contactRepo.save(entity);
+  }
+
+  async updateContact(
+    tenantId: string,
+    user: CurrentUser,
+    id: string,
+    dto: UpdateContactDto,
+  ) {
+    const contact = await this.contactRepo.findOne({ where: { tenantId, id } });
+    if (!contact) throw new NotFoundException('Contact not found');
+    if (!this.isAdmin(user) && contact.createdByUserId !== user.id) {
+      throw new ForbiddenException('Not allowed');
+    }
+
+    if ('name' in dto) {
+      const name = String(dto.name ?? '').trim();
+      if (!name) throw new BadRequestException('Name is required');
+      contact.name = name;
+    }
+    if ('email' in dto)
+      contact.email = dto.email ? String(dto.email).trim() : null;
+    if ('phone' in dto)
+      contact.phone = dto.phone ? String(dto.phone).trim() : null;
+    if ('company' in dto)
+      contact.company = dto.company ? String(dto.company).trim() : null;
+
+    contact.updatedByUserId = user.id;
+    return this.contactRepo.save(contact);
+  }
+
+  async deleteContact(tenantId: string, user: CurrentUser, id: string) {
+    const contact = await this.contactRepo.findOne({ where: { tenantId, id } });
+    if (!contact) throw new NotFoundException('Contact not found');
+    if (!this.isAdmin(user) && contact.createdByUserId !== user.id) {
+      throw new ForbiddenException('Not allowed');
+    }
+    await this.contactRepo.delete({ tenantId, id });
+    return { ok: true };
+  }
+
   async listTasks(
     tenantId: string,
     user: CurrentUser,
-    options?: { opportunityId?: string },
+    options?: { opportunityId?: string; accountId?: string },
   ) {
     const opportunityId = options?.opportunityId?.trim() || undefined;
-    if (!opportunityId) {
-      throw new BadRequestException('opportunityId is required');
+    const accountId = options?.accountId?.trim() || undefined;
+
+    if (opportunityId && accountId) {
+      throw new BadRequestException(
+        'Provide either opportunityId or accountId, not both',
+      );
     }
 
-    await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
-    return this.taskRepo.find({
-      where: { tenantId, opportunityId },
-      order: { updatedAt: 'DESC' },
-    });
+    if (opportunityId) {
+      await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
+      return this.taskRepo.find({
+        where: { tenantId, opportunityId },
+        order: { updatedAt: 'DESC' },
+      });
+    }
+
+    if (accountId) {
+      const customer = await this.customerRepo.findOne({
+        where: { tenantId, id: accountId },
+      });
+      if (!customer) throw new NotFoundException('Customer not found');
+
+      if (!this.isAdmin(user)) {
+        const visibleOpp = await this.oppRepo
+          .createQueryBuilder('opp')
+          .leftJoin(
+            CrmOpportunityMember,
+            'm',
+            'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+          )
+          .where('opp.tenantId = :tenantId', { tenantId })
+          .andWhere('opp.accountId = :accountId', { accountId })
+          .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
+            userId: user.id,
+          })
+          .getOne();
+
+        if (!visibleOpp) {
+          throw new ForbiddenException('Not allowed');
+        }
+      }
+
+      return this.taskRepo.find({
+        where: { tenantId, accountId },
+        order: { updatedAt: 'DESC' },
+      });
+    }
+
+    throw new BadRequestException('Provide opportunityId or accountId');
   }
 
   async createTask(tenantId: string, user: CurrentUser, dto: CreateTaskDto) {
     const title = String(dto.title ?? '').trim();
     if (!title) throw new BadRequestException('Title is required');
 
-    const opportunityId = String(dto.opportunityId ?? '').trim();
-    if (!opportunityId) throw new BadRequestException('opportunityId is required');
-    await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
+    const opportunityId = dto.opportunityId
+      ? String(dto.opportunityId).trim()
+      : '';
+    const accountId = dto.accountId ? String(dto.accountId).trim() : '';
+
+    if (opportunityId && accountId) {
+      throw new BadRequestException(
+        'Provide either opportunityId or accountId, not both',
+      );
+    }
+    if (!opportunityId && !accountId) {
+      throw new BadRequestException('Provide opportunityId or accountId');
+    }
+
+    if (opportunityId) {
+      await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
+    }
+
+    if (accountId) {
+      const customer = await this.customerRepo.findOne({
+        where: { tenantId, id: accountId },
+      });
+      if (!customer) throw new NotFoundException('Customer not found');
+
+      if (!this.isAdmin(user)) {
+        const visibleOpp = await this.oppRepo
+          .createQueryBuilder('opp')
+          .leftJoin(
+            CrmOpportunityMember,
+            'm',
+            'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+          )
+          .where('opp.tenantId = :tenantId', { tenantId })
+          .andWhere('opp.accountId = :accountId', { accountId })
+          .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
+            userId: user.id,
+          })
+          .getOne();
+
+        if (!visibleOpp) {
+          throw new ForbiddenException('Not allowed');
+        }
+      }
+    }
 
     const entity = this.taskRepo.create({
       tenantId,
       title,
-      opportunityId,
+      opportunityId: opportunityId || null,
+      accountId: accountId || null,
       dueAt: dto.dueAt ?? null,
       completed: Boolean(dto.completed),
       assigneeUserId: dto.assigneeUserId ?? null,
@@ -98,11 +323,50 @@ export class CrmService {
     return this.taskRepo.save(entity);
   }
 
-  async updateTask(tenantId: string, user: CurrentUser, id: string, dto: UpdateTaskDto) {
+  async updateTask(
+    tenantId: string,
+    user: CurrentUser,
+    id: string,
+    dto: UpdateTaskDto,
+  ) {
     const task = await this.taskRepo.findOne({ where: { tenantId, id } });
     if (!task) throw new NotFoundException('Task not found');
 
-    await this.getOpportunityForAccessCheck(tenantId, user, task.opportunityId);
+    const canEditUnlinked =
+      this.isAdmin(user) || task.createdByUserId === user.id;
+
+    if (task.opportunityId) {
+      await this.getOpportunityForAccessCheck(
+        tenantId,
+        user,
+        task.opportunityId,
+      );
+    }
+
+    if (task.accountId) {
+      const customer = await this.customerRepo.findOne({
+        where: { tenantId, id: task.accountId },
+      });
+      if (!customer) throw new NotFoundException('Customer not found');
+      if (!this.isAdmin(user)) {
+        const visibleOpp = await this.oppRepo
+          .createQueryBuilder('opp')
+          .leftJoin(
+            CrmOpportunityMember,
+            'm',
+            'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+          )
+          .where('opp.tenantId = :tenantId', { tenantId })
+          .andWhere('opp.accountId = :accountId', { accountId: task.accountId })
+          .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
+            userId: user.id,
+          })
+          .getOne();
+        if (!visibleOpp && !canEditUnlinked) {
+          throw new ForbiddenException('Not allowed');
+        }
+      }
+    }
 
     if ('title' in dto) {
       const nextTitle = String(dto.title ?? '').trim();
@@ -127,18 +391,60 @@ export class CrmService {
     const task = await this.taskRepo.findOne({ where: { tenantId, id } });
     if (!task) throw new NotFoundException('Task not found');
 
-    await this.getOpportunityForAccessCheck(tenantId, user, task.opportunityId);
+    const canDeleteUnlinked =
+      this.isAdmin(user) || task.createdByUserId === user.id;
+
+    if (task.opportunityId) {
+      await this.getOpportunityForAccessCheck(
+        tenantId,
+        user,
+        task.opportunityId,
+      );
+    }
+
+    if (task.accountId) {
+      const customer = await this.customerRepo.findOne({
+        where: { tenantId, id: task.accountId },
+      });
+      if (!customer) throw new NotFoundException('Customer not found');
+      if (!this.isAdmin(user)) {
+        const visibleOpp = await this.oppRepo
+          .createQueryBuilder('opp')
+          .leftJoin(
+            CrmOpportunityMember,
+            'm',
+            'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+          )
+          .where('opp.tenantId = :tenantId', { tenantId })
+          .andWhere('opp.accountId = :accountId', { accountId: task.accountId })
+          .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
+            userId: user.id,
+          })
+          .getOne();
+        if (!visibleOpp && !canDeleteUnlinked) {
+          throw new ForbiddenException('Not allowed');
+        }
+      }
+    }
+
+    if (!task.opportunityId && !task.accountId && !canDeleteUnlinked) {
+      throw new ForbiddenException('Not allowed');
+    }
+
     await this.taskRepo.delete({ tenantId, id });
     return { ok: true };
   }
 
   private isAdmin(user: CurrentUser): boolean {
     return (
-      user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.TENANT_ADMIN
+      user?.role === UserRole.SUPER_ADMIN ||
+      user?.role === UserRole.TENANT_ADMIN
     );
   }
 
-  private toExpectedCloseDateString(value: Date | string | null | undefined): string | null {
+  private toExpectedCloseDateString(
+    value: Date | string | null | undefined,
+  ): string | null {
     if (!value) return null;
     if (value instanceof Date) {
       try {
@@ -156,7 +462,10 @@ export class CrmService {
     return new Date(parsed).toISOString().slice(0, 10);
   }
 
-  private async getTeamUserIdsForOpportunity(tenantId: string, opportunityId: string): Promise<string[]> {
+  private async getTeamUserIdsForOpportunity(
+    tenantId: string,
+    opportunityId: string,
+  ): Promise<string[]> {
     const members = await this.oppMemberRepo.find({
       where: { tenantId, opportunityId },
       select: { userId: true },
@@ -213,7 +522,11 @@ export class CrmService {
     return { pipeline, stages };
   }
 
-  async createOpportunity(tenantId: string, user: CurrentUser, dto: CreateOpportunityDto) {
+  async createOpportunity(
+    tenantId: string,
+    user: CurrentUser,
+    dto: CreateOpportunityDto,
+  ) {
     const pipeline = await this.pipelineRepo.findOne({
       where: { tenantId, isDefault: true },
     });
@@ -240,7 +553,9 @@ export class CrmService {
       throw new BadRequestException('Invalid stage for default pipeline');
     }
 
-    const expectedCloseDate = dto.expectedCloseDate ? new Date(dto.expectedCloseDate) : null;
+    const expectedCloseDate = dto.expectedCloseDate
+      ? new Date(dto.expectedCloseDate)
+      : null;
 
     const opp = await this.oppRepo.save(
       this.oppRepo.create({
@@ -327,7 +642,10 @@ export class CrmService {
     }
 
     const saved = await this.oppRepo.save(opp);
-    const teamUserIds = await this.getTeamUserIdsForOpportunity(tenantId, saved.id);
+    const teamUserIds = await this.getTeamUserIdsForOpportunity(
+      tenantId,
+      saved.id,
+    );
     return {
       id: saved.id,
       name: saved.name,
@@ -336,7 +654,9 @@ export class CrmService {
       stageId: saved.stageId,
       accountId: saved.accountId,
       ownerUserId: saved.ownerUserId,
-      expectedCloseDate: this.toExpectedCloseDateString(saved.expectedCloseDate),
+      expectedCloseDate: this.toExpectedCloseDateString(
+        saved.expectedCloseDate,
+      ),
       status: saved.status,
       teamUserIds,
     };
@@ -373,7 +693,9 @@ export class CrmService {
       );
     }
 
-    const refreshed = await this.oppRepo.findOne({ where: { tenantId, id: opp.id } });
+    const refreshed = await this.oppRepo.findOne({
+      where: { tenantId, id: opp.id },
+    });
     const safeOpp = refreshed ?? opp;
     return {
       id: safeOpp.id,
@@ -383,7 +705,9 @@ export class CrmService {
       stageId: safeOpp.stageId,
       accountId: safeOpp.accountId,
       ownerUserId: safeOpp.ownerUserId,
-      expectedCloseDate: this.toExpectedCloseDateString(safeOpp.expectedCloseDate),
+      expectedCloseDate: this.toExpectedCloseDateString(
+        safeOpp.expectedCloseDate,
+      ),
       status: safeOpp.status,
       teamUserIds: uniq,
     };
@@ -432,7 +756,10 @@ export class CrmService {
     }
 
     const saved = await this.oppRepo.save(opp);
-    const teamUserIds = await this.getTeamUserIdsForOpportunity(tenantId, saved.id);
+    const teamUserIds = await this.getTeamUserIdsForOpportunity(
+      tenantId,
+      saved.id,
+    );
     return {
       id: saved.id,
       name: saved.name,
@@ -441,7 +768,9 @@ export class CrmService {
       stageId: saved.stageId,
       accountId: saved.accountId,
       ownerUserId: saved.ownerUserId,
-      expectedCloseDate: this.toExpectedCloseDateString(saved.expectedCloseDate),
+      expectedCloseDate: this.toExpectedCloseDateString(
+        saved.expectedCloseDate,
+      ),
       status: saved.status,
       teamUserIds,
     };
@@ -456,7 +785,9 @@ export class CrmService {
     const accountId = options?.accountId?.trim() || undefined;
 
     if (opportunityId && accountId) {
-      throw new BadRequestException('Provide either opportunityId or accountId, not both');
+      throw new BadRequestException(
+        'Provide either opportunityId or accountId, not both',
+      );
     }
 
     if (opportunityId) {
@@ -469,7 +800,9 @@ export class CrmService {
 
     if (accountId) {
       // Account = Customer
-      const customer = await this.customerRepo.findOne({ where: { tenantId, id: accountId } });
+      const customer = await this.customerRepo.findOne({
+        where: { tenantId, id: accountId },
+      });
       if (!customer) throw new NotFoundException('Customer not found');
 
       // MVP access: admin can view all; normal users can view if they can see any opportunity for that account OR they created unlinked items.
@@ -544,7 +877,11 @@ export class CrmService {
     return qb.getMany();
   }
 
-  async createActivity(tenantId: string, user: CurrentUser, dto: CreateActivityDto) {
+  async createActivity(
+    tenantId: string,
+    user: CurrentUser,
+    dto: CreateActivityDto,
+  ) {
     const title = String(dto.title ?? '').trim();
     if (!title) throw new BadRequestException('Title is required');
 
@@ -555,7 +892,9 @@ export class CrmService {
 
     const accountId = dto.accountId ?? null;
     if (accountId) {
-      const customer = await this.customerRepo.findOne({ where: { tenantId, id: accountId } });
+      const customer = await this.customerRepo.findOne({
+        where: { tenantId, id: accountId },
+      });
       if (!customer) throw new NotFoundException('Customer not found');
 
       if (!this.isAdmin(user)) {
@@ -580,7 +919,9 @@ export class CrmService {
     }
 
     if (opportunityId && accountId) {
-      throw new BadRequestException('Provide either opportunityId or accountId, not both');
+      throw new BadRequestException(
+        'Provide either opportunityId or accountId, not both',
+      );
     }
 
     const entity = this.activityRepo.create({
@@ -604,20 +945,29 @@ export class CrmService {
     id: string,
     dto: UpdateActivityDto,
   ) {
-    const activity = await this.activityRepo.findOne({ where: { tenantId, id } });
+    const activity = await this.activityRepo.findOne({
+      where: { tenantId, id },
+    });
     if (!activity) throw new NotFoundException('Activity not found');
 
-    const canEditUnlinked = this.isAdmin(user) || activity.createdByUserId === user.id;
+    const canEditUnlinked =
+      this.isAdmin(user) || activity.createdByUserId === user.id;
     if (!activity.opportunityId && !canEditUnlinked) {
       throw new ForbiddenException('Not allowed');
     }
 
     if (activity.opportunityId) {
-      await this.getOpportunityForAccessCheck(tenantId, user, activity.opportunityId);
+      await this.getOpportunityForAccessCheck(
+        tenantId,
+        user,
+        activity.opportunityId,
+      );
     }
 
     if (activity.accountId) {
-      const customer = await this.customerRepo.findOne({ where: { tenantId, id: activity.accountId } });
+      const customer = await this.customerRepo.findOne({
+        where: { tenantId, id: activity.accountId },
+      });
       if (!customer) throw new NotFoundException('Customer not found');
       if (!this.isAdmin(user)) {
         // same rule as listActivities(accountId)
@@ -629,7 +979,9 @@ export class CrmService {
             'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
           )
           .where('opp.tenantId = :tenantId', { tenantId })
-          .andWhere('opp.accountId = :accountId', { accountId: activity.accountId })
+          .andWhere('opp.accountId = :accountId', {
+            accountId: activity.accountId,
+          })
           .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
             userId: user.id,
           })
@@ -651,7 +1003,9 @@ export class CrmService {
     if ('accountId' in dto) {
       const nextAccountId = dto.accountId ?? null;
       if (nextAccountId) {
-        const customer = await this.customerRepo.findOne({ where: { tenantId, id: nextAccountId } });
+        const customer = await this.customerRepo.findOne({
+          where: { tenantId, id: nextAccountId },
+        });
         if (!customer) throw new NotFoundException('Customer not found');
 
         if (!this.isAdmin(user)) {
@@ -663,7 +1017,9 @@ export class CrmService {
               'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
             )
             .where('opp.tenantId = :tenantId', { tenantId })
-            .andWhere('opp.accountId = :accountId', { accountId: nextAccountId })
+            .andWhere('opp.accountId = :accountId', {
+              accountId: nextAccountId,
+            })
             .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
               userId: user.id,
             })
@@ -677,7 +1033,9 @@ export class CrmService {
     }
 
     if (activity.opportunityId && activity.accountId) {
-      throw new BadRequestException('Provide either opportunityId or accountId, not both');
+      throw new BadRequestException(
+        'Provide either opportunityId or accountId, not both',
+      );
     }
 
     if ('title' in dto && dto.title != null) {
@@ -703,20 +1061,29 @@ export class CrmService {
   }
 
   async deleteActivity(tenantId: string, user: CurrentUser, id: string) {
-    const activity = await this.activityRepo.findOne({ where: { tenantId, id } });
+    const activity = await this.activityRepo.findOne({
+      where: { tenantId, id },
+    });
     if (!activity) throw new NotFoundException('Activity not found');
 
-    const canEditUnlinked = this.isAdmin(user) || activity.createdByUserId === user.id;
+    const canEditUnlinked =
+      this.isAdmin(user) || activity.createdByUserId === user.id;
     if (!activity.opportunityId && !canEditUnlinked) {
       throw new ForbiddenException('Not allowed');
     }
 
     if (activity.opportunityId) {
-      await this.getOpportunityForAccessCheck(tenantId, user, activity.opportunityId);
+      await this.getOpportunityForAccessCheck(
+        tenantId,
+        user,
+        activity.opportunityId,
+      );
     }
 
     if (activity.accountId) {
-      const customer = await this.customerRepo.findOne({ where: { tenantId, id: activity.accountId } });
+      const customer = await this.customerRepo.findOne({
+        where: { tenantId, id: activity.accountId },
+      });
       if (!customer) throw new NotFoundException('Customer not found');
       if (!this.isAdmin(user)) {
         const visibleOpp = await this.oppRepo
@@ -727,7 +1094,9 @@ export class CrmService {
             'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
           )
           .where('opp.tenantId = :tenantId', { tenantId })
-          .andWhere('opp.accountId = :accountId', { accountId: activity.accountId })
+          .andWhere('opp.accountId = :accountId', {
+            accountId: activity.accountId,
+          })
           .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
             userId: user.id,
           })

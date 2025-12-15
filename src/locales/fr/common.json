@@ -108,6 +108,7 @@
     "tasks": {
       "title": "Tâches",
       "subtitleForDeal": "Tâches pour \"{{dealName}}\"",
+      "subtitleForAccount": "Tâches pour \"{{accountName}}\"",
       "empty": "Aucune tâche pour l’instant.",
       "dueAtPlaceholder": "ex. 2025-12-15",
       "unassigned": "Non assigné",

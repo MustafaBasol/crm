@@ -1,0 +1,50 @@
+2025-12-15 18:07:04.888 UTC [58798] LOG:  starting PostgreSQL 17.6 (Debian 17.6-0+deb13u1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2025-12-15 18:07:04.888 UTC [58798] LOG:  listening on IPv4 address "127.0.0.1", port 5543
+2025-12-15 18:07:04.890 UTC [58798] FATAL:  could not create lock file "/var/run/postgresql/.s.PGSQL.5543.lock": Permission denied
+2025-12-15 18:07:04.893 UTC [58798] LOG:  database system is shut down
+2025-12-15 18:09:28.803 UTC [59783] LOG:  starting PostgreSQL 17.6 (Debian 17.6-0+deb13u1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2025-12-15 18:09:28.803 UTC [59783] LOG:  listening on IPv4 address "127.0.0.1", port 5543
+2025-12-15 18:09:28.805 UTC [59783] LOG:  listening on Unix socket "/workspaces/crm/.pgsocket/.s.PGSQL.5543"
+2025-12-15 18:09:28.811 UTC [59787] LOG:  database system was shut down at 2025-12-15 18:07:00 UTC
+2025-12-15 18:09:28.818 UTC [59783] LOG:  database system is ready to accept connections
+2025-12-15 18:09:29.899 UTC [59810] FATAL:  database "node" does not exist
+2025-12-15 18:09:33.714 UTC [59860] FATAL:  role "postgres" does not exist
+2025-12-15 18:09:39.982 UTC [59939] ERROR:  trailing junk after numeric literal at or near "58566BEGIN" at character 4
+2025-12-15 18:09:39.982 UTC [59939] STATEMENT:  DO 58566BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'moneyflow') THEN CREATE ROLE moneyflow WITH LOGIN SUPERUSER PASSWORD 'moneyflow123'; END IF; END58566;
+2025-12-15 18:09:47.633 UTC [60021] ERROR:  syntax error at or near "moneyflow123" at character 137
+2025-12-15 18:09:47.633 UTC [60021] STATEMENT:  DO $do$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = moneyflow) THEN CREATE ROLE moneyflow WITH LOGIN SUPERUSER PASSWORD moneyflow123; END IF; END $do$;
+2025-12-15 18:10:02.328 UTC [60157] ERROR:  CREATE DATABASE cannot be executed from a function
+2025-12-15 18:10:02.328 UTC [60157] CONTEXT:  SQL statement "CREATE DATABASE moneyflow_dev OWNER moneyflow"
+	PL/pgSQL function inline_code_block line 4 at SQL statement
+2025-12-15 18:10:02.328 UTC [60157] STATEMENT:  DO $do$
+	BEGIN
+	  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'moneyflow_dev') THEN
+	    CREATE DATABASE moneyflow_dev OWNER moneyflow;
+	  END IF;
+	END
+	$do$;
+2025-12-15 18:10:02.355 UTC [60171] FATAL:  database "moneyflow_dev" does not exist
+2025-12-15 18:14:28.886 UTC [59785] LOG:  checkpoint starting: time
+2025-12-15 18:15:21.872 UTC [62500] ERROR:  relation "users" does not exist
+2025-12-15 18:15:21.872 UTC [62500] STATEMENT:  
+	      CREATE TABLE IF NOT EXISTS "organization_members" (
+	        "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+	        "organizationId" uuid NOT NULL,
+	        "userId" uuid NOT NULL,
+	        "role" "role_enum" NOT NULL DEFAULT 'MEMBER',
+	        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	        CONSTRAINT "FK_organization_members_organizationId" 
+	          FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
+	        CONSTRAINT "FK_organization_members_userId" 
+	          FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE,
+	        CONSTRAINT "UQ_organization_members_org_user" UNIQUE("organizationId", "userId")
+	      );
+	    
+2025-12-15 18:16:06.845 UTC [59785] LOG:  checkpoint complete: wrote 981 buffers (6.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=97.926 s, sync=0.026 s, total=97.960 s; sync files=329, longest=0.005 s, average=0.001 s; distance=4575 kB, estimate=4575 kB; lsn=0/19AA630, redo lsn=0/1964AB0
+2025-12-15 18:19:36.477 UTC [64108] ERROR:  relation "crm_tasks" does not exist
+2025-12-15 18:19:36.477 UTC [64108] STATEMENT:  
+	      ALTER TABLE "crm_tasks"
+	      ADD COLUMN IF NOT EXISTS "accountId" uuid;
+	    
+2025-12-15 18:24:29.017 UTC [59785] LOG:  checkpoint starting: time
+2025-12-15 18:24:52.830 UTC [59785] LOG:  checkpoint complete: wrote 238 buffers (1.5%); 0 WAL file(s) added, 0 removed, 0 recycled; write=23.767 s, sync=0.031 s, total=23.814 s; sync files=393, longest=0.006 s, average=0.001 s; distance=2344 kB, estimate=4352 kB; lsn=0/1BAEBA0, redo lsn=0/1BAEB10

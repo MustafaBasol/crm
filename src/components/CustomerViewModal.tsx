@@ -5,6 +5,8 @@ import { safeLocalStorage } from '../utils/localStorageSafe';
 import type { Customer as CustomerModel } from '../api/customers';
 import { getErrorMessage } from '../utils/errorHandler';
 import * as crmActivitiesApi from '../api/crm-activities';
+import CrmTasksPage from './crm/CrmTasksPage';
+import { organizationsApi, OrganizationMember } from '../api/organizations';
 
 type CustomerWithMeta = CustomerModel & {
   createdByName?: string;
@@ -49,6 +51,8 @@ export default function CustomerViewModal({
 
   const [crmDeleting, setCrmDeleting] = React.useState(false);
   const [crmDeleteTarget, setCrmDeleteTarget] = React.useState<crmActivitiesApi.CrmActivity | null>(null);
+
+  const [orgMembers, setOrgMembers] = React.useState<OrganizationMember[]>([]);
 
   // Güvenli çeviri yardımcısı: önce common:, sonra düz anahtar; yoksa varsayılan
   const te = (key: string, def: string) => {
@@ -156,6 +160,43 @@ export default function CustomerViewModal({
     if (!isOpen) return;
     void reloadCrmActivities();
   }, [isOpen, reloadCrmActivities]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    const loadMembers = async () => {
+      try {
+        const orgs = await organizationsApi.getAll();
+        const org = (orgs ?? [])[0];
+        if (!org?.id) {
+          if (!cancelled) setOrgMembers([]);
+          return;
+        }
+        const members = await organizationsApi.getMembers(org.id);
+        if (!cancelled) setOrgMembers(members ?? []);
+      } catch {
+        if (!cancelled) setOrgMembers([]);
+      }
+    };
+    void loadMembers();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  const taskAssignees = React.useMemo(() => {
+    const list = (Array.isArray(orgMembers) ? orgMembers : [])
+      .filter((m) => !!m?.user?.id)
+      .map((m) => {
+        const name = [m.user.firstName, m.user.lastName].filter(Boolean).join(' ').trim();
+        return {
+          id: m.user.id,
+          label: name || m.user.email || m.user.id,
+        };
+      });
+    list.sort((a, b) => a.label.localeCompare(b.label));
+    return list;
+  }, [orgMembers]);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -483,6 +524,15 @@ export default function CustomerViewModal({
                 })}
               </div>
             )}
+          </div>
+
+          {/* CRM Tasks (Account/Customer scope) */}
+          <div className="mt-6">
+            <CrmTasksPage
+              accountId={String(customer.id)}
+              accountName={customer.name}
+              assignees={taskAssignees}
+            />
           </div>
 
           {isCrmCreateOpen && (

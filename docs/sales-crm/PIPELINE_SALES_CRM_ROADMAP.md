@@ -6,9 +6,12 @@
 - ✅ Faz 2 (MVP Frontend): Pipeline board çalışıyor, deal oluşturma var, deal detay ekranı eklendi.
 - ✅ Aktivite–Deal ilişkisi (Faz 3’e köprü): Aktiviteler `opportunityId` ile deal’e bağlanabiliyor ve deal detay ekranında deal’e özel listeleniyor.
 - ✅ Faz 3 (Timeline/Tasks): Deal detail içinde aktiviteler timeline + görev listesi (CRUD) gösteriliyor.
-- ⏳ Faz 1 (MVP Backend): CRM Activities CRUD NestJS/TypeORM tarafına taşındı; kalan CRM uçları için mock → NestJS geçişi devam ediyor.
+- ✅ Faz 3 (Timeline/Tasks): Customer detay modalında (Account=Customer) aktiviteler timeline + görev listesi (CRUD) gösteriliyor.
+- ⏳ Faz 1 (MVP Backend): CRM Activities + Tasks CRUD NestJS/TypeORM tarafına taşındı (Tasks tarafında `accountId` desteği + migration eklendi); kalan CRM uçları için mock → NestJS geçişi devam ediyor.
 
 Not (dev yönlendirme): Frontend geliştirmede varsayılan olarak `/api` isteklerini **Vite proxy ile `http://localhost:3001` (NestJS)** adresine yollar. Mock API server (`backend-mock.cjs`) artık varsayılan olarak **3002** portunda çalışır (`MOCK_PORT=3002`), böylece NestJS ile port çakışması olmaz.
+
+Not (Docker yoksa): NestJS/Postgres kalkmayan ortamlarda mock’u geçici olarak `MOCK_PORT=3001` ile çalıştırıp UI’ı test edebilirsiniz.
 
 Bu repo bugün ağırlıklı olarak **ön muhasebe / pre‑accounting** (müşteriler, teklifler, satış kayıtları, faturalar, giderler, banka hesapları, raporlar) üzerine kurulu.
 

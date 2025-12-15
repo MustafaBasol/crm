@@ -183,8 +183,34 @@ let crmActivities = [
     title: 'İlk görüşme planla',
     type: 'Call',
     opportunityId: null,
+    accountId: 'cust-1',
     dueAt: null,
     completed: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+let crmTasks = [
+  {
+    id: 'task-1',
+    title: 'Sözleşme taslağı gönder',
+    opportunityId: null,
+    accountId: 'cust-1',
+    dueAt: null,
+    completed: false,
+    assigneeUserId: 'user-2',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'task-2',
+    title: 'Teklif revizyonu için takip',
+    opportunityId: null,
+    accountId: 'cust-2',
+    dueAt: null,
+    completed: false,
+    assigneeUserId: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -521,9 +547,16 @@ const server = createServer((req, res) => {
   // CRM Activities
   if (path === '/api/crm/activities' && req.method === 'GET') {
     const opportunityId = url.searchParams.get('opportunityId');
+    const accountId = url.searchParams.get('accountId');
+    if (opportunityId && accountId) {
+      return json(res, 400, { message: 'opportunityId ve accountId birlikte kullanılamaz' });
+    }
     const list = Array.isArray(crmActivities) ? crmActivities : [];
     if (opportunityId) {
       return json(res, 200, list.filter((a) => a.opportunityId === opportunityId));
+    }
+    if (accountId) {
+      return json(res, 200, list.filter((a) => a.accountId === accountId));
     }
     return json(res, 200, list);
   }
@@ -532,11 +565,20 @@ const server = createServer((req, res) => {
       const title = typeof body.title === 'string' ? body.title.trim() : '';
       if (!title) return json(res, 400, { message: 'title zorunlu' });
 
+      const opportunityId = typeof body.opportunityId === 'string' ? body.opportunityId : null;
+      const accountId = typeof body.accountId === 'string' ? body.accountId : null;
+      if (opportunityId && accountId) return json(res, 400, { message: 'opportunityId ve accountId birlikte kullanılamaz' });
+
+      if (!opportunityId && !accountId) {
+        return json(res, 400, { message: 'opportunityId veya accountId zorunlu' });
+      }
+
       const activity = {
         id: randomId('activity'),
         title,
         type: typeof body.type === 'string' ? body.type.trim() : '',
-        opportunityId: typeof body.opportunityId === 'string' ? body.opportunityId : null,
+        opportunityId,
+        accountId,
         dueAt: typeof body.dueAt === 'string' ? body.dueAt : null,
         completed: !!body.completed,
         createdAt: new Date().toISOString(),
@@ -553,11 +595,19 @@ const server = createServer((req, res) => {
       const idx = (Array.isArray(crmActivities) ? crmActivities : []).findIndex((x) => x.id === id);
       if (idx < 0) return json(res, 404, { message: 'Activity bulunamadı' });
 
+      const nextOpportunityId = typeof body.opportunityId === 'string' ? body.opportunityId : undefined;
+      const nextAccountId = typeof body.accountId === 'string' ? body.accountId : undefined;
+      if (nextOpportunityId && nextAccountId) {
+        return json(res, 400, { message: 'opportunityId ve accountId birlikte kullanılamaz' });
+      }
+
       const next = { ...crmActivities[idx] };
       if (typeof body.title === 'string') next.title = body.title.trim();
       if (typeof body.type === 'string') next.type = body.type.trim();
       if (typeof body.opportunityId === 'string') next.opportunityId = body.opportunityId;
       if (body.opportunityId === null) next.opportunityId = null;
+      if (typeof body.accountId === 'string') next.accountId = body.accountId;
+      if (body.accountId === null) next.accountId = null;
       if (typeof body.dueAt === 'string') next.dueAt = body.dueAt;
       if (body.dueAt === null) next.dueAt = null;
       if (typeof body.completed === 'boolean') next.completed = body.completed;
@@ -573,6 +623,89 @@ const server = createServer((req, res) => {
     const next = before.filter((x) => x.id !== id);
     if (next.length === before.length) return json(res, 404, { message: 'Activity bulunamadı' });
     crmActivities = next;
+    return json(res, 204, {});
+  }
+
+  // CRM Tasks
+  if (path === '/api/crm/tasks' && req.method === 'GET') {
+    const opportunityId = url.searchParams.get('opportunityId');
+    const accountId = url.searchParams.get('accountId');
+    if (opportunityId && accountId) {
+      return json(res, 400, { message: 'opportunityId ve accountId birlikte kullanılamaz' });
+    }
+
+    const list = Array.isArray(crmTasks) ? crmTasks : [];
+    if (opportunityId) {
+      return json(res, 200, list.filter((t) => t.opportunityId === opportunityId));
+    }
+    if (accountId) {
+      return json(res, 200, list.filter((t) => t.accountId === accountId));
+    }
+    return json(res, 200, list);
+  }
+  if (path === '/api/crm/tasks' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const title = typeof body.title === 'string' ? body.title.trim() : '';
+      if (!title) return json(res, 400, { message: 'title zorunlu' });
+
+      const opportunityId = typeof body.opportunityId === 'string' ? body.opportunityId : null;
+      const accountId = typeof body.accountId === 'string' ? body.accountId : null;
+      if (opportunityId && accountId) return json(res, 400, { message: 'opportunityId ve accountId birlikte kullanılamaz' });
+      if (!opportunityId && !accountId) {
+        return json(res, 400, { message: 'opportunityId veya accountId zorunlu' });
+      }
+
+      const task = {
+        id: randomId('task'),
+        title,
+        opportunityId,
+        accountId,
+        dueAt: typeof body.dueAt === 'string' ? body.dueAt : null,
+        completed: !!body.completed,
+        assigneeUserId: typeof body.assigneeUserId === 'string' ? body.assigneeUserId : null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      crmTasks = [task, ...(Array.isArray(crmTasks) ? crmTasks : [])];
+      return json(res, 200, task);
+    });
+  }
+  const crmTaskMatch = path.match(/^\/api\/crm\/tasks\/([^/]+)$/);
+  if (crmTaskMatch && req.method === 'PATCH') {
+    const id = crmTaskMatch[1];
+    return readJsonBody(req).then((body) => {
+      const idx = (Array.isArray(crmTasks) ? crmTasks : []).findIndex((x) => x.id === id);
+      if (idx < 0) return json(res, 404, { message: 'Task bulunamadı' });
+
+      const nextOpportunityId = typeof body.opportunityId === 'string' ? body.opportunityId : undefined;
+      const nextAccountId = typeof body.accountId === 'string' ? body.accountId : undefined;
+      if (nextOpportunityId && nextAccountId) {
+        return json(res, 400, { message: 'opportunityId ve accountId birlikte kullanılamaz' });
+      }
+
+      const next = { ...crmTasks[idx] };
+      if (typeof body.title === 'string') next.title = body.title.trim();
+      if (typeof body.opportunityId === 'string') next.opportunityId = body.opportunityId;
+      if (body.opportunityId === null) next.opportunityId = null;
+      if (typeof body.accountId === 'string') next.accountId = body.accountId;
+      if (body.accountId === null) next.accountId = null;
+      if (typeof body.dueAt === 'string') next.dueAt = body.dueAt;
+      if (body.dueAt === null) next.dueAt = null;
+      if (typeof body.completed === 'boolean') next.completed = body.completed;
+      if (typeof body.assigneeUserId === 'string') next.assigneeUserId = body.assigneeUserId;
+      if (body.assigneeUserId === null) next.assigneeUserId = null;
+      next.updatedAt = new Date().toISOString();
+
+      crmTasks[idx] = next;
+      return json(res, 200, next);
+    });
+  }
+  if (crmTaskMatch && req.method === 'DELETE') {
+    const id = crmTaskMatch[1];
+    const before = Array.isArray(crmTasks) ? crmTasks : [];
+    const next = before.filter((x) => x.id !== id);
+    if (next.length === before.length) return json(res, 404, { message: 'Task bulunamadı' });
+    crmTasks = next;
     return json(res, 204, {});
   }
 

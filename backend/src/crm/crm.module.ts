@@ -8,6 +8,8 @@ import { CrmOpportunity } from './entities/crm-opportunity.entity';
 import { CrmOpportunityMember } from './entities/crm-opportunity-member.entity';
 import { CrmActivity } from './entities/crm-activity.entity';
 import { CrmTask } from './entities/crm-task.entity';
+import { CrmLead } from './entities/crm-lead.entity';
+import { CrmContact } from './entities/crm-contact.entity';
 import { Customer } from '../customers/entities/customer.entity';
 
 @Module({
@@ -19,6 +21,8 @@ import { Customer } from '../customers/entities/customer.entity';
       CrmOpportunityMember,
       CrmActivity,
       CrmTask,
+      CrmLead,
+      CrmContact,
       Customer,
     ]),
   ],

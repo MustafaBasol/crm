@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { CrmOpportunity } from './crm-opportunity.entity';
+import { Customer } from '../../customers/entities/customer.entity';
 
 @Entity('crm_tasks')
 export class CrmTask {
@@ -23,12 +24,20 @@ export class CrmTask {
   title: string;
 
   @Index()
-  @Column({ type: 'uuid' })
-  opportunityId: string;
+  @Column({ type: 'uuid', nullable: true })
+  opportunityId: string | null;
 
-  @ManyToOne(() => CrmOpportunity, { onDelete: 'CASCADE', nullable: false })
+  @ManyToOne(() => CrmOpportunity, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'opportunityId' })
-  opportunity: CrmOpportunity;
+  opportunity: CrmOpportunity | null;
+
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  accountId: string | null;
+
+  @ManyToOne(() => Customer, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'accountId' })
+  account: Customer | null;
 
   @Column({ type: 'varchar', length: 48, nullable: true })
   dueAt: string | null;

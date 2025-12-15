@@ -1,4 +1,14 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID, IsNumber, Min, IsIn, IsDateString, IsArray } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsNumber,
+  Min,
+  IsIn,
+  IsDateString,
+  IsArray,
+} from 'class-validator';
 
 export class CreateOpportunityDto {
   @IsUUID()

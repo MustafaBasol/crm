@@ -20,14 +20,18 @@ const emptyForm: TaskFormState = {
 };
 
 export default function CrmTasksPage(props: {
-  opportunityId: string;
+  opportunityId?: string;
+  accountId?: string;
   dealName?: string;
+  accountName?: string;
   assignees?: Array<{ id: string; label: string }>;
 }) {
   const { t, i18n } = useTranslation('common');
 
   const opportunityId = props.opportunityId;
+  const accountId = props.accountId;
   const dealName = props.dealName;
+  const accountName = props.accountName;
 
   const [items, setItems] = useState<tasksApi.CrmTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +52,10 @@ export default function CrmTasksPage(props: {
     setError(null);
     setLoading(true);
     try {
-      const data = await tasksApi.listCrmTasks({ opportunityId });
+      const data = await tasksApi.listCrmTasks({
+        opportunityId: opportunityId || undefined,
+        accountId: accountId || undefined,
+      });
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(getErrorMessage(e));
@@ -58,12 +65,18 @@ export default function CrmTasksPage(props: {
   };
 
   useEffect(() => {
+    if (!opportunityId && !accountId) {
+      setLoading(false);
+      setItems([]);
+      setError(t('common.error') as string);
+      return;
+    }
     void reload();
-  }, [opportunityId]);
+  }, [opportunityId, accountId]);
 
   useEffect(() => {
     setStatusFilter('all');
-  }, [opportunityId]);
+  }, [opportunityId, accountId]);
 
   const parseDateMs = (value: string | null | undefined): number | null => {
     const raw = String(value ?? '').trim();
@@ -156,7 +169,8 @@ export default function CrmTasksPage(props: {
 
     const payload: tasksApi.CreateCrmTaskDto = {
       title,
-      opportunityId,
+      opportunityId: opportunityId || null,
+      accountId: accountId || null,
       dueAt: form.dueAt.trim() ? form.dueAt.trim() : null,
       completed: !!form.completed,
       assigneeUserId: form.assigneeUserId ? form.assigneeUserId : null,
@@ -206,7 +220,12 @@ export default function CrmTasksPage(props: {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-sm font-semibold text-gray-900">{t('crm.tasks.title')}</div>
-          <div className="mt-2 text-sm text-gray-500">{t('crm.tasks.subtitleForDeal', { dealName: dealName || '' })}</div>
+          {opportunityId && (
+            <div className="mt-2 text-sm text-gray-500">{t('crm.tasks.subtitleForDeal', { dealName: dealName || '' })}</div>
+          )}
+          {!opportunityId && accountId && (
+            <div className="mt-2 text-sm text-gray-500">{t('crm.tasks.subtitleForAccount', { accountName: accountName || '' })}</div>
+          )}
         </div>
         <button
           type="button"

@@ -3,7 +3,8 @@ import apiClient from './client';
 export type CrmTask = {
   id: string;
   title: string;
-  opportunityId: string;
+  opportunityId: string | null;
+  accountId: string | null;
   dueAt: string | null;
   completed: boolean;
   assigneeUserId: string | null;
@@ -13,7 +14,8 @@ export type CrmTask = {
 
 export type CreateCrmTaskDto = {
   title: string;
-  opportunityId: string;
+  opportunityId?: string | null;
+  accountId?: string | null;
   dueAt?: string | null;
   completed?: boolean;
   assigneeUserId?: string | null;
@@ -23,9 +25,12 @@ export type UpdateCrmTaskDto = Partial<Omit<CreateCrmTaskDto, 'opportunityId'>> 
   opportunityId?: string;
 };
 
-export const listCrmTasks = async (options: { opportunityId: string }): Promise<CrmTask[]> => {
+export const listCrmTasks = async (options: { opportunityId?: string; accountId?: string }): Promise<CrmTask[]> => {
   const res = await apiClient.get<CrmTask[]>('/crm/tasks', {
-    params: { opportunityId: options.opportunityId },
+    params: {
+      opportunityId: options.opportunityId,
+      accountId: options.accountId,
+    },
   });
   return res.data;
 };
