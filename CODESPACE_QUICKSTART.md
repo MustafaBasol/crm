@@ -9,8 +9,9 @@ Yeni bir GitHub Codespace oluşturduğunuzda bu rehberi takip ederek 5 dakikada 
 ```
 
 Bu komut:
+
 - Docker servisleri başlatır
-- Backend'i port 3000'de başlatır  
+- Backend'i port 3000'de başlatır
 - Frontend'i port 5173'te başlatır
 - Health check yapar
 - URL'leri gösterir
@@ -18,14 +19,16 @@ Bu komut:
 ## 📋 Manuel Kurulum
 
 ### 1. Backend Başlat
+
 ```bash
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 npm run start:dev
 ```
 
 ### 2. Frontend Başlat
+
 ```bash
-cd /workspaces/Muhasabev2
+cd /workspaces/crm
 npm run dev
 ```
 
@@ -46,6 +49,7 @@ Tam rehber için: [CODESPACE_SETUP_GUIDE.md](./CODESPACE_SETUP_GUIDE.md)
 ## 🔧 Sorun Giderme
 
 ### Port Kapanma Problemi (Sık Yaşanan)
+
 Port'lar kapandığında bu komutları sırayla çalıştır:
 
 ```bash
@@ -54,8 +58,8 @@ Port'lar kapandığında bu komutları sırayla çalıştır:
 
 # 2. Manuel çözüm
 pkill -f "nest|vite"
-cd /workspaces/Muhasabev2/backend && npm run start:dev &
-cd /workspaces/Muhasabev2 && npm run dev &
+cd /workspaces/crm/backend && npm run start:dev &
+cd /workspaces/crm && npm run dev &
 
 # 3. Port test
 curl http://localhost:3000/health && echo "Backend OK"
@@ -63,13 +67,16 @@ curl http://localhost:5173 && echo "Frontend OK"
 ```
 
 ### Kesin Çözüm Sırası
+
 1. **Otomatik Script**: `./start-dev-new.sh`
 2. **Port Temizleme**: `sudo lsof -ti:3000,5173 | xargs kill -9`
 3. **Manuel Başlatma**: Yukarıdaki komutlar
 4. **VS Code Ports**: PORTS sekmesinde "Public" yap
 
 ### ⚠️ Port Değişimi Durumu
+
 Vite bazen otomatik olarak farklı port kullanır:
+
 ```
 Port 5173 is in use, trying another one...
 ➜  Local:   http://localhost:5174/
@@ -84,17 +91,20 @@ Bu durumda yeni URL: `https://[codespace-name]-5174.app.github.dev`
 GitHub Codespaces'de port'lar sık kapanır. Bunu önlemek için:
 
 ### Sürekli Monitoring (Önerilen)
+
 ```bash
 # Otomatik port izleme ve yeniden başlatma
 ./port-monitor.sh
 ```
 
 Bu script:
+
 - 30 saniyede bir port'ları kontrol eder
 - Kapanan servisleri otomatik yeniden başlatır
 - Sürekli çalışır durumda kalır
 
 ### Hızlı Manuel Çözüm
+
 ```bash
 # Port'lar kapandığında bu komutu çalıştır
 ./start-dev-new.sh

@@ -201,9 +201,9 @@ export interface BackupMetadata {
 
 @Injectable()
 export class BackupService {
-  private readonly backupDir = '/workspaces/Muhasabev2/backend/backups';
-  private readonly metadataFile =
-    '/workspaces/Muhasabev2/backend/backups/metadata.json';
+  private readonly backendRootDir = path.resolve(__dirname, '..', '..');
+  private readonly backupDir = path.resolve(this.backendRootDir, 'backups');
+  private readonly metadataFile = path.resolve(this.backupDir, 'metadata.json');
 
   constructor(
     @InjectRepository(User)

@@ -3,19 +3,23 @@
 ## ❓ Sorular ve Cevaplar
 
 ### Soru 1: Codespace'ler arası veri paylaşımı?
+
 **CEVAP:** Hayır, her Codespace ayrı bir container ortamıdır ve birbirinden izoledir.
 
 **ÇÖZÜM:**
+
 1. **GitHub ile senkronizasyon** - Veritabanı backup'larını GitHub'a commit edin
 2. **Seed script kullanın** - Her Codespace'de aynı verileri yeniden oluşturun
 3. **Harici veritabanı** - Dış bir PostgreSQL servisine bağlanın (Supabase, Railway, vb.)
 
 ### Soru 2: Production'da veriler kaybolur mu?
+
 **CEVAP:** Hayır! Doğru yapılandırma ile kalıcıdır.
 
 **ÇÖZÜM:** Aşağıdaki production yapılandırmasını kullanın.
 
 ### Soru 3: Docker container silinse veriler kaybolur mu?
+
 **CEVAP:** Mevcut yapılandırmada evet, ama düzeltildi.
 
 **ÇÖZÜM:** Named volumes veya host bind mounts kullanın.
@@ -29,13 +33,15 @@
 **Durum:** Her Codespace izole, veriler paylaşılmaz.
 
 **Çözüm 1: Seed Script (Önerilen)**
+
 ```bash
 # Her Codespace açıldığında
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 npm run seed:demo
 ```
 
 **Çözüm 2: Database Dump'ı GitHub'a Kaydet**
+
 ```bash
 # Veritabanını dışa aktar
 docker exec moneyflow-db pg_dump -U moneyflow moneyflow_dev > backup.sql
@@ -48,6 +54,7 @@ docker exec -i moneyflow-db psql -U moneyflow moneyflow_dev < backup.sql
 ```
 
 **Çözüm 3: Harici Veritabanı (Production-like)**
+
 ```env
 # .env dosyasında
 DATABASE_URL=postgresql://user:pass@external-db.com:5432/mydb
@@ -58,17 +65,20 @@ DATABASE_URL=postgresql://user:pass@external-db.com:5432/mydb
 ### B) PRODUCTION (Canlı Sunucu)
 
 **Özellikler:**
+
 - ✅ Kalıcı veri depolama
 - ✅ Otomatik backup
 - ✅ Container yeniden başlatılsa bile veri korunur
 
 **Kullanım:**
+
 ```bash
 # Production ortamında
 docker-compose -f docker-compose.production.yml up -d
 ```
 
 **Veri Konumu:**
+
 - PostgreSQL: `/var/lib/postgresql/data` (host makinede)
 - Redis: `/var/lib/redis` (host makinede)
 - Backup'lar: `./backups` klasörü
@@ -89,6 +99,7 @@ docker-compose -f docker-compose.staging.yml up -d
 ## 📋 Önerilen Çalışma Akışı
 
 ### Geliştirme (Codespace)
+
 ```bash
 # 1. Codespace başlat
 ./start-dev-new.sh
@@ -105,6 +116,7 @@ git commit -m "Dev backup"
 ```
 
 ### Production Deployment
+
 ```bash
 # 1. Production sunucuda
 git clone <repo>
@@ -126,12 +138,15 @@ npm run seed:demo
 ## 🔒 Güvenlik ve Backup
 
 ### Otomatik Backup (Production)
+
 Production'da `postgres-backup` container'ı:
+
 - Her gün saat 03:00'te otomatik backup alır
 - 30 günlük backup saklar
 - `./backups` klasörüne kaydeder
 
 ### Manuel Backup
+
 ```bash
 # Backup al
 docker exec moneyflow-db pg_dump -U moneyflow moneyflow_dev > backup.sql
@@ -141,6 +156,7 @@ docker exec -i moneyflow-db psql -U moneyflow moneyflow_dev < backup.sql
 ```
 
 ### Backup'ı Güvenli Yere Taşı
+
 ```bash
 # AWS S3'e yükle
 aws s3 cp backup.sql s3://my-bucket/backups/
@@ -154,6 +170,7 @@ rclone copy backup.sql gdrive:/backups/
 ## 🚀 Hızlı Komutlar
 
 ### Development
+
 ```bash
 # Seed çalıştır
 npm run seed:demo
@@ -166,6 +183,7 @@ docker exec -i moneyflow-db psql -U moneyflow moneyflow_dev < backup.sql
 ```
 
 ### Production
+
 ```bash
 # Production başlat
 docker-compose -f docker-compose.production.yml up -d

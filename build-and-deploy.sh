@@ -1,15 +1,18 @@
 #!/bin/bash
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_PUBLIC_DIR="$ROOT_DIR/backend/public"
+
 echo "🏗️  Building frontend..."
-cd /workspaces/Muhasabev2
+cd "$ROOT_DIR"
 npm run build
 
 echo "📦 Copying build to backend..."
 # Copy hashed assets to backend/public/assets and update index.html
-rm -rf /workspaces/Muhasabev2/backend/public/assets
-mkdir -p /workspaces/Muhasabev2/backend/public/assets
-cp -r /workspaces/Muhasabev2/dist/assets/* /workspaces/Muhasabev2/backend/public/assets/
-cp /workspaces/Muhasabev2/dist/index.html /workspaces/Muhasabev2/backend/public/index.html
+rm -rf "$BACKEND_PUBLIC_DIR/assets"
+mkdir -p "$BACKEND_PUBLIC_DIR/assets"
+cp -r "$ROOT_DIR/dist/assets/"* "$BACKEND_PUBLIC_DIR/assets/"
+cp "$ROOT_DIR/dist/index.html" "$BACKEND_PUBLIC_DIR/index.html"
 
 echo "✅ Build complete! Frontend is now served by backend at http://localhost:3001"
 echo "📚 API documentation available at: http://localhost:3002/api"

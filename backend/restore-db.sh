@@ -5,13 +5,15 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [ -z "$1" ]; then
     echo "❌ Hata: Backup dosyası belirtilmedi!"
     echo ""
     echo "Kullanım: ./restore-db.sh <backup-file>"
     echo ""
     echo "Mevcut backup'lar:"
-    ls -lh /workspaces/Muhasabev2/backend/backups/*.sql 2>/dev/null || echo "  Backup bulunamadı"
+    ls -lh "$SCRIPT_DIR"/backups/*.sql 2>/dev/null || echo "  Backup bulunamadı"
     exit 1
 fi
 

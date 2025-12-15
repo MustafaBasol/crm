@@ -4,6 +4,7 @@
   Package,
   CreditCard,
   TrendingUp,
+  KanbanSquare,
   Settings,
   PieChart,
   Calculator,
@@ -53,6 +54,7 @@ export default function Sidebar({
     { icon: Building2, label: t('sidebar.suppliers'), page: 'suppliers' },
     { icon: CreditCard, label: t('sidebar.banks'), page: 'banks' },
     { icon: TrendingUp, label: t('sidebar.sales'), page: 'sales' },
+    { icon: KanbanSquare, label: t('sidebar.crm'), page: 'crm-pipeline' },
     // Quotes page (Teklifler)
     { icon: FileText, label: t('sidebar.quotes'), page: 'quotes' },
     { icon: PieChart, label: t('sidebar.reports'), page: 'reports' },

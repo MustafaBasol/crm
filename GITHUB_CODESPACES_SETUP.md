@@ -5,12 +5,15 @@ Bu dokümantasyon, MoneyFlow uygulamasını GitHub Codespaces ortamında çalı�
 ## 🎯 Ana Sorun ve Çözüm
 
 ### Sorun
+
 GitHub Codespaces'te çalışırken:
+
 - Frontend ve Backend farklı portlarda çalışıyor
 - GitHub Codespaces port forwarding CORS headerlarını düzgün iletmiyor
 - Simple Browser (VS Code içindeki tarayıcı) localhost backend portlarına erişemiyor
 
 ### Çözüm
+
 **Vite Proxy kullanarak tüm istekleri aynı origin'den servis etmek**
 
 ---
@@ -20,6 +23,7 @@ GitHub Codespaces'te çalışırken:
 ### 1. Backend Ayarları
 
 #### Backend `.env` Dosyası Oluşturuldu
+
 Konum: `/backend/.env`
 
 ```env
@@ -45,6 +49,7 @@ REDIS_PORT=6379
 **Önemli:** `NODE_ENV=development` ayarı TypeORM'in `synchronize: true` özelliğini aktif eder (veritabanı tablolarını otomatik oluşturur).
 
 #### CORS Ayarları Güncellendi
+
 Konum: `/backend/src/main.ts`
 
 ```typescript
@@ -52,13 +57,24 @@ Konum: `/backend/src/main.ts`
 app.enableCors({
   origin: (origin, callback) => {
     // Development: tüm originlere izin ver
-    console.log('🌐 CORS Request from origin:', origin);
+    console.log("🌐 CORS Request from origin:", origin);
     callback(null, true);
   },
-  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With', 'Access-Control-Allow-Origin'],
-  exposedHeaders: ['Authorization', 'Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials'],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Accept",
+    "Origin",
+    "X-Requested-With",
+    "Access-Control-Allow-Origin",
+  ],
+  exposedHeaders: [
+    "Authorization",
+    "Access-Control-Allow-Origin",
+    "Access-Control-Allow-Credentials",
+  ],
   maxAge: 86400,
   preflightContinue: false,
   optionsSuccessStatus: 204,
@@ -70,38 +86,41 @@ app.enableCors({
 ### 2. Frontend Ayarları
 
 #### Vite Config - Proxy Eklendi
+
 Konum: `/vite.config.ts`
 
 ```typescript
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '0.0.0.0',  // Tüm network interface'lerden erişilebilir
+    host: "0.0.0.0", // Tüm network interface'lerden erişilebilir
     port: 5173,
     proxy: {
-      '/api': {
-        target: 'http://localhost:3002',
+      "/api": {
+        target: "http://localhost:3002",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    exclude: ["lucide-react"],
   },
 });
 ```
 
 **Açıklama:**
+
 - `host: '0.0.0.0'`: IPv4 ve IPv6 üzerinden erişim sağlar
 - `proxy`: `/api/*` isteklerini `http://localhost:3002/*` adresine yönlendirir
 - `changeOrigin: true`: Origin header'ını hedef URL ile değiştirir
 - `rewrite`: `/api` prefix'ini kaldırır (ör: `/api/auth/login` → `/auth/login`)
 
 #### Frontend `.env` Dosyası
+
 Konum: `/.env`
 
 ```env
@@ -118,26 +137,26 @@ VITE_API_URL=/api
 
 ```bash
 # 1. Backend bağımlılıklarını yükle
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 npm install
 
 # 2. Frontend bağımlılıklarını yükle
-cd /workspaces/Muhasabev2
+cd /workspaces/crm
 npm install
 
 # 3. Docker container'ları başlat (PostgreSQL, Redis, pgAdmin)
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 docker-compose up -d
 
 # 4. Backend'i başlat
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 nohup npm run start:dev > /tmp/backend.log 2>&1 &
 
 # 5. Veritabanının hazır olmasını bekle
 sleep 5
 
 # 6. Frontend'i başlat
-cd /workspaces/Muhasabev2
+cd /workspaces/crm
 nohup npm run dev > /tmp/frontend.log 2>&1 &
 
 # 7. Admin kullanıcısı oluştur (sadece ilk kez)
@@ -155,7 +174,7 @@ curl -X POST http://localhost:3002/auth/register \
 
 ```bash
 # Start script kullan (önerilen)
-cd /workspaces/Muhasabev2
+cd /workspaces/crm
 ./start-dev.sh
 ```
 
@@ -163,10 +182,10 @@ veya
 
 ```bash
 # Manuel başlatma
-cd /workspaces/Muhasabev2/backend && docker-compose up -d
-cd /workspaces/Muhasabev2/backend && nohup npm run start:dev > /tmp/backend.log 2>&1 &
+cd /workspaces/crm/backend && docker-compose up -d
+cd /workspaces/crm/backend && nohup npm run start:dev > /tmp/backend.log 2>&1 &
 sleep 5
-cd /workspaces/Muhasabev2 && nohup npm run dev > /tmp/frontend.log 2>&1 &
+cd /workspaces/crm && nohup npm run dev > /tmp/frontend.log 2>&1 &
 ```
 
 ---
@@ -176,11 +195,13 @@ cd /workspaces/Muhasabev2 && nohup npm run dev > /tmp/frontend.log 2>&1 &
 ### GitHub Codespaces Ortamında
 
 **Frontend:**
+
 ```
 https://obscure-enigma-v4v5rgp9vq73wv5x-5173.app.github.dev
 ```
 
 **Backend API (Direkt - Test için):**
+
 ```
 https://obscure-enigma-v4v5rgp9vq73wv5x-3002.app.github.dev
 ```
@@ -190,21 +211,25 @@ https://obscure-enigma-v4v5rgp9vq73wv5x-3002.app.github.dev
 ### Yerel Ortamda (localhost)
 
 **Frontend:**
+
 ```
 http://localhost:5173
 ```
 
 **Backend API:**
+
 ```
 http://localhost:3002
 ```
 
 **Swagger Documentation:**
+
 ```
 http://localhost:3002/api
 ```
 
 **pgAdmin:**
+
 ```
 http://localhost:5050
 ```
@@ -214,14 +239,17 @@ http://localhost:5050
 ## 🔐 Giriş Bilgileri
 
 ### Uygulama
+
 - **E-posta:** admin@test.com
 - **Şifre:** 123456
 
 ### pgAdmin
+
 - **E-posta:** admin@moneyflow.com
 - **Şifre:** admin123
 
 ### PostgreSQL
+
 - **Host:** localhost (Codespaces içinde)
 - **Port:** 5432
 - **Database:** moneyflow_dev
@@ -243,7 +271,7 @@ lsof -i :3002
 
 # İşlemi durdur ve yeniden başlat
 lsof -ti:3002 | xargs kill -9
-cd /workspaces/Muhasabev2/backend && npm run start:dev
+cd /workspaces/crm/backend && npm run start:dev
 ```
 
 ### Frontend Çalışmıyor
@@ -257,33 +285,35 @@ lsof -i :5173
 
 # İşlemi durdur ve yeniden başlat
 pkill -9 -f "vite"
-cd /workspaces/Muhasabev2 && npm run dev
+cd /workspaces/crm && npm run dev
 ```
 
 ### CORS Hatası Alıyorum
 
 **Çözüm 1:** `.env` dosyasını kontrol edin
+
 ```bash
-cat /workspaces/Muhasabev2/.env
+cat /workspaces/crm/.env
 # Çıktı: VITE_API_URL=/api
 ```
 
 **Çözüm 2:** Tarayıcı cache'ini temizleyin (Hard Refresh: Ctrl+Shift+R)
 
 **Çözüm 3:** Vite proxy ayarlarını kontrol edin
+
 ```bash
-cat /workspaces/Muhasabev2/vite.config.ts | grep -A 10 "proxy"
+cat /workspaces/crm/vite.config.ts | grep -A 10 "proxy"
 ```
 
 ### Veritabanı Tabloları Yok
 
 ```bash
 # .env dosyasında NODE_ENV=development olduğundan emin olun
-cat /workspaces/Muhasabev2/backend/.env | grep NODE_ENV
+cat /workspaces/crm/backend/.env | grep NODE_ENV
 
 # Backend'i yeniden başlatın (synchronize otomatik çalışacak)
 pkill -9 -f "nest start"
-cd /workspaces/Muhasabev2/backend && npm run start:dev
+cd /workspaces/crm/backend && npm run start:dev
 ```
 
 ### Docker Container'lar Başlamıyor
@@ -293,7 +323,7 @@ cd /workspaces/Muhasabev2/backend && npm run start:dev
 docker ps -a
 
 # Logları kontrol et
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 docker-compose logs
 
 # Yeniden başlat
@@ -325,7 +355,7 @@ curl http://localhost:5173/api/health
 
 ```bash
 # Hızlı durdurma (stop script)
-cd /workspaces/Muhasabev2
+cd /workspaces/crm
 ./stop-dev.sh
 ```
 
@@ -335,7 +365,7 @@ veya
 # Manuel durdurma
 pkill -9 -f "vite"
 pkill -9 -f "nest start"
-cd /workspaces/Muhasabev2/backend && docker-compose down
+cd /workspaces/crm/backend && docker-compose down
 ```
 
 ---
@@ -343,18 +373,23 @@ cd /workspaces/Muhasabev2/backend && docker-compose down
 ## 📝 Önemli Notlar
 
 ### 1. Port Forwarding Visibility
+
 GitHub Codespaces'te portlar default olarak "Private" olabilir. Public erişim için:
+
 - VS Code'da "Ports" sekmesini açın
 - İlgili porta sağ tıklayın
 - "Port Visibility" → "Public" seçin
 
 ### 2. Environment Variables
+
 `.env` dosyaları `.gitignore`'da olmalı. Production'da farklı değerler kullanılmalı.
 
 ### 3. TypeORM Synchronize
+
 `synchronize: true` sadece development ortamında kullanılmalı. Production'da migration kullanın.
 
 ### 4. CORS Ayarları
+
 Production ortamında `origin: true` yerine spesifik domain'ler belirtilmeli:
 
 ```typescript
@@ -365,6 +400,7 @@ origin: [
 ```
 
 ### 5. Vite Proxy
+
 Vite proxy sadece development ortamında çalışır. Production build'de backend URL'si absolute path olmalı.
 
 ---
@@ -374,6 +410,7 @@ Vite proxy sadece development ortamında çalışır. Production build'de backen
 Production'a deploy ederken:
 
 1. **Backend `.env`:**
+
    ```env
    NODE_ENV=production
    DATABASE_HOST=production-db-host
@@ -381,6 +418,7 @@ Production'a deploy ederken:
    ```
 
 2. **Frontend `.env.production`:**
+
    ```env
    VITE_API_URL=https://api.yourdomain.com
    ```
@@ -390,10 +428,11 @@ Production'a deploy ederken:
 4. **TypeORM:** Synchronize kapatın, migration kullanın
 
 5. **Build:**
+
    ```bash
    # Backend
    cd backend && npm run build
-   
+
    # Frontend
    cd .. && npm run build
    ```

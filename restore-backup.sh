@@ -1,7 +1,8 @@
 #!/bin/bash
 # Veritabanını yedekten geri yükleme scripti
 
-BACKUP_DIR="/workspaces/Muhasabev2/backups"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_DIR="$ROOT_DIR/backups"
 
 if [ -z "$1" ]; then
     echo "📋 Mevcut yedekler:"

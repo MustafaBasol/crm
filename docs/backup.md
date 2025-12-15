@@ -6,13 +6,13 @@ This document describes the comprehensive backup and restore system for the Mone
 
 ## 🎯 Business Continuity Goals
 
-| Metric | Target | Description |
-|--------|--------|-------------|
-| **RTO** (Recovery Time Objective) | < 30 minutes | Maximum time to restore service after failure |
-| **RPO** (Recovery Point Objective) | < 24 hours | Maximum acceptable data loss (daily backups) |
-| **Backup Frequency** | Daily @ 03:00 UTC | Automated daily backups |
-| **Retention Period** | 30 days | Automated cleanup of old backups |
-| **Encryption** | AES-256 at rest | All backups encrypted when stored |
+| Metric                             | Target            | Description                                   |
+| ---------------------------------- | ----------------- | --------------------------------------------- |
+| **RTO** (Recovery Time Objective)  | < 30 minutes      | Maximum time to restore service after failure |
+| **RPO** (Recovery Point Objective) | < 24 hours        | Maximum acceptable data loss (daily backups)  |
+| **Backup Frequency**               | Daily @ 03:00 UTC | Automated daily backups                       |
+| **Retention Period**               | 30 days           | Automated cleanup of old backups              |
+| **Encryption**                     | AES-256 at rest   | All backups encrypted when stored             |
 
 ## 🏗️ Architecture
 
@@ -167,12 +167,12 @@ npm run test:critical-paths
 
 ### Alert Conditions
 
-| Condition | Severity | Action |
-|-----------|----------|--------|
-| Backup failed | Critical | Immediate notification + retry |
-| Backup size anomaly | Warning | Investigation required |
-| Encryption failed | Critical | Security team notification |
-| Storage space low | Warning | Cleanup old backups |
+| Condition           | Severity | Action                         |
+| ------------------- | -------- | ------------------------------ |
+| Backup failed       | Critical | Immediate notification + retry |
+| Backup size anomaly | Warning  | Investigation required         |
+| Encryption failed   | Critical | Security team notification     |
+| Storage space low   | Warning  | Cleanup old backups            |
 
 ### Monitoring Dashboard
 
@@ -320,6 +320,7 @@ tail -f /var/log/postgresql/postgresql.log | grep ERROR
 ### Backup Logs
 
 All backup operations are logged with:
+
 - Timestamp
 - User/process executing backup
 - Backup size and location
@@ -388,7 +389,7 @@ tail -f /var/log/backup/audit.log
 
 ### Backup File Locations
 
-- **Local**: `/workspaces/Muhasabev2/backend/backups/`
+- **Local**: `/workspaces/crm/backend/backups/`
 - **Production**: `/opt/moneyflow/backups/`
 - **Archive**: `/mnt/backup-archive/`
 - **Offsite**: `s3://company-backups/moneyflow/`

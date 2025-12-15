@@ -3,20 +3,25 @@
 ## ✅ Tamamlanan Entegrasyonlar
 
 ### 1. API Client Setup
+
 **Dosya**: `src/api/client.ts`
+
 - Axios instance configured with base URL (http://localhost:3000)
 - Request interceptor: Automatically adds Bearer token from localStorage
 - Response interceptor: Handles 401 unauthorized → redirects to login
 - Error handling for network failures
 
 ### 2. Authentication Service
+
 **Dosya**: `src/api/auth.ts`
+
 - `register()` - Yeni kullanıcı ve tenant kaydı
 - `login()` - Email/password ile giriş, JWT token alır
 - `getProfile()` - Mevcut kullanıcı bilgileri (GET /auth/me)
 - `logout()` - LocalStorage'ı temizler
 
 **Interfaces**:
+
 ```typescript
 interface RegisterData {
   email: string;
@@ -52,7 +57,9 @@ interface AuthResponse {
 ```
 
 ### 3. Auth Context
+
 **Dosya**: `src/contexts/AuthContext.tsx`
+
 - React Context API ile global auth state yönetimi
 - State: `user`, `tenant`, `isAuthenticated`, `isLoading`
 - Methods: `login()`, `register()`, `logout()`
@@ -60,12 +67,13 @@ interface AuthResponse {
 - Provides `useAuth()` hook for components
 
 **Usage**:
+
 ```typescript
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from "../contexts/AuthContext";
 
 function MyComponent() {
   const { user, tenant, isAuthenticated, login, logout } = useAuth();
-  
+
   // ...
 }
 ```
@@ -73,6 +81,7 @@ function MyComponent() {
 ### 4. Updated Components
 
 #### LoginPage (`src/components/LoginPage.tsx`)
+
 - ✅ Uses `useAuth()` hook instead of demo login
 - ✅ Async form submission with error handling
 - ✅ Updated demo credentials: admin@test.com / Test123456
@@ -81,18 +90,21 @@ function MyComponent() {
 - ✅ Remember me functionality
 
 #### App.tsx (`src/App.tsx`)
+
 - ✅ Uses `useAuth()` for authentication state
 - ✅ `isAuthenticated` check instead of `isLoggedIn`
 - ✅ Calls `logout()` from context
 - ✅ AuthProvider wrapped in main.tsx
 
 #### main.tsx (`src/main.tsx`)
+
 - ✅ Wrapped App with `<AuthProvider>`
 - ✅ All child components have access to auth context
 
 ## 🔐 Authentication Flow
 
 ### Register Flow
+
 ```
 User fills form → LoginPage.register()
   → authService.register(data)
@@ -104,6 +116,7 @@ User fills form → LoginPage.register()
 ```
 
 ### Login Flow
+
 ```
 User enters credentials → LoginPage.login()
   → authService.login({ email, password })
@@ -116,6 +129,7 @@ User enters credentials → LoginPage.login()
 ```
 
 ### Logout Flow
+
 ```
 User clicks logout → App.handleLogout()
   → authContext.logout()
@@ -126,6 +140,7 @@ User clicks logout → App.handleLogout()
 ```
 
 ### Auto-Login Flow
+
 ```
 User refreshes page → AuthProvider useEffect()
   → Checks localStorage for token
@@ -137,19 +152,23 @@ User refreshes page → AuthProvider useEffect()
 ## 🚀 Running the System
 
 ### Backend (Terminal 1)
+
 ```bash
 cd /workspaces/backend
 docker-compose up -d  # Start PostgreSQL, Redis, pgAdmin
 npm run start:dev     # Start NestJS API
 ```
+
 **Access**: http://localhost:3000
 **Swagger**: http://localhost:3000/api
 
 ### Frontend (Terminal 2)
+
 ```bash
-cd /workspaces/Muhasabev2
+cd /workspaces/crm
 npm run dev
 ```
+
 **Access**: http://localhost:5174
 
 ## 🧪 Test the Integration
@@ -170,7 +189,7 @@ npm run dev
 ```json
 {
   "dependencies": {
-    "axios": "^1.7.9"  // ← NEW
+    "axios": "^1.7.9" // ← NEW
   }
 }
 ```
@@ -178,43 +197,54 @@ npm run dev
 ## 🔥 Next Steps for Full Integration
 
 ### 1. Customer Management API
+
 **Create**: `src/api/customers.ts`
+
 ```typescript
-import { apiClient } from './client';
+import { apiClient } from "./client";
 
 export const customersService = {
-  getAll: () => apiClient.get('/customers'),
+  getAll: () => apiClient.get("/customers"),
   getById: (id: string) => apiClient.get(`/customers/${id}`),
-  create: (data: any) => apiClient.post('/customers', data),
+  create: (data: any) => apiClient.post("/customers", data),
   update: (id: string, data: any) => apiClient.patch(`/customers/${id}`, data),
   delete: (id: string) => apiClient.delete(`/customers/${id}`),
 };
 ```
 
 **Update**: `src/components/CustomerList.tsx`
+
 - Replace mock data with `customersService.getAll()`
 - Use React Query or useState with useEffect
 
 ### 2. Product Management API
+
 **Create**: `src/api/products.ts`
+
 - Similar structure to customers
 - Add `getLowStock()` method
 
 ### 3. Invoice Management API
+
 **Create**: `src/api/invoices.ts`
+
 - Handle JSONB line items
 - Status filtering
 
 ### 4. Expense Management API
+
 **Create**: `src/api/expenses.ts`
+
 - Approval workflow methods
 
 ### 5. Supplier Management API
+
 **Create**: `src/api/suppliers.ts`
 
 ## �� Debugging Tips
 
 ### Token Issues
+
 ```javascript
 // Check token in console
 console.log(localStorage.getItem('auth_token'));
@@ -224,34 +254,37 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/auth/me
 ```
 
 ### Network Errors
+
 - Check if backend is running: `curl http://localhost:3000`
 - Verify CORS is enabled in NestJS (it is, in main.ts)
 - Check browser console for CORS errors
 
 ### Auto-Logout (401 Errors)
+
 - Token expired (7 days default)
 - Token invalid or tampered
 - Backend restarted and secret changed
 
 ## 📊 Current Status
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Auth Context | ✅ Complete | Provides global auth state |
-| Login API Integration | ✅ Complete | Works with backend |
-| Register API Integration | ✅ Complete | Creates user + tenant |
-| Auto-login from localStorage | ✅ Complete | Persists across refreshes |
-| Token in axios headers | ✅ Complete | Automatic via interceptor |
-| 401 redirect to login | ✅ Complete | Automatic via interceptor |
-| Customer API | 🔜 Pending | Service file not created |
-| Product API | 🔜 Pending | Service file not created |
-| Invoice API | 🔜 Pending | Service file not created |
-| Expense API | 🔜 Pending | Service file not created |
-| Supplier API | 🔜 Pending | Service file not created |
+| Feature                      | Status      | Notes                      |
+| ---------------------------- | ----------- | -------------------------- |
+| Auth Context                 | ✅ Complete | Provides global auth state |
+| Login API Integration        | ✅ Complete | Works with backend         |
+| Register API Integration     | ✅ Complete | Creates user + tenant      |
+| Auto-login from localStorage | ✅ Complete | Persists across refreshes  |
+| Token in axios headers       | ✅ Complete | Automatic via interceptor  |
+| 401 redirect to login        | ✅ Complete | Automatic via interceptor  |
+| Customer API                 | 🔜 Pending  | Service file not created   |
+| Product API                  | 🔜 Pending  | Service file not created   |
+| Invoice API                  | 🔜 Pending  | Service file not created   |
+| Expense API                  | 🔜 Pending  | Service file not created   |
+| Supplier API                 | 🔜 Pending  | Service file not created   |
 
 ## 🎯 Demo Scenario
 
 1. **First Time User**:
+
    - Open http://localhost:5174
    - Click "Ücretsiz deneme başlatın"
    - Fill registration form
@@ -260,6 +293,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/auth/me
    - Dashboard loads with empty data
 
 2. **Returning User**:
+
    - Open http://localhost:5174
    - Already sees dashboard (auto-login from localStorage)
    - Token validated on first API call

@@ -1,0 +1,22 @@
+{
+  "search.exclude": {
+    "**/node_modules/**": true,
+    "**/backend/node_modules/**": true,
+    "**/dist/**": true,
+    "**/backend/dist/**": true,
+    "**/backend/backups/**": true,
+    "**/*.db": true,
+    "**/*.zip": true,
+    "**/*.tar.gz": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/backend/node_modules/**": true,
+    "**/dist/**": true,
+    "**/backend/dist/**": true,
+    "**/backend/backups/**": true
+  },
+  "eslint.workingDirectories": [
+    { "mode": "auto" }
+  ]
+}

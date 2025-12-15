@@ -1,5 +1,8 @@
 #!/bin/bash
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$ROOT_DIR/backend"
+
 echo "🚀 Muhasabe v2 - Codespace Geliştirme Ortamı Başlatılıyor..."
 echo "=================================================="
 
@@ -19,14 +22,14 @@ sleep 2
 echo -e "${BLUE}🐳 Docker servisleri kontrol ediliyor...${NC}"
 if ! docker ps | grep -q "postgres\|redis"; then
     echo -e "${YELLOW}⚠️  Docker servisleri başlatılıyor...${NC}"
-    cd /workspaces/Muhasabev2/backend
+    cd "$BACKEND_DIR"
     docker-compose up -d
     sleep 5
 fi
 
 # Backend başlat
 echo -e "${BLUE}🔧 Backend başlatılıyor (Port 3000)...${NC}"
-cd /workspaces/Muhasabev2/backend
+cd "$BACKEND_DIR"
 
 # Dependencies check
 if [ ! -d "node_modules" ]; then
@@ -52,7 +55,7 @@ fi
 
 # Frontend başlat
 echo -e "${BLUE}🎨 Frontend başlatılıyor (Port 5173)...${NC}"
-cd /workspaces/Muhasabev2
+cd "$ROOT_DIR"
 
 # Dependencies check
 if [ ! -d "node_modules" ]; then

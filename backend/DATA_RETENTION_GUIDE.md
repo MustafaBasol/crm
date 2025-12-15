@@ -25,7 +25,9 @@ The retention policies are defined in `/backend/config/retention.json`:
       "retentionPeriod": "Human readable period",
       "retentionDays": 365,
       "categories": ["table1", "table2"],
-      "conditions": { /* Custom conditions */ },
+      "conditions": {
+        /* Custom conditions */
+      },
       "legalHold": false
     }
   }
@@ -55,7 +57,7 @@ npm run cron:retention:execute
 
 ```bash
 # Change to backend directory
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 
 # Dry run to see what would be purged
 npm run cron:retention
@@ -69,28 +71,33 @@ npm run cron:retention:execute
 ### System Cron Setup
 
 1. Edit the system crontab:
+
 ```bash
 sudo crontab -e
 ```
 
 2. Add monthly retention job (runs on 1st of each month at 2 AM):
+
 ```bash
-0 2 1 * * cd /workspaces/Muhasabev2/backend && npm run cron:retention:execute > /var/log/data-retention.log 2>&1
+0 2 1 * * cd /workspaces/crm/backend && npm run cron:retention:execute > /var/log/data-retention.log 2>&1
 ```
 
 3. Add weekly dry-run for monitoring (runs every Sunday at 1 AM):
+
 ```bash
-0 1 * * 0 cd /workspaces/Muhasabev2/backend && npm run cron:retention > /var/log/data-retention-dry.log 2>&1
+0 1 * * 0 cd /workspaces/crm/backend && npm run cron:retention > /var/log/data-retention-dry.log 2>&1
 ```
 
 ### Systemd Timer Setup (Recommended)
 
 1. Create service file:
+
 ```bash
 sudo nano /etc/systemd/system/data-retention.service
 ```
 
 Content:
+
 ```ini
 [Unit]
 Description=Data Retention and Purge Job
@@ -99,7 +106,7 @@ After=network.target
 [Service]
 Type=oneshot
 User=your-user
-WorkingDirectory=/workspaces/Muhasabev2/backend
+WorkingDirectory=/workspaces/crm/backend
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/npm run cron:retention:execute
 StandardOutput=journal
@@ -107,11 +114,13 @@ StandardError=journal
 ```
 
 2. Create timer file:
+
 ```bash
 sudo nano /etc/systemd/system/data-retention.timer
 ```
 
 Content:
+
 ```ini
 [Unit]
 Description=Run Data Retention Job Monthly
@@ -126,6 +135,7 @@ WantedBy=timers.target
 ```
 
 3. Enable and start the timer:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable data-retention.timer
@@ -133,6 +143,7 @@ sudo systemctl start data-retention.timer
 ```
 
 4. Check timer status:
+
 ```bash
 sudo systemctl status data-retention.timer
 sudo systemctl list-timers data-retention.timer
@@ -163,6 +174,7 @@ services:
 ```
 
 Run manually:
+
 ```bash
 docker-compose --profile cron run --rm retention-job
 ```
@@ -175,28 +187,28 @@ kind: CronJob
 metadata:
   name: data-retention-job
 spec:
-  schedule: "0 2 1 * *"  # Monthly at 2 AM
+  schedule: '0 2 1 * *' # Monthly at 2 AM
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: retention-job
-            image: your-app:latest
-            command: ["npm", "run", "cron:retention:execute"]
-            env:
-            - name: DATABASE_HOST
-              value: "postgres-service"
-            - name: DATABASE_USER
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: username
-            - name: DATABASE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: password
+            - name: retention-job
+              image: your-app:latest
+              command: ['npm', 'run', 'cron:retention:execute']
+              env:
+                - name: DATABASE_HOST
+                  value: 'postgres-service'
+                - name: DATABASE_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: username
+                - name: DATABASE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: password
           restartPolicy: OnFailure
 ```
 
@@ -219,6 +231,7 @@ spec:
 ### Alerting Setup
 
 Create alerts for:
+
 - Job failures or errors
 - Unexpectedly high purge counts
 - Job not running on schedule
@@ -240,11 +253,13 @@ Create alerts for:
 Before running in production:
 
 1. **Backup Database**: Always backup before purging
+
 ```bash
 npm run backup
 ```
 
 2. **Test with Dry Run**: Always run dry-run first
+
 ```bash
 npm run cron:retention
 ```
@@ -257,7 +272,7 @@ npm run cron:retention
 ### Common Issues
 
 1. **Database Connection Failed**
-   - Check DATABASE_* environment variables
+   - Check DATABASE\_\* environment variables
    - Verify database is running and accessible
    - Check network connectivity
 
@@ -278,6 +293,7 @@ npm run cron:retention
 ### Debug Mode
 
 Run with debug output:
+
 ```bash
 DEBUG=* npm run cron:retention
 ```
@@ -285,15 +301,16 @@ DEBUG=* npm run cron:retention
 ### Manual Database Queries
 
 Check eligible records manually:
+
 ```sql
 -- Audit logs older than 9 months
-SELECT COUNT(*) FROM audit_log 
+SELECT COUNT(*) FROM audit_log
 WHERE created_at < NOW() - INTERVAL '9 months';
 
 -- Expired tenants
-SELECT id, name, status, updated_at 
-FROM tenants 
-WHERE status IN ('EXPIRED', 'SUSPENDED') 
+SELECT id, name, status, updated_at
+FROM tenants
+WHERE status IN ('EXPIRED', 'SUSPENDED')
 AND updated_at < NOW() - INTERVAL '12 months';
 ```
 
@@ -303,9 +320,11 @@ AND updated_at < NOW() - INTERVAL '12 months';
 
 1. **Stop All Operations**: Immediately stop any running retention jobs
 2. **Restore from Backup**: Use the most recent backup before the deletion
+
 ```bash
 npm run restore
 ```
+
 3. **Verify Data Integrity**: Check that restored data is complete
 4. **Review Logs**: Examine audit logs to understand what was deleted
 5. **Update Configuration**: Fix any misconfigured retention policies
@@ -313,9 +332,10 @@ npm run restore
 ### Audit Trail Recovery
 
 All purge operations are logged in the `audit_log` table:
+
 ```sql
-SELECT * FROM audit_log 
-WHERE entity = 'data_retention' 
+SELECT * FROM audit_log
+WHERE entity = 'data_retention'
 ORDER BY created_at DESC;
 ```
 
@@ -332,6 +352,7 @@ ORDER BY created_at DESC;
 ### Scaling for Large Datasets
 
 For databases with millions of records:
+
 1. Consider running retention job more frequently with smaller batches
 2. Use database-specific optimization (PostgreSQL VACUUM, etc.)
 3. Monitor and alert on job execution time

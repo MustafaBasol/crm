@@ -15,7 +15,7 @@
 ### Kullanım
 
 ```bash
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 
 # Arka planda başlat (varsayılan: her gün 03:00)
 npm run backup:auto &
@@ -88,7 +88,7 @@ docker exec moneyflow-backup cat /etc/crontabs/root
 ```yaml
 postgres-backup:
   environment:
-    CRON_SCHEDULE: "0 3 * * *"  # Her gün 03:00
+    CRON_SCHEDULE: '0 3 * * *' # Her gün 03:00
     # CRON_SCHEDULE: "0 */6 * * *"  # Her 6 saatte bir
     # CRON_SCHEDULE: "0 */1 * * *"  # Her saat
 ```
@@ -169,7 +169,7 @@ sudo systemctl daemon-reload
 ### Kurulum
 
 ```bash
-cd /workspaces/Muhasabev2
+cd /workspaces/crm
 
 # Workflow dosyası oluştur
 ./backend/generate-github-workflow.sh > .github/workflows/database-backup.yml
@@ -208,33 +208,36 @@ GitHub repository → Actions → Database Backup → Run workflow
 
 ## 📊 Karşılaştırma Tablosu
 
-| Özellik | Codespace Scheduler | Docker Container | Systemd Service | GitHub Actions |
-|---------|-------------------|------------------|----------------|----------------|
-| **Kolay Kurulum** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| **Güvenilirlik** | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| **Production Uygunluğu** | ❌ | ✅ | ✅ | ✅ |
-| **Otomatik Başlatma** | ❌ | ✅ | ✅ | ✅ |
-| **Cloud Backup** | ❌ | ❌ | ❌ | ✅ |
-| **Bildirim** | ❌ | ❌ | ⚠️ | ✅ |
-| **Log Yönetimi** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| Özellik                  | Codespace Scheduler | Docker Container | Systemd Service | GitHub Actions |
+| ------------------------ | ------------------- | ---------------- | --------------- | -------------- |
+| **Kolay Kurulum**        | ⭐⭐⭐⭐⭐          | ⭐⭐⭐⭐         | ⭐⭐⭐          | ⭐⭐           |
+| **Güvenilirlik**         | ⭐⭐                | ⭐⭐⭐⭐⭐       | ⭐⭐⭐⭐⭐      | ⭐⭐⭐⭐       |
+| **Production Uygunluğu** | ❌                  | ✅               | ✅              | ✅             |
+| **Otomatik Başlatma**    | ❌                  | ✅               | ✅              | ✅             |
+| **Cloud Backup**         | ❌                  | ❌               | ❌              | ✅             |
+| **Bildirim**             | ❌                  | ❌               | ⚠️              | ✅             |
+| **Log Yönetimi**         | ⭐⭐⭐              | ⭐⭐⭐⭐         | ⭐⭐⭐⭐⭐      | ⭐⭐⭐⭐       |
 
 ---
 
 ## 🎯 Öneriler
 
 ### Development (Codespace)
+
 ```bash
 # Basit scheduler yeterli
 npm run backup:auto &
 ```
 
 ### Production (Küçük/Orta Ölçek)
+
 ```bash
 # Docker container (en kolay)
 docker-compose -f docker-compose.production.yml up -d
 ```
 
 ### Production (Büyük Ölçek)
+
 ```bash
 # Systemd + GitHub Actions
 sudo ./install-backup-service.sh
@@ -242,9 +245,10 @@ sudo ./install-backup-service.sh
 ```
 
 ### Production (Enterprise)
+
 - Managed Database Backup (AWS RDS, Google Cloud SQL)
-- + Docker Container (ek güvenlik)
-- + GitHub Actions (offsite backup)
+- - Docker Container (ek güvenlik)
+- - GitHub Actions (offsite backup)
 
 ---
 

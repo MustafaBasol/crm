@@ -32,7 +32,8 @@ const FiscalPeriodsPage: React.FC = () => {
   const loadPeriods = async () => {
     try {
       const response = await apiClient.get('/fiscal-periods');
-      setPeriods(response.data);
+      const payload = response.data;
+      setPeriods(Array.isArray(payload) ? payload : []);
     } catch (error) {
       console.error('Dönemler yüklenemedi:', error);
     } finally {

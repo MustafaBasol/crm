@@ -1,6 +1,9 @@
 #!/bin/bash
 # Güvenli başlatma scripti - Verilerinizi korur
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$ROOT_DIR/backend"
+
 echo "🚀 Muhasebe Uygulaması Başlatılıyor..."
 echo ""
 
@@ -8,7 +11,7 @@ echo ""
 echo "📦 Docker servisleri kontrol ediliyor..."
 if ! docker ps | grep -q moneyflow-db; then
     echo "🔄 PostgreSQL başlatılıyor..."
-    cd /workspaces/Muhasabev2/backend
+    cd "$BACKEND_DIR"
     docker-compose up -d postgres redis
     sleep 5
 else
@@ -18,14 +21,14 @@ fi
 # 2. Backend'i başlat
 echo "🔧 Backend başlatılıyor..."
 pkill -f 'nest start' 2>/dev/null
-cd /workspaces/Muhasabev2/backend
+cd "$BACKEND_DIR"
 npm run start:dev > /tmp/backend.log 2>&1 &
 sleep 8
 
 # 3. Frontend'i başlat
 echo "🎨 Frontend başlatılıyor..."
 pkill -f 'vite' 2>/dev/null
-cd /workspaces/Muhasabev2
+cd "$ROOT_DIR"
 npm run dev > /tmp/frontend.log 2>&1 &
 sleep 5
 

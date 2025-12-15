@@ -1,7 +1,8 @@
 #!/bin/bash
 # Hızlı veritabanı yedekleme scripti
 
-BACKUP_DIR="/workspaces/Muhasabev2/backups"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_DIR="$ROOT_DIR/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/moneyflow_backup_$DATE.sql"
 

@@ -95,6 +95,7 @@ import ArchivePage from "./components/ArchivePage";
 import GeneralLedger from "./components/GeneralLedger";
 import SimpleSalesPage from "./components/SimpleSalesPage";
 import QuotesPage from "./components/QuotesPage";
+import CrmPipelineBoardPage from "./components/crm/CrmPipelineBoardPage";
 import QuoteCreateModal, { type QuoteCreatePayload } from "./components/QuoteCreateModal";
 import FiscalPeriodsWidget from "./components/FiscalPeriodsWidget";
 import LoginPage from "./components/LoginPage";
@@ -319,6 +320,7 @@ const HASH_SYNC_PAGES = [
   'suppliers',
   'banks',
   'sales',
+  'crm-pipeline',
   'quotes',
   'reports',
   'general-ledger',
@@ -5402,6 +5404,8 @@ const AppContent: React.FC = () => {
             onDeleteSale={(id) => requestDeleteSale(String(id))}
           />
         );
+      case "crm-pipeline":
+        return <CrmPipelineBoardPage />;
       case "quotes":
         return <QuotesPage customers={customers} products={products} />;
       case "reports":

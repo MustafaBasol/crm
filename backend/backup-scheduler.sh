@@ -3,8 +3,9 @@
 # Otomatik Backup Scheduler
 # Cron job gibi çalışır, her gün belirtilen saatte backup alır
 
-BACKUP_SCRIPT="/workspaces/Muhasabev2/backend/backup-db.sh"
-BACKUP_DIR="/workspaces/Muhasabev2/backend/backups"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_SCRIPT="$SCRIPT_DIR/backup-db.sh"
+BACKUP_DIR="$SCRIPT_DIR/backups"
 LOG_FILE="/tmp/backup-scheduler.log"
 
 # Varsayılan: Her gün saat 03:00'te backup al
@@ -37,7 +38,7 @@ while true; do
                 
                 # Git'e commit et (opsiyonel)
                 if [ "$AUTO_GIT_COMMIT" = "true" ]; then
-                    cd /workspaces/Muhasabev2
+                    cd "$(cd "$SCRIPT_DIR/.." && pwd)"
                     git add backend/backups/*.sql
                     git commit -m "Automated backup: $(date '+%Y-%m-%d %H:%M')" >> "$LOG_FILE" 2>&1 || true
                     echo "[$(date '+%Y-%m-%d %H:%M:%S')] 📤 Backup Git'e commit edildi" | tee -a "$LOG_FILE"

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Renkli output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -13,7 +15,7 @@ echo "╚═══════════════════════�
 echo -e "${NC}\n"
 
 # Servisleri başlat
-/workspaces/Muhasabev2/start-all.sh
+"$ROOT_DIR/start-all.sh"
 
 echo -e "\n${GREEN}════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}✨ Sistem hazır! Artık kodlama yapabilirsiniz! ✨${NC}"

@@ -3,14 +3,16 @@
 ## ✅ Completed Implementation
 
 ### 1. Retention Policy Configuration
+
 - **File**: `/backend/config/retention.json`
 - **Policies Implemented**:
   - `account_basic`: 12 months after tenant closure (customers, suppliers, products)
-  - `logs`: 9 months retention for audit logs  
+  - `logs`: 9 months retention for audit logs
   - `backups`: 30 days retention for backup files
   - `accounting_docs`: 10 years legal hold (invoices, expenses, fiscal periods)
 
 ### 2. Retention Job Script
+
 - **File**: `/backend/scripts/data-retention.ts`
 - **Features**:
   - ✅ Dry-run mode by default (prints counts without deleting)
@@ -22,6 +24,7 @@
   - ✅ Comprehensive reporting and logging
 
 ### 3. NPM Scripts
+
 - **Added to package.json**:
   - `npm run cron:retention` - Dry-run mode (default)
   - `npm run cron:retention:dry` - Explicit dry-run
@@ -29,6 +32,7 @@
   - `npm run test:retention` - Test data setup/validation
 
 ### 4. Documentation
+
 - **File**: `/backend/DATA_RETENTION_GUIDE.md`
 - **Covers**:
   - Configuration management
@@ -41,6 +45,7 @@
   - Compliance and legal considerations
 
 ### 5. Test Framework
+
 - **File**: `/backend/scripts/test-retention-setup.ts`
 - **Capabilities**:
   - Create test data with different ages
@@ -51,6 +56,7 @@
 ## 🧪 Testing Results
 
 ### Test Execution Summary
+
 1. **Created test data**: Old audit logs (10 months) + Recent audit logs (1 month) + Expired tenant
 2. **Dry-run validation**: ✅ Detected 1 eligible record for purge, 0 would be purged (dry-run)
 3. **Live execution**: ✅ Successfully purged 1 old audit log
@@ -58,6 +64,7 @@
 5. **Audit trail**: ✅ All actions logged to audit_log table
 
 ### Safety Features Validated
+
 - ✅ **Dry-run default**: Always shows what would be deleted first
 - ✅ **Legal hold protection**: Automatically skipped accounting documents
 - ✅ **Force flag requirement**: Prevents accidental live execution
@@ -68,6 +75,7 @@
 ## 📋 Usage Examples
 
 ### Daily Operations
+
 ```bash
 # Check what would be purged (safe)
 npm run cron:retention
@@ -77,15 +85,17 @@ npm run cron:retention:execute
 ```
 
 ### Scheduling (Production)
+
 ```bash
 # Crontab entry - monthly at 2 AM
-0 2 1 * * cd /workspaces/Muhasabev2/backend && npm run cron:retention:execute
+0 2 1 * * cd /workspaces/crm/backend && npm run cron:retention:execute
 
 # Or use systemd timer (recommended)
 sudo systemctl enable data-retention.timer
 ```
 
 ### Monitoring
+
 ```bash
 # Check audit trail
 SELECT * FROM audit_log WHERE entity = 'data_retention' ORDER BY created_at DESC;
@@ -97,12 +107,14 @@ SELECT COUNT(*) FROM audit_log WHERE created_at < NOW() - INTERVAL '9 months';
 ## 🛡️ Compliance Features
 
 ### Legal Requirements Met
+
 - ✅ **10-year retention**: Accounting documents protected by legal hold
 - ✅ **GDPR compliance**: Personal data purged per retention policies
 - ✅ **Audit trail**: Complete record of all retention decisions
 - ✅ **Data minimization**: Automatic purging of expired data
 
 ### Safety Mechanisms
+
 - ✅ **Multi-layer protection**: Dry-run + force flags + legal hold
 - ✅ **Reversible actions**: Audit trail enables investigation
 - ✅ **Batch limits**: Prevents accidental mass deletion

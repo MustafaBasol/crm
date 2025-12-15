@@ -14,15 +14,18 @@ Bu doküman, Muhasabev2 projesini GitHub Codespaces'te ilk kez açtığınızda 
 ### 1️⃣ Docker Container'ları Başlatın
 
 ```bash
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 docker-compose up -d
 ```
 
 **Kontrol:**
+
 ```bash
 docker ps
 ```
+
 Çıktıda şunları görmelisiniz:
+
 - `moneyflow-db` (PostgreSQL)
 - `moneyflow-redis` (Redis)
 - `moneyflow-pgadmin` (pgAdmin)
@@ -34,12 +37,13 @@ docker ps
 **Yeni terminal açın ve:**
 
 ```bash
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 npm install  # İlk kez için gerekli
 npm run start:dev
 ```
 
 **Başarılı başlatma çıktısı:**
+
 ```
 🚀 Application is running on: https://glorious-couscous-xxxxx-3002.app.github.dev
 📚 Swagger documentation: https://glorious-couscous-xxxxx-3002.app.github.dev/api
@@ -55,12 +59,13 @@ npm run start:dev
 **Başka bir terminal açın ve:**
 
 ```bash
-cd /workspaces/Muhasabev2
+cd /workspaces/crm
 npm install  # İlk kez için gerekli
 npm run dev
 ```
 
 **Başarılı başlatma çıktısı:**
+
 ```
 VITE v7.1.10  ready in XXX ms
 
@@ -75,17 +80,19 @@ VITE v7.1.10  ready in XXX ms
 Backend e2e testi artık SQLite yerine gerçek Postgres veritabanı üzerinde koşturulur.
 
 1. `backend/docker-compose.yml` içindeki PostgreSQL servisini çalıştırın:
+
    ```bash
-   cd /workspaces/Muhasabev2/backend
+   cd /workspaces/crm/backend
    docker-compose up -d postgres
    ```
+
    > `start-safe.sh` scriptini çalıştırdıysanız bu adım otomatik yapılmış olur.
 
 2. İsteğe bağlı olarak `backend/.env.test` dosyası oluşturup Codespace içindeki Postgres erişim bilgilerini (`TEST_DATABASE_HOST`, `TEST_DATABASE_PORT=5433`, vb.) belirleyin. Dosya yoksa `.env` değerleri kullanılır.
 
 3. E2E testlerini başlatın:
    ```bash
-   cd /workspaces/Muhasabev2/backend
+   cd /workspaces/crm/backend
    npm run test:e2e
    ```
 
@@ -115,6 +122,7 @@ Tarayıcınızda: `http://localhost:5174/` adresini açın.
 ### API İletişim Kontrolü
 
 Frontend açıldığında tarayıcı konsolunda şunları görmeli:
+
 ```
 📤 API Request: GET /customers
 Received Response from the Target: 200 /customers
@@ -145,7 +153,7 @@ proxy: {
 
 ```typescript
 const port = 3002;
-const host = '0.0.0.0';  // ✅ Tüm interface'lerde dinle
+const host = "0.0.0.0"; // ✅ Tüm interface'lerde dinle
 await app.listen(port, host);
 ```
 
@@ -156,6 +164,7 @@ await app.listen(port, host);
 ### ❌ Problem 1: CORS / Authentication Redirect Hataları
 
 **Belirti:**
+
 ```
 Access to XMLHttpRequest at 'https://github.dev/pf-signin?...' has been blocked by CORS policy
 ```
@@ -164,21 +173,24 @@ Access to XMLHttpRequest at 'https://github.dev/pf-signin?...' has been blocked 
 `vite.config.ts` dosyasında proxy target'ı kontrol edin:
 
 ```bash
-cd /workspaces/Muhasabev2
+cd /workspaces/crm
 cat vite.config.ts | grep target
 ```
 
 **Yanlış yapılandırma:**
+
 ```typescript
 target: 'https://glorious-couscous-xxxxx-3002.app.github.dev',  // ❌ YANLIŞ
 ```
 
 **Doğru yapılandırma:**
+
 ```typescript
 target: 'http://localhost:3002',  // ✅ DOĞRU
 ```
 
 **Düzeltme:**
+
 1. `vite.config.ts` dosyasını açın
 2. `target` değerini `'http://localhost:3002'` olarak değiştirin
 3. Frontend'i yeniden başlatın (`Ctrl+C` ile durdurup `npm run dev`)
@@ -188,6 +200,7 @@ target: 'http://localhost:3002',  // ✅ DOĞRU
 ### ❌ Problem 2: Backend Port'ta Dinlemiyor
 
 **Belirti:**
+
 ```bash
 curl: (7) Failed to connect to localhost port 3002
 ```
@@ -195,17 +208,20 @@ curl: (7) Failed to connect to localhost port 3002
 **Çözüm:**
 
 1. Backend process'ini kontrol edin:
+
 ```bash
 ps aux | grep "nest"
 ```
 
 2. Process yoksa yeniden başlatın:
+
 ```bash
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 npm run start:dev
 ```
 
 3. Port'u dinlediğini doğrulayın:
+
 ```bash
 lsof -i :3002
 ```
@@ -215,6 +231,7 @@ lsof -i :3002
 ### ❌ Problem 3: Docker Container'lar Çalışmıyor
 
 **Belirti:**
+
 ```
 TypeORM connection error
 ```
@@ -222,18 +239,21 @@ TypeORM connection error
 **Çözüm:**
 
 1. Container durumunu kontrol edin:
+
 ```bash
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 docker ps -a
 ```
 
 2. Durdurulmuş container'ları başlatın:
+
 ```bash
 docker-compose down
 docker-compose up -d
 ```
 
 3. Logları kontrol edin:
+
 ```bash
 docker logs moneyflow-db
 ```
@@ -243,6 +263,7 @@ docker logs moneyflow-db
 ### ❌ Problem 4: Port Çakışması
 
 **Belirti:**
+
 ```
 Error: listen EADDRINUSE: address already in use :::3002
 ```
@@ -250,11 +271,13 @@ Error: listen EADDRINUSE: address already in use :::3002
 **Çözüm:**
 
 1. Port'u kullanan process'i bulun:
+
 ```bash
 lsof -ti:3002
 ```
 
 2. Process'i sonlandırın:
+
 ```bash
 kill -9 $(lsof -ti:3002)
 ```
@@ -268,21 +291,24 @@ kill -9 $(lsof -ti:3002)
 Codespace'i kapatıp tekrar açtıktan sonra:
 
 1. **Docker container'ları kontrol edin:**
+
    ```bash
-   cd /workspaces/Muhasabev2/backend
+   cd /workspaces/crm/backend
    docker ps
    ```
+
    Çalışmıyorlarsa: `docker-compose up -d`
 
 2. **Backend'i başlatın:**
+
    ```bash
-   cd /workspaces/Muhasabev2/backend
+   cd /workspaces/crm/backend
    npm run start:dev
    ```
 
 3. **Frontend'i başlatın:**
    ```bash
-   cd /workspaces/Muhasabev2
+   cd /workspaces/crm
    npm run dev
    ```
 
@@ -300,7 +326,7 @@ pkill -f "vite"
 pkill -f "nest"
 
 # Docker'ı durdur
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 docker-compose down
 ```
 
@@ -310,18 +336,18 @@ docker-compose down
 # 1. Her şeyi durdur
 pkill -f "vite"
 pkill -f "nest"
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 docker-compose down
 
 # 2. Docker'ı başlat
 docker-compose up -d
 
 # 3. Backend'i başlat (yeni terminal)
-cd /workspaces/Muhasabev2/backend
+cd /workspaces/crm/backend
 npm run start:dev
 
 # 4. Frontend'i başlat (yeni terminal)
-cd /workspaces/Muhasabev2
+cd /workspaces/crm
 npm run dev
 ```
 
@@ -331,12 +357,14 @@ npm run dev
 Backend terminalinde zaten görünür, ek komut gerekmez.
 
 **Docker PostgreSQL:**
+
 ```bash
 docker logs -f moneyflow-db
 ```
 
 **Frontend Proxy:**
 Frontend terminalinde otomatik olarak görünür:
+
 ```
 Sending Request to the Target: GET /products
 Received Response from the Target: 200 /products
@@ -347,6 +375,7 @@ Received Response from the Target: 200 /products
 ## 📊 Sağlıklı Sistem Çıktısı
 
 ### Backend Terminal:
+
 ```
 [Nest] 42511  - 10/21/2025, 9:50:21 AM     LOG [NestApplication] Nest application successfully started +4ms
 🚀 Application is running on: https://glorious-couscous-447rvgqpxx63xjr-3002.app.github.dev
@@ -355,6 +384,7 @@ Received Response from the Target: 200 /products
 ```
 
 ### Frontend Terminal:
+
 ```
 VITE v7.1.10  ready in 256 ms
 
@@ -364,6 +394,7 @@ Received Response from the Target: 200 /customers
 ```
 
 ### Tarayıcı Konsolu:
+
 ```
 🚀 MoneyFlow uygulaması başlatılıyor...
 ✅ Root element bulundu, uygulama render ediliyor...
@@ -410,6 +441,7 @@ Sorun yaşarsanız:
 Bu doküman: **21 Ekim 2025** tarihinde oluşturulmuştur.
 
 **Mimari:**
+
 - Frontend: Vite + React + TypeScript (Port 5174)
 - Backend: NestJS + TypeORM (Port 3002)
 - Database: PostgreSQL (Port 5432)

@@ -5,9 +5,12 @@
 
 set -e
 
-BACKUP_DIR="/workspaces/Muhasabev2/backend/backups"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_DIR="$SCRIPT_DIR/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/moneyflow_backup_$TIMESTAMP.sql"
+
+mkdir -p "$BACKUP_DIR"
 
 echo "📦 Veritabanı yedekleniyor..."
 

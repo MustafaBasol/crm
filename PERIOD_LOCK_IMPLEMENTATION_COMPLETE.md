@@ -9,6 +9,7 @@ Period lock ve soft-delete functionality'si muhasebe kayıtları için başarıy
 ### 1. 🏗️ Database Schema Değişiklikleri
 
 #### Fiscal Periods Tablosu
+
 ```sql
 CREATE TABLE fiscal_periods (
     id UUID PRIMARY KEY,
@@ -26,6 +27,7 @@ CREATE TABLE fiscal_periods (
 ```
 
 #### Soft Delete Columns
+
 - `invoices` ve `expenses` tablolarına eklendi:
   - `is_voided BOOLEAN DEFAULT FALSE`
   - `void_reason TEXT NULL`
@@ -35,6 +37,7 @@ CREATE TABLE fiscal_periods (
 ### 2. 🔧 Backend Services
 
 #### FiscalPeriodsService
+
 - ✅ `create()` - Yeni fiscal period oluşturma
 - ✅ `findAll()` - Tüm period'ları listeleme
 - ✅ `lockPeriod()` - Period'u kilitleme
@@ -43,12 +46,14 @@ CREATE TABLE fiscal_periods (
 - ✅ `getLockedPeriodForDate()` - Kilitli period bulma
 
 #### InvoicesService Updates
+
 - ✅ `findAll()` - Sadece voided olmayan kayıtlar
 - ✅ `findOne()` - includeVoided parametresi
 - ✅ `voidInvoice()` - Soft delete işlemi
 - ✅ `restoreInvoice()` - Restore işlemi
 
 #### ExpensesService Updates
+
 - ✅ `findAll()` - Sadece voided olmayan kayıtlar
 - ✅ `findOne()` - includeVoided parametresi
 - ✅ `voidExpense()` - Soft delete işlemi
@@ -57,6 +62,7 @@ CREATE TABLE fiscal_periods (
 ### 3. 🛡️ Guards ve Güvenlik
 
 #### PeriodLockGuard
+
 - ✅ Create/Update/Delete operasyonlarını kontrol eder
 - ✅ Request body'den tarih bilgisini otomatik çıkarır
 - ✅ Kilitli dönemlerde işlem yapılmasını engeller
@@ -65,6 +71,7 @@ CREATE TABLE fiscal_periods (
 ### 4. 🔌 API Endpoints
 
 #### Fiscal Periods
+
 - ✅ `GET /fiscal-periods` - Period listesi
 - ✅ `POST /fiscal-periods` - Yeni period
 - ✅ `GET /fiscal-periods/:id` - Period detayı
@@ -73,12 +80,14 @@ CREATE TABLE fiscal_periods (
 - ✅ `DELETE /fiscal-periods/:id` - Period sil
 
 #### Soft Delete Operations
+
 - ✅ `PATCH /invoices/:id/void` - Fatura iptal
 - ✅ `PATCH /invoices/:id/restore` - Fatura restore
 - ✅ `PATCH /expenses/:id/void` - Gider iptal
 - ✅ `PATCH /expenses/:id/restore` - Gider restore
 
 ### 5. 🔍 Guard Entegrasyonu
+
 - ✅ Invoice Create/Update/Delete endpoints'lerine PeriodLockGuard
 - ✅ Expense Create/Update/Delete endpoints'lerine PeriodLockGuard
 - ✅ Otomatik tarih çıkarma (invoiceDate, expenseDate, date fields)
@@ -86,6 +95,7 @@ CREATE TABLE fiscal_periods (
 ## 🎯 Kullanım Senaryoları
 
 ### Fiscal Period Management
+
 ```javascript
 // Yeni dönem oluştur
 POST /fiscal-periods
@@ -103,6 +113,7 @@ PATCH /fiscal-periods/:id/lock
 ```
 
 ### Soft Delete Operations
+
 ```javascript
 // Faturayı iptal et
 PATCH /invoices/:id/void
@@ -115,6 +126,7 @@ PATCH /invoices/:id/restore
 ```
 
 ### Period Lock Protection
+
 ```javascript
 // Kilitli döneme fatura eklemeye çalış
 POST /invoices
@@ -138,6 +150,7 @@ POST /invoices
 ## 📊 Audit Integration
 
 Tüm period lock ve soft delete operasyonları audit log'a kaydedilir:
+
 - Period lock/unlock işlemleri
 - Void/restore operasyonları
 - Kilitli dönemde engellenen işlemler
@@ -153,26 +166,33 @@ Tüm period lock ve soft delete operasyonları audit log'a kaydedilir:
 ## 📁 Yeni Dosyalar
 
 ### Entities
+
 - `/backend/src/fiscal-periods/entities/fiscal-period.entity.ts`
 
 ### Services
+
 - `/backend/src/fiscal-periods/fiscal-periods.service.ts`
 
 ### Controllers
+
 - `/backend/src/fiscal-periods/fiscal-periods.controller.ts`
 
 ### Modules
+
 - `/backend/src/fiscal-periods/fiscal-periods.module.ts`
 - `/backend/src/common/common.module.ts`
 
 ### Guards
+
 - `/backend/src/common/guards/period-lock.guard.ts`
 
 ### Migrations
+
 - `/backend/src/migrations/1730282400000-AddFiscalPeriodsAndSoftDelete.ts`
 
 ### Test Files
-- `/workspaces/Muhasabev2/test-period-lock.html`
+
+- `/workspaces/crm/test-period-lock.html`
 
 ## 🚀 Deployment Status
 
@@ -186,6 +206,7 @@ Tüm period lock ve soft delete operasyonları audit log'a kaydedilir:
 ## 🔧 Configuration
 
 Environment variables:
+
 - Database connection already configured
 - No additional config needed
 - Auto-loading entities enabled
@@ -204,5 +225,5 @@ Environment variables:
 
 Period lock ve soft-delete functionality'si tam olarak tamamlandı ve production'a hazır durumda. Tüm API endpoints test edilebilir ve güvenlik kontrolleri aktif durumda.
 
-**Test URL**: `/workspaces/Muhasabev2/test-period-lock.html`
+**Test URL**: `/workspaces/crm/test-period-lock.html`
 **API Base**: `https://damp-wraith-7q9x5r7j6qrcgg6-3000.app.github.dev`

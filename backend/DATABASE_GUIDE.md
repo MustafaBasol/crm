@@ -22,18 +22,21 @@ npm run seed:demo
 ### ❓ Verilerim Nerede Saklanıyor?
 
 **Development (Docker Volumes):**
+
 - PostgreSQL: Docker volume `backend_postgres_data`
 - Redis: Docker volume `backend_redis_data`
 
 **⚠️ ÖNEMLİ:** Docker container silinirse veriler de silinir!
 
 **Staging (Codespace /workspaces):**
-- PostgreSQL: `/workspaces/Muhasabev2/.data/postgres`
-- Redis: `/workspaces/Muhasabev2/.data/redis`
+
+- PostgreSQL: `/workspaces/crm/.data/postgres`
+- Redis: `/workspaces/crm/.data/redis`
 
 **✅ AVANTAJ:** `/workspaces` klasörü Codespace'de kalıcıdır!
 
 **Production (Host Filesystem):**
+
 - PostgreSQL: `/var/lib/postgresql/data`
 - Redis: `/var/lib/redis`
 - Backups: `./backend/backups/`
@@ -52,6 +55,7 @@ cd backend
 ```
 
 **Çıktı:**
+
 ```
 ✅ Backup başarılı!
 📄 Dosya: backups/moneyflow_backup_20251026_115705.sql
@@ -87,6 +91,7 @@ docker-compose up -d
 ```
 
 **Özellikler:**
+
 - ✅ Hızlı başlatma
 - ✅ Kolay geliştirme
 - ❌ Veriler kalıcı değil (container silinirse gider)
@@ -99,6 +104,7 @@ docker-compose -f docker-compose.staging.yml up -d
 ```
 
 **Özellikler:**
+
 - ✅ Veriler `/workspaces/` altında kalıcı
 - ✅ Codespace yeniden başlatılsa bile korunur
 - ✅ Container silinse bile veriler kalır
@@ -111,6 +117,7 @@ docker-compose -f docker-compose.production.yml up -d
 ```
 
 **Özellikler:**
+
 - ✅ Host filesystem'de kalıcı
 - ✅ Otomatik günlük backup
 - ✅ 30 gün backup saklama
@@ -156,12 +163,14 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ### Senaryo 1: Yeni Codespace Açtım
 
 **Seçenek A: Seed Script (Hızlı)**
+
 ```bash
 npm run seed:demo
 # 5 saniyede hazır demo veriler
 ```
 
 **Seçenek B: Backup'tan Yükle (Gerçek Veri)**
+
 ```bash
 # 1. GitHub'dan son backup'ı çek
 git pull
@@ -219,11 +228,13 @@ Production'da otomatik backup container'ı çalışır:
 - **Format:** `moneyflow_YYYYMMDD_HHMMSS.sql`
 
 **Backup'ları kontrol et:**
+
 ```bash
 ls -lh backups/
 ```
 
 **Backup'ı uzak sunucuya yükle:**
+
 ```bash
 # AWS S3
 aws s3 cp backups/ s3://my-bucket/backups/ --recursive
@@ -293,15 +304,18 @@ git pull
 ## ✅ Checklist
 
 ### Her Codespace Açışta
+
 - [ ] `./start-dev-new.sh` çalıştır
 - [ ] `npm run seed:demo` çalıştır
 - [ ] Verileri kontrol et
 
 ### Önemli Değişiklik Öncesi
+
 - [ ] `./backup-db.sh` çalıştır
 - [ ] Backup'ı Git'e commit et
 
 ### Production'a Geçmeden
+
 - [ ] `.env.production` oluştur ve güvenli şifreler kullan
 - [ ] `docker-compose.production.yml` kullan
 - [ ] Otomatik backup aktif mi kontrol et

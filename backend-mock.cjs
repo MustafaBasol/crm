@@ -1,6 +1,36 @@
 const { createServer } = require('http');
 const { URL } = require('url');
 
+const readJsonBody = (req) => new Promise((resolve) => {
+  let raw = '';
+  req.on('data', (chunk) => {
+    raw += chunk;
+    if (raw.length > 1_000_000) {
+      raw = raw.slice(0, 1_000_000);
+    }
+  });
+  req.on('end', () => {
+    if (!raw) return resolve({});
+    try {
+      resolve(JSON.parse(raw));
+    } catch {
+      resolve({});
+    }
+  });
+});
+
+const json = (res, status, payload, headers = {}) => {
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    ...headers,
+  });
+  res.end(JSON.stringify(payload));
+};
+
+const notFound = (res, path) => json(res, 404, { message: `Mock API - Route not found (${path})` });
+
+const CSRF_TOKEN = 'mock-csrf-token';
+
 const mockTenant = {
   id: 'tenant-1',
   name: 'Demo Company',
@@ -26,13 +56,125 @@ const mockTenant = {
   salesTaxNumber: 'ST987654'
 };
 
+const mockUser = {
+  id: 'user-1',
+  email: 'demo@demo.com',
+  firstName: 'Demo',
+  lastName: 'User',
+  role: 'USER',
+  tenantId: mockTenant.id,
+  isEmailVerified: true,
+  lastLoginAt: new Date().toISOString(),
+  lastLoginTimeZone: 'Europe/Istanbul',
+  lastLoginUtcOffsetMinutes: 180,
+};
+
+const mockToken = 'mock-jwt-token';
+
+const organizations = [
+  {
+    id: 'org-1',
+    name: 'Demo Organization',
+    plan: 'PRO',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+const organizationMembers = [
+  {
+    id: 'member-1',
+    user: {
+      id: mockUser.id,
+      firstName: mockUser.firstName,
+      lastName: mockUser.lastName,
+      email: mockUser.email,
+      lastLoginAt: mockUser.lastLoginAt,
+      lastLoginTimeZone: mockUser.lastLoginTimeZone,
+    },
+    role: 'OWNER',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'member-2',
+    user: {
+      id: 'user-2',
+      firstName: 'Ayşe',
+      lastName: 'Yılmaz',
+      email: 'ayse@example.com',
+      lastLoginAt: null,
+      lastLoginTimeZone: null,
+    },
+    role: 'MEMBER',
+    createdAt: new Date().toISOString(),
+  },
+];
+
+const customers = [
+  {
+    id: 'cust-1',
+    name: 'Acme A.Ş.',
+    email: 'contact@acme.com',
+    phone: '+90 212 000 0000',
+    address: 'İstanbul',
+    taxNumber: '1234567890',
+    company: 'Acme',
+    balance: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'cust-2',
+    name: 'Beta Ltd.',
+    email: 'hello@beta.com',
+    phone: '+90 216 000 0000',
+    address: 'İstanbul',
+    taxNumber: '0987654321',
+    company: 'Beta',
+    balance: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+// CRM in-memory store
+let crmPipeline = {
+  id: 'pl-1',
+  name: 'Default Pipeline',
+};
+let crmStages = [
+  { id: 'st-1', name: 'Lead', order: 1, isClosedWon: false, isClosedLost: false },
+  { id: 'st-2', name: 'Qualified', order: 2, isClosedWon: false, isClosedLost: false },
+  { id: 'st-3', name: 'Proposal', order: 3, isClosedWon: false, isClosedLost: false },
+  { id: 'st-4', name: 'Negotiation', order: 4, isClosedWon: false, isClosedLost: false },
+  { id: 'st-5', name: 'Won', order: 5, isClosedWon: true, isClosedLost: false },
+  { id: 'st-6', name: 'Lost', order: 6, isClosedWon: false, isClosedLost: true },
+];
+let crmOpportunities = [];
+
+const ensureStageExists = (stageId) => crmStages.some((s) => s.id === stageId);
+const randomId = (prefix) => `${prefix}-${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+
+const normalizePath = (pathname) => {
+  // App dev'de /api ile çağırıyor; mock'ta her iki hali de kabul edelim.
+  if (pathname.startsWith('/api/')) return pathname;
+  if (pathname === '/api') return '/api';
+  // health gibi bazı endpointler /health üzerinden gelebiliyor
+  return pathname;
+};
+
+const toApiPath = (pathname) => (pathname.startsWith('/api/') ? pathname : `/api${pathname}`);
+
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const path = normalizePath(url.pathname);
   
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // CSRF token (frontend mutating requests add X-CSRF-Token if captured)
+  res.setHeader('X-CSRF-Token', CSRF_TOKEN);
   
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
@@ -40,21 +182,206 @@ const server = createServer((req, res) => {
     return;
   }
   
-  res.setHeader('Content-Type', 'application/json');
-  
-  if (url.pathname === '/health') {
-    res.writeHead(200);
-    res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
-  } else if (url.pathname === '/tenants/current') {
-    res.writeHead(200);
-    res.end(JSON.stringify(mockTenant));
-  } else {
-    res.writeHead(404);
-    res.end(JSON.stringify({ message: 'Mock API - Route not found' }));
+  // Health (prefix'siz de gelebiliyor)
+  if (path === '/health' || path === '/api/health') {
+    return json(res, 200, { status: 'ok', timestamp: new Date().toISOString() });
   }
+  if (path === '/health/email' || path === '/api/health/email') {
+    return json(res, 200, { provider: 'mock', from: 'no-reply@example.com' });
+  }
+
+  // Tenants
+  if (path === '/tenants/current' || path === '/api/tenants/current') {
+    return json(res, 200, {
+      id: mockTenant.id,
+      name: mockTenant.name,
+      slug: mockTenant.slug,
+      subscriptionPlan: 'PRO',
+      status: 'active',
+      maxUsers: 3,
+      effectiveMaxUsers: 3,
+    });
+  }
+
+  // Auth
+  if (path === '/api/auth/login' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const email = typeof body.email === 'string' && body.email.trim() ? body.email.trim() : mockUser.email;
+      const user = { ...mockUser, email };
+      return json(res, 200, {
+        user,
+        tenant: {
+          id: mockTenant.id,
+          name: mockTenant.name,
+          slug: mockTenant.slug,
+          subscriptionPlan: 'PRO',
+          status: 'active',
+          maxUsers: 3,
+          effectiveMaxUsers: 3,
+        },
+        token: mockToken,
+      });
+    });
+  }
+  if (path === '/api/auth/me' && req.method === 'GET') {
+    return json(res, 200, {
+      user: mockUser,
+      tenant: {
+        id: mockTenant.id,
+        name: mockTenant.name,
+        slug: mockTenant.slug,
+        subscriptionPlan: 'PRO',
+        status: 'active',
+        maxUsers: 3,
+        effectiveMaxUsers: 3,
+      },
+    });
+  }
+  if ((path === '/api/auth/refresh-token' || path === '/api/auth/refresh') && req.method === 'POST') {
+    return json(res, 200, { token: mockToken, expiresIn: '15m' });
+  }
+
+  // Organizations
+  if (path === '/api/organizations' && req.method === 'GET') {
+    return json(res, 200, organizations);
+  }
+  const orgMembersMatch = path.match(/^\/api\/organizations\/([^/]+)\/members$/);
+  if (orgMembersMatch && req.method === 'GET') {
+    return json(res, 200, organizationMembers);
+  }
+  const orgInvitesMatch = path.match(/^\/api\/organizations\/([^/]+)\/invites$/);
+  if (orgInvitesMatch && req.method === 'GET') {
+    return json(res, 200, []);
+  }
+  const orgStatsMatch = path.match(/^\/api\/organizations\/([^/]+)\/membership-stats$/);
+  if (orgStatsMatch && req.method === 'GET') {
+    return json(res, 200, {
+      plan: 'PRO',
+      currentMembers: organizationMembers.length,
+      maxMembers: 3,
+      canAddMore: true,
+    });
+  }
+
+  // Customers
+  if (path === '/api/customers' && req.method === 'GET') {
+    return json(res, 200, customers);
+  }
+
+  // Fiscal periods
+  if ((path === '/api/fiscal-periods' || path === '/fiscal-periods') && req.method === 'GET') {
+    // UI listelerken array bekliyor
+    return json(res, 200, []);
+  }
+
+  // Bank accounts
+  if ((path === '/api/bank-accounts' || path === '/bank-accounts') && req.method === 'GET') {
+    // UI listelerken array bekliyor
+    return json(res, 200, []);
+  }
+
+  // CRM
+  if (path === '/api/crm/pipeline/bootstrap' && req.method === 'POST') {
+    if (!crmPipeline) {
+      crmPipeline = { id: 'pl-1', name: 'Default Pipeline' };
+    }
+    if (!Array.isArray(crmStages) || crmStages.length === 0) {
+      crmStages = [
+        { id: 'st-1', name: 'Lead', order: 1, isClosedWon: false, isClosedLost: false },
+      ];
+    }
+    return json(res, 200, { pipeline: crmPipeline, stages: crmStages });
+  }
+  if (path === '/api/crm/board' && req.method === 'GET') {
+    return json(res, 200, {
+      pipeline: crmPipeline,
+      stages: crmStages,
+      opportunities: crmOpportunities,
+    });
+  }
+  if (path === '/api/crm/opportunities' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      const accountId = typeof body.accountId === 'string' ? body.accountId : '';
+      if (!name || !accountId) {
+        return json(res, 400, { message: 'name ve accountId zorunlu' });
+      }
+      const stageId = typeof body.stageId === 'string' && ensureStageExists(body.stageId)
+        ? body.stageId
+        : (crmStages[0]?.id || 'st-1');
+      const amount = Number(body.amount || 0);
+      const currency = typeof body.currency === 'string' ? body.currency : 'TRY';
+      const expectedCloseDate = typeof body.expectedCloseDate === 'string' ? body.expectedCloseDate : null;
+      const teamUserIds = Array.isArray(body.teamUserIds) ? body.teamUserIds.filter((x) => typeof x === 'string') : [mockUser.id];
+      const opp = {
+        id: randomId('opp'),
+        name,
+        amount: Number.isFinite(amount) ? amount : 0,
+        currency,
+        stageId,
+        accountId,
+        ownerUserId: mockUser.id,
+        expectedCloseDate,
+        status: 'open',
+        teamUserIds: Array.from(new Set([mockUser.id, ...teamUserIds])),
+      };
+      crmOpportunities = [opp, ...crmOpportunities];
+      return json(res, 200, opp);
+    });
+  }
+  const crmMoveMatch = path.match(/^\/api\/crm\/opportunities\/([^/]+)\/move$/);
+  if (crmMoveMatch && req.method === 'POST') {
+    const oppId = crmMoveMatch[1];
+    return readJsonBody(req).then((body) => {
+      const stageId = typeof body.stageId === 'string' ? body.stageId : '';
+      if (!stageId || !ensureStageExists(stageId)) {
+        return json(res, 400, { message: 'stageId geçersiz' });
+      }
+      const idx = crmOpportunities.findIndex((o) => o.id === oppId);
+      if (idx < 0) return json(res, 404, { message: 'Opportunity bulunamadı' });
+      crmOpportunities[idx] = { ...crmOpportunities[idx], stageId };
+      return json(res, 200, crmOpportunities[idx]);
+    });
+  }
+  const crmTeamMatch = path.match(/^\/api\/crm\/opportunities\/([^/]+)\/team$/);
+  if (crmTeamMatch && req.method === 'POST') {
+    const oppId = crmTeamMatch[1];
+    return readJsonBody(req).then((body) => {
+      const userIds = Array.isArray(body.userIds) ? body.userIds.filter((x) => typeof x === 'string') : [];
+      const idx = crmOpportunities.findIndex((o) => o.id === oppId);
+      if (idx < 0) return json(res, 404, { message: 'Opportunity bulunamadı' });
+      crmOpportunities[idx] = { ...crmOpportunities[idx], teamUserIds: Array.from(new Set([mockUser.id, ...userIds])) };
+      return json(res, 200, crmOpportunities[idx]);
+    });
+  }
+
+  // Generic safe fallbacks for browsing UI
+  if (path.startsWith('/api/') && req.method === 'GET') {
+    // Return empty list for list-ish resources by default
+    const emptyListHints = [
+      'invoices',
+      'expenses',
+      'products',
+      'suppliers',
+      'bank-accounts',
+      'fiscal-periods',
+      'sales',
+      'reports',
+      'notifications',
+      'categories',
+      'product-categories',
+    ];
+    if (emptyListHints.some((k) => path.includes(`/${k}`))) {
+      return json(res, 200, []);
+    }
+    return json(res, 200, { ok: true });
+  }
+
+  return notFound(res, path);
 });
 
-const PORT = 3000;
+const PORT = 3001;
 server.listen(PORT, () => {
   console.log(`🚀 Mock API server running on http://localhost:${PORT}`);
+  console.log('ℹ️  Supports /api/auth/login (any email/password)');
 });

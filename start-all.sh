@@ -1,5 +1,8 @@
 #!/bin/bash
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$ROOT_DIR/backend"
+
 # Renkli output için
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -17,7 +20,7 @@ sleep 2
 
 # Backend'i başlat
 echo -e "${GREEN}🔧 Backend başlatılıyor...${NC}"
-cd /workspaces/Muhasabev2/backend
+cd "$BACKEND_DIR"
 npm run start:dev > /tmp/backend.log 2>&1 &
 BACKEND_PID=$!
 echo "Backend PID: $BACKEND_PID"
@@ -34,7 +37,7 @@ fi
 
 # Frontend'i başlat
 echo -e "${GREEN}🎨 Frontend başlatılıyor...${NC}"
-cd /workspaces/Muhasabev2
+cd "$ROOT_DIR"
 npm run dev > /tmp/frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo "Frontend PID: $FRONTEND_PID"

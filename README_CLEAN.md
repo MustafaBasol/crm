@@ -1,12 +1,12 @@
-
 ## 🛡️ İnsan Doğrulaması (Turnstile)
 
 - Kayıt (signup) formunda Cloudflare Turnstile her zaman zorunlu.
 - Giriş (login) için art arda 5 başarısız denemeden (aynı e-posta + IP) sonra captcha istenir.
 - Ortam değişkenleri:
-	- Frontend: `VITE_TURNSTILE_SITE_KEY`
-	- Backend: `TURNSTILE_SECRET_KEY`, `LOGIN_FAILED_CAPTCHA_THRESHOLD`
+  - Frontend: `VITE_TURNSTILE_SITE_KEY`
+  - Backend: `TURNSTILE_SECRET_KEY`, `LOGIN_FAILED_CAPTCHA_THRESHOLD`
 - Eksik anahtar durumunda doğrulama "fail-open" (skip + uyarı log) çalışır; üretimde mutlaka değer girin.
+
 # Comptario Muhasebe v2
 
 Modern, güvenli ve ölçeklenebilir (multi-tenant) muhasebe ve finans yönetim sistemi.
@@ -20,9 +20,14 @@ Modern, güvenli ve ölçeklenebilir (multi-tenant) muhasebe ve finans yönetim 
 - Frontend ve backend otomatik başlatılır.
 - Varsayılan giriş: `admin@test.com` / `Test123456`
 
+Alternatif (Codespaces/iki port geliştirme):
+
+- `./start-dev-new.sh` (backend: 3000, frontend: 5173)
+
 Alternatif (geliştirme):
+
 - Backend: `cd backend && npm install && npm run start:dev`
-- Frontend (dev): `npm install && npm run dev` (API URL: `VITE_API_URL=http://localhost:3002`)
+- Frontend (dev): `npm install && npm run dev` (API URL: `VITE_API_URL=http://localhost:3000`)
 
 ## 🧭 Mimarinin Özeti
 
@@ -50,7 +55,7 @@ Alternatif (geliştirme):
 - Expenses: `GET/POST /expenses`
 - Bank Accounts: `GET/POST/PATCH/DELETE /bank-accounts`
 
-Tam dokümantasyon: Swagger — `http://localhost:3002/api`
+Tam dokümantasyon: Swagger — `http://localhost:3000/api`
 
 ## 🧪 Testler
 
@@ -61,18 +66,19 @@ Tam dokümantasyon: Swagger — `http://localhost:3002/api`
 ## 🧩 Planlar ve Limitler (Starter / Pro / Business)
 
 - Starter (Free):
-	- Kullanıcı: 1
-	- Müşteri: 1, Tedarikçi: 1
-	- Banka Hesabı: 1
-	- Aylık Fatura: 5, Aylık Gider: 5
+  - Kullanıcı: 1
+  - Müşteri: 1, Tedarikçi: 1
+  - Banka Hesabı: 1
+  - Aylık Fatura: 5, Aylık Gider: 5
 - Pro (Professional):
-	- Kullanıcı: 3 dahildir (ek kullanıcılar Stripe add-on ile artar)
-	- Müşteri/Tedarikçi/Banka Hesabı: Sınırsız
-	- Aylık Fatura/Gider: Sınırsız
+  - Kullanıcı: 3 dahildir (ek kullanıcılar Stripe add-on ile artar)
+  - Müşteri/Tedarikçi/Banka Hesabı: Sınırsız
+  - Aylık Fatura/Gider: Sınırsız
 - Business (Enterprise):
-	- Tüm limitler: Sınırsız (kullanıcı dahil)
+  - Tüm limitler: Sınırsız (kullanıcı dahil)
 
 Notlar:
+
 - Stripe aboneliği varsa, efektif kullanıcı limiti Stripe’taki koltuk (seat) toplamına göre belirlenir.
 - Limit aşımlarında API, uygun hata mesajı ile 400 döner; frontend kullanıcıyı bilgilendirir.
 

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$ROOT_DIR/backend"
+
 echo "🛡️  Port Monitoring & Auto-Recovery Script"
 echo "=========================================="
 
@@ -24,7 +27,7 @@ check_frontend() {
 # Backend başlatma fonksiyonu
 start_backend() {
     echo -e "${BLUE}🔧 Backend başlatılıyor...${NC}"
-    cd /workspaces/Muhasabev2/backend
+    cd "$BACKEND_DIR"
     npm run start:dev > /tmp/backend.log 2>&1 &
     BACKEND_PID=$!
     echo "Backend PID: $BACKEND_PID"
@@ -34,7 +37,7 @@ start_backend() {
 # Frontend başlatma fonksiyonu  
 start_frontend() {
     echo -e "${BLUE}🎨 Frontend başlatılıyor...${NC}"
-    cd /workspaces/Muhasabev2
+    cd "$ROOT_DIR"
     npm run dev > /tmp/frontend.log 2>&1 &
     FRONTEND_PID=$!
     echo "Frontend PID: $FRONTEND_PID"

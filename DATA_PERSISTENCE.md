@@ -7,6 +7,7 @@ Veritabanı ayarları kalıcı hale getirildi. Verileriniz **Docker volume'lerin
 ## 📦 Veri Depolama
 
 Verileriniz şurada saklanıyor:
+
 ```
 Docker Volume: backend_backend_postgres_data
 Fiziksel Konum: /var/lib/docker/volumes/backend_backend_postgres_data/_data
@@ -15,29 +16,33 @@ Fiziksel Konum: /var/lib/docker/volumes/backend_backend_postgres_data/_data
 ## 🔄 Otomatik Yedekleme
 
 ### Hızlı Yedek Alma
+
 ```bash
 ./quick-backup.sh
 ```
 
-Yedekler `/workspaces/Muhasabev2/backups/` klasöründe saklanır.
+Yedekler `/workspaces/crm/backups/` klasöründe saklanır.
 
 ### Yedeği Geri Yükleme
+
 ```bash
 # Önce mevcut yedekleri listeleyin
 ./restore-backup.sh
 
 # Sonra istediğiniz yedeği geri yükleyin
-./restore-backup.sh /workspaces/Muhasabev2/backups/moneyflow_backup_20251027_092810.sql
+./restore-backup.sh /workspaces/crm/backups/moneyflow_backup_20251027_092810.sql
 ```
 
 ## 📋 Manuel Yedekleme Komutları
 
 ### Manuel Yedek Al
+
 ```bash
 docker exec moneyflow-db pg_dump -U moneyflow moneyflow_dev > my_backup.sql
 ```
 
 ### Manuel Geri Yükle
+
 ```bash
 docker exec -i moneyflow-db psql -U moneyflow -d moneyflow_dev < my_backup.sql
 ```
@@ -45,6 +50,7 @@ docker exec -i moneyflow-db psql -U moneyflow -d moneyflow_dev < my_backup.sql
 ## 🔍 Veri Kontrolü
 
 Veritabanınızdaki verileri kontrol etmek için:
+
 ```bash
 docker exec -it moneyflow-db psql -U moneyflow -d moneyflow_dev
 
@@ -67,11 +73,13 @@ SELECT * FROM users;         # Tüm kullanıcıları göster
 Eğer verileriniz kaybolursa:
 
 1. **Yedeklerden geri yükleyin:**
+
    ```bash
    ./restore-backup.sh
    ```
 
 2. **Docker volume'leri kontrol edin:**
+
    ```bash
    docker volume ls
    docker volume inspect backend_backend_postgres_data
@@ -79,13 +87,14 @@ Eğer verileriniz kaybolursa:
 
 3. **Container'ı yeniden başlatın:**
    ```bash
-   cd /workspaces/Muhasabev2/backend
+   cd /workspaces/crm/backend
    docker-compose restart postgres
    ```
 
 ## 📊 Düzenli Yedekleme Önerisi
 
 Her gün sonunda yedek almayı unutmayın:
+
 ```bash
 ./quick-backup.sh
 ```

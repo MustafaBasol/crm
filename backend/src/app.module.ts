@@ -31,6 +31,7 @@ import { BillingModule } from './billing/billing.module';
 import { SubprocessorsModule } from './subprocessors/subprocessors.module';
 import { EmailModule } from './email/email.module';
 import { SiteSettingsModule } from './site-settings/site-settings.module';
+import { CrmModule } from './crm/crm.module';
 import { TenantInterceptor } from './common/interceptors/tenant.interceptor';
 import { MaintenanceInterceptor } from './common/interceptors/maintenance.interceptor';
 import { AuditInterceptor } from './audit/audit.interceptor';
@@ -237,6 +238,7 @@ const parseDatabaseUrl = (value?: string): PgUrlParts | null => {
     SiteSettingsModule,
     WebhooksModule,
     BillingModule,
+    CrmModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

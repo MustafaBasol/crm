@@ -3,6 +3,7 @@
 GitHub Codespaces'de yaşanan **en büyük sorun** port kapanma problemidir. Bu dosya kesin çözümleri içerir.
 
 ## 🔴 Problem Belirtileri
+
 - ✅ Backend çalışıyor ama frontend açılmıyor
 - ✅ "Bu site erişilemez" hatası
 - ✅ Console'da network error'ları
@@ -21,6 +22,7 @@ GitHub Codespaces'de yaşanan **en büyük sorun** port kapanma problemidir. Bu 
 ## 🛠️ MANUEL ÇÖZÜM ADIMLARI
 
 ### Adım 1: Durum Tespiti
+
 ```bash
 # Process'leri kontrol et
 ps aux | grep -E "(nest|vite)" | grep -v grep
@@ -34,6 +36,7 @@ curl http://localhost:5173
 ```
 
 ### Adım 2: Temizlik
+
 ```bash
 # Tüm ilgili process'leri durdur
 pkill -f "nest|vite" 2>/dev/null || true
@@ -46,21 +49,23 @@ sleep 3
 ```
 
 ### Adım 3: Yeniden Başlatma
+
 ```bash
 # Backend başlat
-cd /workspaces/Muhasabev2/backend && npm run start:dev &
+cd /workspaces/crm/backend && npm run start:dev &
 
 # 8 saniye bekle (backend başlasın)
 sleep 8
 
-# Frontend başlat  
-cd /workspaces/Muhasabev2 && npm run dev &
+# Frontend başlat
+cd /workspaces/crm && npm run dev &
 
 # 5 saniye bekle (frontend başlasın)
 sleep 5
 ```
 
 ### Adım 4: Doğrulama
+
 ```bash
 # Backend test
 curl http://localhost:3000/health
@@ -74,25 +79,29 @@ ps aux | grep vite | grep -v grep
 ## 🔄 PORT DEĞİŞİMİ DURUMU
 
 Vite bazen farklı port kullanır:
+
 ```
 Port 5173 is in use, trying another one...
 ➜  Local:   http://localhost:5174/
 ```
 
 **URL Güncellemesi:**
+
 - Port 5173: `https://[codespace-name]-5173.app.github.dev`
-- Port 5174: `https://[codespace-name]-5174.app.github.dev` 
+- Port 5174: `https://[codespace-name]-5174.app.github.dev`
 - Port 5175: `https://[codespace-name]-5175.app.github.dev`
 
 ## 🛡️ KALICI ÇÖZÜM: PORT MONİTORİNG
 
 Sürekli monitoring için:
+
 ```bash
 # Bu script sürekli çalışır ve kapanan port'ları otomatik yeniden başlatır
 ./port-monitor.sh
 ```
 
 **Monitoring Özellikleri:**
+
 - 30 saniyede bir kontrol
 - Otomatik recovery
 - Real-time bildirimler
@@ -111,7 +120,7 @@ pkill -f "nest|vite"; sleep 2; ./start-dev-new.sh
 sudo lsof -ti:3000,5173,5174,5175 | xargs kill -9 2>/dev/null || true
 
 # Alternative port ile başlatma
-cd /workspaces/Muhasabev2 && npx vite --port 5176 &
+cd /workspaces/crm && npx vite --port 5176 &
 ```
 
 ## 🚫 YAPMAMANIZ GEREKENLER
@@ -119,7 +128,7 @@ cd /workspaces/Muhasabev2 && npx vite --port 5176 &
 ❌ **Sadece refresh atmayın** - Problem çözülmez  
 ❌ **Codespace'i yeniden başlatmayın** - Zaman kaybı  
 ❌ **VS Code'u kapatıp açmayın** - Etkisiz  
-❌ **Port visibility değiştirmekle uğraşmayın** - Geçici çözüm  
+❌ **Port visibility değiştirmekle uğraşmayın** - Geçici çözüm
 
 ## ✅ BAŞARI KRİTERLERİ
 
@@ -133,4 +142,5 @@ cd /workspaces/Muhasabev2 && npx vite --port 5176 &
 **En iyi strateji:** Codespace açtığınızda hemen `./port-monitor.sh` çalıştırın. Bu şekilde port kapanma sorunları yaşamazsınız.
 
 ---
-*Bu dokümantasyon port problemlerini %100 çözer. Sorun devam ederse script'leri kontrol edin.*
+
+_Bu dokümantasyon port problemlerini %100 çözer. Sorun devam ederse script'leri kontrol edin._
