@@ -13,9 +13,37 @@ export default function CrmPipelineBoardPage() {
   const { formatCurrency, currency: defaultCurrency } = useCurrency();
   const { user } = useAuth();
 
+  const stageLabel = (stage: crmApi.CrmStage): string => {
+    const normalizedName = String(stage?.name || '').trim().toLowerCase();
+    const defaultStageKey =
+      normalizedName === 'lead'
+        ? 'lead'
+        : normalizedName === 'qualified'
+          ? 'qualified'
+          : normalizedName === 'proposal'
+            ? 'proposal'
+            : normalizedName === 'negotiation'
+              ? 'negotiation'
+              : normalizedName === 'won'
+                ? 'won'
+                : normalizedName === 'lost'
+                  ? 'lost'
+                  : null;
+
+    return defaultStageKey ? (t(`crm.pipeline.stages.${defaultStageKey}`) as string) : stage.name;
+  };
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [board, setBoard] = useState<crmApi.CrmBoardResponse | null>(null);
+
+  const pipelineLabel = useMemo(() => {
+    const name = board?.pipeline?.name;
+    if (!name) return t('crm.pipeline.title') as string;
+    const normalized = String(name).trim().toLowerCase();
+    if (normalized === 'default pipeline') return t('crm.pipeline.defaultName') as string;
+    return name;
+  }, [board?.pipeline?.name, t]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -153,17 +181,17 @@ export default function CrmPipelineBoardPage() {
     setCreateError(null);
     const name = createForm.name.trim();
     if (!name) {
-      setCreateError('Fırsat adı zorunlu');
+      setCreateError(t('crm.pipeline.validation.nameRequired') as string);
       return;
     }
     if (!createForm.accountId) {
-      setCreateError('Müşteri (Account) seçmelisiniz');
+      setCreateError(t('crm.pipeline.validation.accountRequired') as string);
       return;
     }
 
     const amount = Number(createForm.amount || 0);
     if (!Number.isFinite(amount) || amount < 0) {
-      setCreateError('Tutar geçersiz');
+      setCreateError(t('crm.pipeline.validation.amountInvalid') as string);
       return;
     }
 
@@ -197,8 +225,8 @@ export default function CrmPipelineBoardPage() {
   if (loading) {
     return (
       <div className="p-4">
-        <h2 className="text-lg font-semibold">CRM</h2>
-        <p className="text-sm text-gray-600">Pipeline yükleniyor…</p>
+        <h2 className="text-lg font-semibold">{t('sidebar.crm')}</h2>
+        <p className="text-sm text-gray-600">{t('crm.pipeline.loading')}</p>
       </div>
     );
   }
@@ -206,7 +234,7 @@ export default function CrmPipelineBoardPage() {
   if (error) {
     return (
       <div className="p-4">
-        <h2 className="text-lg font-semibold">CRM</h2>
+        <h2 className="text-lg font-semibold">{t('sidebar.crm')}</h2>
         <p className="text-sm text-red-600">{error}</p>
       </div>
     );
@@ -216,17 +244,17 @@ export default function CrmPipelineBoardPage() {
     <div className="p-4">
       <div className="flex items-baseline justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold">CRM</h2>
-          <p className="text-xs text-gray-500">{board?.pipeline?.name ?? t('nav.crm', { defaultValue: 'Pipeline' })}</p>
+          <h2 className="text-lg font-semibold">{t('sidebar.crm')}</h2>
+          <p className="text-xs text-gray-500">{pipelineLabel}</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-xs text-gray-500">Görünürlük: owner + takım</div>
+          <div className="text-xs text-gray-500">{t('crm.pipeline.visibilityOwnerAndTeam')}</div>
           <button
             type="button"
             onClick={openCreate}
             className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
           >
-            Fırsat Ekle
+            {t('crm.pipeline.addOpportunity')}
           </button>
         </div>
       </div>
@@ -234,7 +262,7 @@ export default function CrmPipelineBoardPage() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Fırsat Oluştur</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">{t('crm.pipeline.createTitle')}</h3>
 
             {createError && (
               <div className="mb-4 text-sm text-red-600">{createError}</div>
@@ -242,7 +270,7 @@ export default function CrmPipelineBoardPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fırsat Adı</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.pipeline.fields.opportunityName')}</label>
                 <input
                   type="text"
                   value={createForm.name}
@@ -253,14 +281,14 @@ export default function CrmPipelineBoardPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Müşteri (Account)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.pipeline.fields.account')}</label>
                 <select
                   value={createForm.accountId}
                   onChange={(e) => setCreateForm((p) => ({ ...p, accountId: e.target.value }))}
                   className="w-full border rounded-lg px-3 py-2 border-gray-300"
                   required
                 >
-                  <option value="">Seçiniz…</option>
+                  <option value="">{t('crm.pipeline.selectPlaceholder')}</option>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -271,7 +299,7 @@ export default function CrmPipelineBoardPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tutar</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.pipeline.fields.amount')}</label>
                   <input
                     type="number"
                     value={createForm.amount}
@@ -283,7 +311,7 @@ export default function CrmPipelineBoardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Para Birimi</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.pipeline.fields.currency')}</label>
                   <select
                     value={createForm.currency}
                     onChange={(e) => setCreateForm((p) => ({ ...p, currency: e.target.value as Currency }))}
@@ -299,7 +327,7 @@ export default function CrmPipelineBoardPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tahmini Kapanış</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.pipeline.fields.expectedCloseDate')}</label>
                   <input
                     type="date"
                     value={createForm.expectedCloseDate}
@@ -309,7 +337,7 @@ export default function CrmPipelineBoardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Stage</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.pipeline.fields.stage')}</label>
                   <select
                     value={createForm.stageId}
                     onChange={(e) => setCreateForm((p) => ({ ...p, stageId: e.target.value }))}
@@ -318,7 +346,7 @@ export default function CrmPipelineBoardPage() {
                   >
                     {stages.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name}
+                        {stageLabel(s)}
                       </option>
                     ))}
                   </select>
@@ -326,10 +354,10 @@ export default function CrmPipelineBoardPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Takım</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.pipeline.fields.team')}</label>
                 <div className="border rounded-lg p-3 max-h-48 overflow-auto">
                   {members.length === 0 && (
-                    <div className="text-sm text-gray-500">Üyeler bulunamadı</div>
+                    <div className="text-sm text-gray-500">{t('crm.pipeline.noMembers')}</div>
                   )}
                   <div className="space-y-2">
                     {members.map((m) => {
@@ -352,7 +380,7 @@ export default function CrmPipelineBoardPage() {
                     })}
                   </div>
                   {user?.id && (
-                    <div className="mt-2 text-xs text-gray-500">Not: Owner otomatik olarak takımdadır.</div>
+                    <div className="mt-2 text-xs text-gray-500">{t('crm.pipeline.ownerAutoInTeam')}</div>
                   )}
                 </div>
               </div>
@@ -373,7 +401,7 @@ export default function CrmPipelineBoardPage() {
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={creating}
               >
-                {creating ? 'Kaydediliyor…' : t('common.add')}
+                {creating ? t('crm.pipeline.saving') : t('common.add')}
               </button>
             </div>
           </div>
@@ -386,8 +414,8 @@ export default function CrmPipelineBoardPage() {
           return (
             <div key={stage.id} className="border rounded bg-white">
               <div className="px-3 py-2 border-b">
-                <div className="text-sm font-medium">{stage.name}</div>
-                <div className="text-xs text-gray-500">{list.length} fırsat</div>
+                <div className="text-sm font-medium">{stageLabel(stage)}</div>
+                <div className="text-xs text-gray-500">{t('crm.pipeline.opportunityCount', { count: list.length })}</div>
               </div>
               <div className="p-2 space-y-2">
                 {list.map((opp: crmApi.CrmOpportunity) => (
@@ -399,7 +427,7 @@ export default function CrmPipelineBoardPage() {
                     <div className="text-[11px] text-gray-500">Takım: {opp.teamUserIds?.length ?? 0}</div>
 
                     <div className="mt-2">
-                      <label className="block text-[11px] text-gray-500 mb-1">Stage</label>
+                      <label className="block text-[11px] text-gray-500 mb-1">{t('crm.pipeline.fields.stage')}</label>
                       <select
                         value={opp.stageId}
                         disabled={movingOppId === opp.id}
@@ -421,7 +449,7 @@ export default function CrmPipelineBoardPage() {
                       >
                         {stages.map((s) => (
                           <option key={s.id} value={s.id}>
-                            {s.name}
+                            {stageLabel(s)}
                           </option>
                         ))}
                       </select>
@@ -429,7 +457,7 @@ export default function CrmPipelineBoardPage() {
                   </div>
                 ))}
                 {list.length === 0 && (
-                  <div className="text-xs text-gray-400 p-2">Boş</div>
+                  <div className="text-xs text-gray-400 p-2">{t('crm.pipeline.empty')}</div>
                 )}
               </div>
             </div>

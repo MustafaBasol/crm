@@ -27,6 +27,42 @@
     "dashboard": {
       "subtitle": "An overview of the pipeline and activity."
     },
+    "pipeline": {
+      "title": "Pipeline",
+      "defaultName": "Default Pipeline",
+      "loading": "Loading pipeline…",
+      "visibilityOwnerAndTeam": "Visibility: owner + team",
+      "addOpportunity": "Add Deal",
+      "createTitle": "Create Deal",
+      "selectPlaceholder": "Select…",
+      "saving": "Saving…",
+      "opportunityCount": "{{count}} deals",
+      "empty": "Empty",
+      "noMembers": "No members found",
+      "ownerAutoInTeam": "Note: Owner is automatically part of the team.",
+      "fields": {
+        "opportunityName": "Deal name",
+        "account": "Customer (Account)",
+        "amount": "Amount",
+        "currency": "Currency",
+        "expectedCloseDate": "Expected close",
+        "stage": "Stage",
+        "team": "Team"
+      },
+      "validation": {
+        "nameRequired": "Deal name is required",
+        "accountRequired": "Please select a customer (account)",
+        "amountInvalid": "Invalid amount"
+      },
+      "stages": {
+        "lead": "Lead",
+        "qualified": "Qualified",
+        "proposal": "Proposal",
+        "negotiation": "Negotiation",
+        "won": "Won",
+        "lost": "Lost"
+      }
+    },
     "leads": {
       "title": "Leads",
       "subtitle": "The MVP integration for this page comes next.",

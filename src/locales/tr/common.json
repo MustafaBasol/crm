@@ -27,6 +27,42 @@
     "dashboard": {
       "subtitle": "Pipeline ve aktiviteler için özet görünüm."
     },
+    "pipeline": {
+      "title": "Satış Süreci",
+      "defaultName": "Varsayılan Pipeline",
+      "loading": "Pipeline yükleniyor…",
+      "visibilityOwnerAndTeam": "Görünürlük: owner + takım",
+      "addOpportunity": "Fırsat Ekle",
+      "createTitle": "Fırsat Oluştur",
+      "selectPlaceholder": "Seçiniz…",
+      "saving": "Kaydediliyor…",
+      "opportunityCount": "{{count}} fırsat",
+      "empty": "Boş",
+      "noMembers": "Üyeler bulunamadı",
+      "ownerAutoInTeam": "Not: Owner otomatik olarak takımdadır.",
+      "fields": {
+        "opportunityName": "Fırsat Adı",
+        "account": "Müşteri (Account)",
+        "amount": "Tutar",
+        "currency": "Para Birimi",
+        "expectedCloseDate": "Tahmini Kapanış",
+        "stage": "Aşama",
+        "team": "Takım"
+      },
+      "validation": {
+        "nameRequired": "Fırsat adı zorunlu",
+        "accountRequired": "Müşteri (Account) seçmelisiniz",
+        "amountInvalid": "Tutar geçersiz"
+      },
+      "stages": {
+        "lead": "Lead",
+        "qualified": "Qualified",
+        "proposal": "Proposal",
+        "negotiation": "Negotiation",
+        "won": "Won",
+        "lost": "Lost"
+      }
+    },
     "leads": {
       "title": "Potansiyeller",
       "subtitle": "Bu sayfa için MVP entegrasyonu sırada.",

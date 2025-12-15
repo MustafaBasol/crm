@@ -23,6 +23,42 @@
     "dashboard": {
       "subtitle": "Eine Übersicht für Pipeline und Aktivitäten."
     },
+    "pipeline": {
+      "title": "Pipeline",
+      "defaultName": "Standard-Pipeline",
+      "loading": "Pipeline wird geladen…",
+      "visibilityOwnerAndTeam": "Sichtbarkeit: owner + Team",
+      "addOpportunity": "Deal hinzufügen",
+      "createTitle": "Deal erstellen",
+      "selectPlaceholder": "Auswählen…",
+      "saving": "Speichern…",
+      "opportunityCount": "{{count}} Deals",
+      "empty": "Leer",
+      "noMembers": "Keine Mitglieder gefunden",
+      "ownerAutoInTeam": "Hinweis: Der Owner ist automatisch im Team.",
+      "fields": {
+        "opportunityName": "Deal-Name",
+        "account": "Kunde (Account)",
+        "amount": "Betrag",
+        "currency": "Währung",
+        "expectedCloseDate": "Voraussichtlicher Abschluss",
+        "stage": "Phase",
+        "team": "Team"
+      },
+      "validation": {
+        "nameRequired": "Deal-Name ist erforderlich",
+        "accountRequired": "Bitte einen Kunden (Account) auswählen",
+        "amountInvalid": "Ungültiger Betrag"
+      },
+      "stages": {
+        "lead": "Lead",
+        "qualified": "Qualifiziert",
+        "proposal": "Angebot",
+        "negotiation": "Verhandlung",
+        "won": "Gewonnen",
+        "lost": "Verloren"
+      }
+    },
     "leads": {
       "title": "Leads",
       "subtitle": "Die MVP-Integration für diese Seite folgt als Nächstes.",

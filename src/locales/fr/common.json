@@ -33,6 +33,42 @@
     "dashboard": {
       "subtitle": "Une vue d’ensemble du pipeline et de l’activité."
     },
+    "pipeline": {
+      "title": "Pipeline",
+      "defaultName": "Pipeline par défaut",
+      "loading": "Chargement du pipeline…",
+      "visibilityOwnerAndTeam": "Visibilité : owner + équipe",
+      "addOpportunity": "Ajouter une opportunité",
+      "createTitle": "Créer une opportunité",
+      "selectPlaceholder": "Sélectionner…",
+      "saving": "Enregistrement…",
+      "opportunityCount": "{{count}} opportunités",
+      "empty": "Vide",
+      "noMembers": "Aucun membre trouvé",
+      "ownerAutoInTeam": "Note : le propriétaire est automatiquement dans l’équipe.",
+      "fields": {
+        "opportunityName": "Nom de l’opportunité",
+        "account": "Client (Compte)",
+        "amount": "Montant",
+        "currency": "Devise",
+        "expectedCloseDate": "Clôture estimée",
+        "stage": "Étape",
+        "team": "Équipe"
+      },
+      "validation": {
+        "nameRequired": "Le nom de l’opportunité est requis",
+        "accountRequired": "Veuillez sélectionner un client (compte)",
+        "amountInvalid": "Montant invalide"
+      },
+      "stages": {
+        "lead": "Prospect",
+        "qualified": "Qualifié",
+        "proposal": "Proposition",
+        "negotiation": "Négociation",
+        "won": "Gagné",
+        "lost": "Perdu"
+      }
+    },
     "leads": {
       "title": "Prospects",
       "subtitle": "L’intégration MVP de cette page arrive ensuite.",
@@ -63,6 +99,35 @@
     },
     "errors": {
       "boardFetch": "Impossible de charger les données CRM"
+    }
+  },
+  "summary": {
+    "blocks": {
+      "actions": "Actions",
+      "receivables": "Créances",
+      "criticalStock": "Stock critique",
+      "salesFlow": "Flux des ventes",
+      "openQuotes": "Devis ouverts",
+      "awaitingInvoiceSales": "Ventes à facturer",
+      "crmFlow": "Flux CRM",
+      "latestActivities": "Dernières activités"
+    },
+    "today": "Aujourd'hui",
+    "thisWeek": "Cette semaine",
+    "pending": "En attente",
+    "overdue": "En retard",
+    "criticalProducts": "Produits critiques",
+    "todayOrders": "Ventes aujourd'hui",
+    "weekOrders": "Ventes cette semaine",
+    "openQuotesCount": "Devis ouverts",
+    "awaitingInvoiceCount": "À facturer",
+    "loading": "Chargement",
+    "latestActivitiesPlaceholder": "Aucune activité récente pour le moment.",
+    "crm": {
+      "openDeals": "Opportunités ouvertes",
+      "expectedAmount": "Montant attendu",
+      "noStageData": "Aucune donnée par étape pour l'instant.",
+      "unknownStage": "Étape inconnue"
     }
   },
   "presets": {
@@ -393,35 +458,6 @@
       "badge": "Comptario – Logiciel de pré‑comptabilité",
       "mockup": {
         "revenue": "Revenu mensuel",
-  "summary": {
-    "blocks": {
-      "actions": "Actions",
-      "receivables": "Créances",
-      "criticalStock": "Stock critique",
-      "salesFlow": "Flux des ventes",
-      "openQuotes": "Devis ouverts",
-      "awaitingInvoiceSales": "Ventes à facturer",
-      "crmFlow": "Flux CRM",
-      "latestActivities": "Dernières activités"
-    },
-    "today": "Aujourd'hui",
-    "thisWeek": "Cette semaine",
-    "pending": "En attente",
-    "overdue": "En retard",
-    "criticalProducts": "Produits critiques",
-    "todayOrders": "Ventes aujourd'hui",
-    "weekOrders": "Ventes cette semaine",
-    "openQuotesCount": "Devis ouverts",
-    "awaitingInvoiceCount": "À facturer",
-    "loading": "Chargement",
-    "latestActivitiesPlaceholder": "Aucune activité récente pour le moment.",
-    "crm": {
-      "openDeals": "Opportunités ouvertes",
-      "expectedAmount": "Montant attendu",
-      "noStageData": "Aucune donnée par étape pour l'instant.",
-      "unknownStage": "Étape inconnue"
-    }
-  },
         "expenses": "Dépenses mensuelles",
         "vat": "TVA à payer",
         "rate": "Taux"
