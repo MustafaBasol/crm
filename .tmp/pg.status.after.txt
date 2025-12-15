@@ -1,0 +1,2 @@
+pg_ctl: server is running (PID: 5662)
+/usr/lib/postgresql/17/bin/postgres "-D" "/workspaces/crm/.pgdata" "-p" "5543" "-k" "/workspaces/crm/.pgsocket"
