@@ -96,6 +96,9 @@ import GeneralLedger from "./components/GeneralLedger";
 import SimpleSalesPage from "./components/SimpleSalesPage";
 import QuotesPage from "./components/QuotesPage";
 import CrmPipelineBoardPage from "./components/crm/CrmPipelineBoardPage";
+import CrmLeadsPage from "./components/crm/CrmLeadsPage";
+import CrmContactsPage from "./components/crm/CrmContactsPage";
+import CrmActivitiesPage from "./components/crm/CrmActivitiesPage";
 import CrmDashboardPage from "./components/crm/CrmDashboardPage";
 import SummaryPage from "./components/summary/SummaryPage";
 import QuoteCreateModal, { type QuoteCreatePayload } from "./components/QuoteCreateModal";
@@ -313,6 +316,7 @@ const initialProductCategories = ["Genel"]; // Boş başlangıç, backend'den y�
 const initialProductCategoryObjects: ProductCategory[] = []; // Kategori nesneleri
 
 const LAST_PAGE_STORAGE_KEY = 'app:lastPage';
+const LAST_AREA_STORAGE_KEY = 'app:lastArea';
 const HASH_SYNC_PAGES = [
   'summary',
   'dashboard',
@@ -424,6 +428,33 @@ const persistLastVisitedPage = (page: string): void => {
   }
 };
 
+const readLastVisitedArea = (): AppArea | null => {
+  try {
+    const raw = safeSessionStorage.getItem(LAST_AREA_STORAGE_KEY) || safeLocalStorage.getItem(LAST_AREA_STORAGE_KEY);
+    if (raw === 'summary' || raw === 'crm' || raw === 'finance') return raw;
+    return null;
+  } catch (error) {
+    reportSilentError('app.navigation.lastArea.readFailed', error);
+    return null;
+  }
+};
+
+const persistLastVisitedArea = (area: AppArea): void => {
+  if (!area) return;
+  try {
+    safeSessionStorage.setItem(LAST_AREA_STORAGE_KEY, area);
+    safeLocalStorage.setItem(LAST_AREA_STORAGE_KEY, area);
+  } catch (error) {
+    reportSilentError('app.navigation.lastArea.persistFailed', { area, error });
+  }
+};
+
+const resolveLandingPageForArea = (area: AppArea): string => {
+  if (area === 'crm') return 'crm-dashboard';
+  if (area === 'finance') return 'dashboard';
+  return 'summary';
+};
+
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, user: authUser, logout, tenant } = useAuth();
@@ -453,8 +484,18 @@ const AppContent: React.FC = () => {
     return fallback;
   }, [t]);
   
-  const [currentPage, setCurrentPage] = useState(() => readLastVisitedPage() || "dashboard");
-  const [appArea, setAppArea] = useState<AppArea>(() => inferAreaFromPage(readLastVisitedPage() || 'dashboard'));
+  const [currentPage, setCurrentPage] = useState(() => {
+    const lastPage = readLastVisitedPage();
+    if (lastPage) return lastPage;
+    const lastArea = readLastVisitedArea();
+    return resolveLandingPageForArea(lastArea || 'summary');
+  });
+  const [appArea, setAppArea] = useState<AppArea>(() => {
+    const lastArea = readLastVisitedArea();
+    if (lastArea) return lastArea;
+    const lastPage = readLastVisitedPage();
+    return inferAreaFromPage(lastPage || 'summary');
+  });
   const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
   
   // Debug currentPage değişikliklerini
@@ -465,6 +506,10 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     persistLastVisitedPage(currentPage);
   }, [currentPage]);
+
+  useEffect(() => {
+    persistLastVisitedArea(appArea);
+  }, [appArea]);
 
   // Sayfa CRM/Summary ise alanı otomatik uyumla (paylaşılan sayfalar için otomatik finance'e dönme yok)
   useEffect(() => {
@@ -5366,14 +5411,11 @@ const AppContent: React.FC = () => {
       case "crm-dashboard":
         return <CrmDashboardPage />;
       case "crm-leads":
+        return <CrmLeadsPage />;
       case "crm-contacts":
+        return <CrmContactsPage />;
       case "crm-activities":
-        return (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="text-sm font-semibold text-gray-900">Yakında</div>
-            <div className="mt-2 text-sm text-gray-500">Bu sayfa için MVP entegrasyonu sırada.</div>
-          </div>
-        );
+        return <CrmActivitiesPage />;
       case "customers":
         return (
           <CustomerList

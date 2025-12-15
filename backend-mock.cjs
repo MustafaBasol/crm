@@ -152,6 +152,43 @@ let crmStages = [
 ];
 let crmOpportunities = [];
 
+let crmLeads = [
+  {
+    id: 'lead-1',
+    name: 'Acme - İlgili Kişi',
+    email: 'lead@acme.com',
+    phone: '+90 555 000 0001',
+    company: 'Acme A.Ş.',
+    status: 'New',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+let crmContacts = [
+  {
+    id: 'contact-1',
+    name: 'Ayşe Yılmaz',
+    email: 'ayse@example.com',
+    phone: '+90 555 000 0002',
+    company: 'Beta Ltd.',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+let crmActivities = [
+  {
+    id: 'activity-1',
+    title: 'İlk görüşme planla',
+    type: 'Call',
+    dueAt: null,
+    completed: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
 const ensureStageExists = (stageId) => crmStages.some((s) => s.id === stageId);
 const randomId = (prefix) => `${prefix}-${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
 
@@ -171,7 +208,7 @@ const server = createServer((req, res) => {
   
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   // CSRF token (frontend mutating requests add X-CSRF-Token if captured)
   res.setHeader('X-CSRF-Token', CSRF_TOKEN);
@@ -353,6 +390,156 @@ const server = createServer((req, res) => {
       crmOpportunities[idx] = { ...crmOpportunities[idx], teamUserIds: Array.from(new Set([mockUser.id, ...userIds])) };
       return json(res, 200, crmOpportunities[idx]);
     });
+  }
+
+  // CRM Leads
+  if (path === '/api/crm/leads' && req.method === 'GET') {
+    return json(res, 200, Array.isArray(crmLeads) ? crmLeads : []);
+  }
+  if (path === '/api/crm/leads' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!name) return json(res, 400, { message: 'name zorunlu' });
+
+      const lead = {
+        id: randomId('lead'),
+        name,
+        email: typeof body.email === 'string' ? body.email.trim() : '',
+        phone: typeof body.phone === 'string' ? body.phone.trim() : '',
+        company: typeof body.company === 'string' ? body.company.trim() : '',
+        status: typeof body.status === 'string' ? body.status.trim() : '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      crmLeads = [lead, ...(Array.isArray(crmLeads) ? crmLeads : [])];
+      return json(res, 200, lead);
+    });
+  }
+  const crmLeadMatch = path.match(/^\/api\/crm\/leads\/([^/]+)$/);
+  if (crmLeadMatch && req.method === 'PATCH') {
+    const id = crmLeadMatch[1];
+    return readJsonBody(req).then((body) => {
+      const idx = (Array.isArray(crmLeads) ? crmLeads : []).findIndex((x) => x.id === id);
+      if (idx < 0) return json(res, 404, { message: 'Lead bulunamadı' });
+
+      const next = { ...crmLeads[idx] };
+      if (typeof body.name === 'string') next.name = body.name.trim();
+      if (typeof body.email === 'string') next.email = body.email.trim();
+      if (typeof body.phone === 'string') next.phone = body.phone.trim();
+      if (typeof body.company === 'string') next.company = body.company.trim();
+      if (typeof body.status === 'string') next.status = body.status.trim();
+      next.updatedAt = new Date().toISOString();
+
+      crmLeads[idx] = next;
+      return json(res, 200, next);
+    });
+  }
+  if (crmLeadMatch && req.method === 'DELETE') {
+    const id = crmLeadMatch[1];
+    const before = Array.isArray(crmLeads) ? crmLeads : [];
+    const next = before.filter((x) => x.id !== id);
+    if (next.length === before.length) return json(res, 404, { message: 'Lead bulunamadı' });
+    crmLeads = next;
+    return json(res, 204, {});
+  }
+
+  // CRM Contacts
+  if (path === '/api/crm/contacts' && req.method === 'GET') {
+    return json(res, 200, Array.isArray(crmContacts) ? crmContacts : []);
+  }
+  if (path === '/api/crm/contacts' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!name) return json(res, 400, { message: 'name zorunlu' });
+
+      const contact = {
+        id: randomId('contact'),
+        name,
+        email: typeof body.email === 'string' ? body.email.trim() : '',
+        phone: typeof body.phone === 'string' ? body.phone.trim() : '',
+        company: typeof body.company === 'string' ? body.company.trim() : '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      crmContacts = [contact, ...(Array.isArray(crmContacts) ? crmContacts : [])];
+      return json(res, 200, contact);
+    });
+  }
+  const crmContactMatch = path.match(/^\/api\/crm\/contacts\/([^/]+)$/);
+  if (crmContactMatch && req.method === 'PATCH') {
+    const id = crmContactMatch[1];
+    return readJsonBody(req).then((body) => {
+      const idx = (Array.isArray(crmContacts) ? crmContacts : []).findIndex((x) => x.id === id);
+      if (idx < 0) return json(res, 404, { message: 'Contact bulunamadı' });
+
+      const next = { ...crmContacts[idx] };
+      if (typeof body.name === 'string') next.name = body.name.trim();
+      if (typeof body.email === 'string') next.email = body.email.trim();
+      if (typeof body.phone === 'string') next.phone = body.phone.trim();
+      if (typeof body.company === 'string') next.company = body.company.trim();
+      next.updatedAt = new Date().toISOString();
+
+      crmContacts[idx] = next;
+      return json(res, 200, next);
+    });
+  }
+  if (crmContactMatch && req.method === 'DELETE') {
+    const id = crmContactMatch[1];
+    const before = Array.isArray(crmContacts) ? crmContacts : [];
+    const next = before.filter((x) => x.id !== id);
+    if (next.length === before.length) return json(res, 404, { message: 'Contact bulunamadı' });
+    crmContacts = next;
+    return json(res, 204, {});
+  }
+
+  // CRM Activities
+  if (path === '/api/crm/activities' && req.method === 'GET') {
+    return json(res, 200, Array.isArray(crmActivities) ? crmActivities : []);
+  }
+  if (path === '/api/crm/activities' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const title = typeof body.title === 'string' ? body.title.trim() : '';
+      if (!title) return json(res, 400, { message: 'title zorunlu' });
+
+      const activity = {
+        id: randomId('activity'),
+        title,
+        type: typeof body.type === 'string' ? body.type.trim() : '',
+        dueAt: typeof body.dueAt === 'string' ? body.dueAt : null,
+        completed: !!body.completed,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      crmActivities = [activity, ...(Array.isArray(crmActivities) ? crmActivities : [])];
+      return json(res, 200, activity);
+    });
+  }
+  const crmActivityMatch = path.match(/^\/api\/crm\/activities\/([^/]+)$/);
+  if (crmActivityMatch && req.method === 'PATCH') {
+    const id = crmActivityMatch[1];
+    return readJsonBody(req).then((body) => {
+      const idx = (Array.isArray(crmActivities) ? crmActivities : []).findIndex((x) => x.id === id);
+      if (idx < 0) return json(res, 404, { message: 'Activity bulunamadı' });
+
+      const next = { ...crmActivities[idx] };
+      if (typeof body.title === 'string') next.title = body.title.trim();
+      if (typeof body.type === 'string') next.type = body.type.trim();
+      if (typeof body.dueAt === 'string') next.dueAt = body.dueAt;
+      if (body.dueAt === null) next.dueAt = null;
+      if (typeof body.completed === 'boolean') next.completed = body.completed;
+      next.updatedAt = new Date().toISOString();
+
+      crmActivities[idx] = next;
+      return json(res, 200, next);
+    });
+  }
+  if (crmActivityMatch && req.method === 'DELETE') {
+    const id = crmActivityMatch[1];
+    const before = Array.isArray(crmActivities) ? crmActivities : [];
+    const next = before.filter((x) => x.id !== id);
+    if (next.length === before.length) return json(res, 404, { message: 'Activity bulunamadı' });
+    crmActivities = next;
+    return json(res, 204, {});
   }
 
   // Generic safe fallbacks for browsing UI

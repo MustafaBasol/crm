@@ -1,4 +1,89 @@
 {
+  "crm": {
+    "fields": {
+      "name": "Name",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "company": "Unternehmen",
+      "status": "Status",
+      "title": "Titel",
+      "type": "Typ",
+      "dueAt": "Datum / Fällig",
+      "completed": "Erledigt",
+      "actions": "Aktionen"
+    },
+    "confirmDelete": {
+      "title": "Löschen bestätigen",
+      "message": "\"{{name}}\" löschen?"
+    },
+    "validation": {
+      "nameRequired": "Name ist erforderlich",
+      "titleRequired": "Titel ist erforderlich"
+    },
+    "dashboard": {
+      "subtitle": "Eine Übersicht für Pipeline und Aktivitäten."
+    },
+    "leads": {
+      "title": "Leads",
+      "subtitle": "Die MVP-Integration für diese Seite folgt als Nächstes.",
+      "empty": "Noch keine Leads.",
+      "modal": {
+        "createTitle": "Lead hinzufügen",
+        "editTitle": "Lead bearbeiten"
+      }
+    },
+    "contacts": {
+      "title": "Kontakte",
+      "subtitle": "Die MVP-Integration für diese Seite folgt als Nächstes.",
+      "empty": "Noch keine Kontakte.",
+      "modal": {
+        "createTitle": "Kontakt hinzufügen",
+        "editTitle": "Kontakt bearbeiten"
+      }
+    },
+    "activities": {
+      "title": "Aktivitäten",
+      "subtitle": "Die MVP-Integration für diese Seite folgt als Nächstes.",
+      "empty": "Noch keine Aktivitäten.",
+      "dueAtPlaceholder": "z. B. 2025-12-15",
+      "modal": {
+        "createTitle": "Aktivität hinzufügen",
+        "editTitle": "Aktivität bearbeiten"
+      }
+    },
+    "errors": {
+      "boardFetch": "CRM-Daten konnten nicht geladen werden"
+    }
+  },
+  "summary": {
+    "blocks": {
+      "actions": "Aktionen",
+      "receivables": "Forderungen",
+      "criticalStock": "Kritischer Bestand",
+      "salesFlow": "Verkaufsfluss",
+      "openQuotes": "Offene Angebote",
+      "awaitingInvoiceSales": "Zu fakturierende Verkäufe",
+      "crmFlow": "CRM-Flow",
+      "latestActivities": "Letzte Aktivitäten"
+    },
+    "today": "Heute",
+    "thisWeek": "Diese Woche",
+    "pending": "Ausstehend",
+    "overdue": "Überfällig",
+    "criticalProducts": "Kritische Produkte",
+    "todayOrders": "Verkäufe heute",
+    "weekOrders": "Verkäufe diese Woche",
+    "openQuotesCount": "Offene Angebote",
+    "awaitingInvoiceCount": "Zu fakturieren",
+    "loading": "Wird geladen",
+    "latestActivitiesPlaceholder": "Noch keine aktuellen Aktivitäten.",
+    "crm": {
+      "openDeals": "Offene Deals",
+      "expectedAmount": "Erwarteter Betrag",
+      "noStageData": "Noch keine Phasen-Daten.",
+      "unknownStage": "Unbekannte Phase"
+    }
+  },
   "pagination": {
     "itemsPerPage": "Elemente pro Seite",
     "previous": "Zurück",
@@ -1051,9 +1136,9 @@
     "banks": "Banken",
     "sales": "Verkäufe",
     "crm": "CRM",
-    "crmDashboard": "CRM Dashboard",
-    "crmPipeline": "Pipeline",
-    "crmLeads": "Leads",
+    "crmDashboard": "CRM-Übersicht",
+    "crmPipeline": "Vertriebspipeline",
+    "crmLeads": "Interessenten",
     "crmContacts": "Kontakte",
     "crmActivities": "Aktivitäten",
     "quotes": "Angebote",

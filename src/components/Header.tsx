@@ -286,12 +286,12 @@ const Header: React.FC<HeaderProps> = ({
             <div
               className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-1 shadow-sm"
               role="group"
-              aria-label={t('header.areas.label', { defaultValue: 'Alan seçimi' })}
+              aria-label={t('header.areas.label')}
             >
               {([
-                { key: 'summary' as const, label: t('header.areas.summary', { defaultValue: 'Özet' }) },
-                { key: 'crm' as const, label: t('header.areas.crm', { defaultValue: 'CRM' }) },
-                { key: 'finance' as const, label: t('header.areas.finance', { defaultValue: 'Finans' }) },
+                { key: 'summary' as const, label: t('header.areas.summary') },
+                { key: 'crm' as const, label: t('header.areas.crm') },
+                { key: 'finance' as const, label: t('header.areas.finance') },
               ] as const).map(item => {
                 const isActive = appArea === item.key;
                 return (

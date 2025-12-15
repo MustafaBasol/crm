@@ -9,6 +9,62 @@
     "name": "comptario",
     "subtitle": "Système de Comptabilité"
   },
+  "crm": {
+    "fields": {
+      "name": "Nom",
+      "email": "E-mail",
+      "phone": "Téléphone",
+      "company": "Société",
+      "status": "Statut",
+      "title": "Titre",
+      "type": "Type",
+      "dueAt": "Date / Échéance",
+      "completed": "Terminé",
+      "actions": "Actions"
+    },
+    "confirmDelete": {
+      "title": "Confirmer la suppression",
+      "message": "Supprimer \"{{name}}\" ?"
+    },
+    "validation": {
+      "nameRequired": "Le nom est requis",
+      "titleRequired": "Le titre est requis"
+    },
+    "dashboard": {
+      "subtitle": "Une vue d’ensemble du pipeline et de l’activité."
+    },
+    "leads": {
+      "title": "Prospects",
+      "subtitle": "L’intégration MVP de cette page arrive ensuite.",
+      "empty": "Aucun prospect pour l’instant.",
+      "modal": {
+        "createTitle": "Ajouter un prospect",
+        "editTitle": "Modifier le prospect"
+      }
+    },
+    "contacts": {
+      "title": "Contacts",
+      "subtitle": "L’intégration MVP de cette page arrive ensuite.",
+      "empty": "Aucun contact pour l’instant.",
+      "modal": {
+        "createTitle": "Ajouter un contact",
+        "editTitle": "Modifier le contact"
+      }
+    },
+    "activities": {
+      "title": "Activités",
+      "subtitle": "L’intégration MVP de cette page arrive ensuite.",
+      "empty": "Aucune activité pour l’instant.",
+      "dueAtPlaceholder": "ex. 2025-12-15",
+      "modal": {
+        "createTitle": "Ajouter une activité",
+        "editTitle": "Modifier l’activité"
+      }
+    },
+    "errors": {
+      "boardFetch": "Impossible de charger les données CRM"
+    }
+  },
   "presets": {
     "thisMonth": "Ce mois-ci",
     "lastMonth": "Mois dernier",
@@ -337,6 +393,35 @@
       "badge": "Comptario – Logiciel de pré‑comptabilité",
       "mockup": {
         "revenue": "Revenu mensuel",
+  "summary": {
+    "blocks": {
+      "actions": "Actions",
+      "receivables": "Créances",
+      "criticalStock": "Stock critique",
+      "salesFlow": "Flux des ventes",
+      "openQuotes": "Devis ouverts",
+      "awaitingInvoiceSales": "Ventes à facturer",
+      "crmFlow": "Flux CRM",
+      "latestActivities": "Dernières activités"
+    },
+    "today": "Aujourd'hui",
+    "thisWeek": "Cette semaine",
+    "pending": "En attente",
+    "overdue": "En retard",
+    "criticalProducts": "Produits critiques",
+    "todayOrders": "Ventes aujourd'hui",
+    "weekOrders": "Ventes cette semaine",
+    "openQuotesCount": "Devis ouverts",
+    "awaitingInvoiceCount": "À facturer",
+    "loading": "Chargement",
+    "latestActivitiesPlaceholder": "Aucune activité récente pour le moment.",
+    "crm": {
+      "openDeals": "Opportunités ouvertes",
+      "expectedAmount": "Montant attendu",
+      "noStageData": "Aucune donnée par étape pour l'instant.",
+      "unknownStage": "Étape inconnue"
+    }
+  },
         "expenses": "Dépenses mensuelles",
         "vat": "TVA à payer",
         "rate": "Taux"
@@ -1121,9 +1206,9 @@
     "banks": "Banques",
     "sales": "Ventes",
     "crm": "CRM",
-    "crmDashboard": "CRM Dashboard",
-    "crmPipeline": "Pipeline",
-    "crmLeads": "Leads",
+    "crmDashboard": "Tableau de bord CRM",
+    "crmPipeline": "Pipeline commercial",
+    "crmLeads": "Prospects",
     "crmContacts": "Contacts",
     "crmActivities": "Activités",
     "quotes": "Devis",

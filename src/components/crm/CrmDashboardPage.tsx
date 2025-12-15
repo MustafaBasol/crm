@@ -45,7 +45,7 @@ export function CrmDashboardCard() {
         const stageNameById = new Map<string, string>(stages.map(s => [s.id, s.name]));
         const counts = new Map<string, number>();
         for (const opp of openOpps) {
-          const stageName = stageNameById.get(opp.stageId) || t('summary.crm.unknownStage', { defaultValue: 'Bilinmeyen' });
+          const stageName = stageNameById.get(opp.stageId) || t('summary.crm.unknownStage');
           counts.set(stageName, (counts.get(stageName) || 0) + 1);
         }
         const stageList = Array.from(counts.entries())
@@ -59,7 +59,11 @@ export function CrmDashboardCard() {
         }
       } catch (e: any) {
         if (!cancelled) {
-          setError(e?.message ? String(e.message) : 'CRM verisi alınamadı');
+          setError(
+            e?.message
+              ? String(e.message)
+              : t('crm.errors.boardFetch', { defaultValue: 'CRM verisi alınamadı' })
+          );
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -74,11 +78,11 @@ export function CrmDashboardCard() {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-semibold text-gray-900">{t('summary.blocks.crmFlow', { defaultValue: 'CRM Akışı' })}</div>
+        <div className="text-sm font-semibold text-gray-900">{t('summary.blocks.crmFlow')}</div>
         <div className="text-xs text-gray-500">
           {isLoading
-            ? t('summary.loading', { defaultValue: 'Yükleniyor…' })
-            : t('summary.crm.openDeals', { defaultValue: 'Açık deal' })}:
+            ? t('summary.loading')
+            : t('summary.crm.openDeals')}:
           <span className="ml-1 font-semibold text-gray-900">{openCount}</span>
         </div>
       </div>
@@ -88,7 +92,7 @@ export function CrmDashboardCard() {
       ) : (
         <>
           <div className="mt-3 rounded-lg bg-slate-50 p-3">
-            <div className="text-xs text-gray-500">{t('summary.crm.expectedAmount', { defaultValue: 'Beklenen tutar' })}</div>
+            <div className="text-xs text-gray-500">{t('summary.crm.expectedAmount')}</div>
             <div className="mt-1 flex flex-wrap gap-3">
               {Object.keys(totalsByCurrency).length === 0 ? (
                 <div className="text-lg font-bold text-gray-900">0</div>
@@ -104,7 +108,7 @@ export function CrmDashboardCard() {
 
           <div className="mt-3">
             {byStage.length === 0 ? (
-              <div className="text-sm text-gray-500">{t('summary.crm.noStageData', { defaultValue: 'Stage kırılımı yok.' })}</div>
+              <div className="text-sm text-gray-500">{t('summary.crm.noStageData')}</div>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {byStage.slice(0, 6).map(row => (
@@ -127,18 +131,18 @@ export default function CrmDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="text-sm font-semibold text-gray-900">{t('sidebar.crmDashboard', { defaultValue: 'CRM Dashboard' })}</div>
+        <div className="text-sm font-semibold text-gray-900">{t('sidebar.crmDashboard')}</div>
         <div className="mt-2 text-sm text-gray-500">
-          {t('crm.dashboard.subtitle', { defaultValue: 'Pipeline ve aktiviteler için özet görünüm.' })}
+          {t('crm.dashboard.subtitle')}
         </div>
       </div>
 
       <CrmDashboardCard />
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="text-sm font-semibold text-gray-900">{t('summary.blocks.latestActivities', { defaultValue: 'Son Aktiviteler / Takipler' })}</div>
+        <div className="text-sm font-semibold text-gray-900">{t('summary.blocks.latestActivities')}</div>
         <div className="mt-2 text-sm text-gray-500">
-          {t('summary.latestActivitiesPlaceholder', { defaultValue: 'Bu blok için CRM aktiviteleri entegrasyonu sırada.' })}
+          {t('summary.latestActivitiesPlaceholder')}
         </div>
       </div>
     </div>

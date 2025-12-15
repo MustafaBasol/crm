@@ -3,6 +3,91 @@
     "name": "comptario",
     "subtitle": "Muhasebe Sistemi"
   },
+  "crm": {
+    "fields": {
+      "name": "Ad",
+      "email": "E-posta",
+      "phone": "Telefon",
+      "company": "Şirket",
+      "status": "Durum",
+      "title": "Başlık",
+      "type": "Tip",
+      "dueAt": "Tarih / Vade",
+      "completed": "Tamamlandı",
+      "actions": "İşlemler"
+    },
+    "confirmDelete": {
+      "title": "Silme Onayı",
+      "message": "\"{{name}}\" kaydı silinsin mi?"
+    },
+    "validation": {
+      "nameRequired": "Ad zorunlu",
+      "titleRequired": "Başlık zorunlu"
+    },
+    "dashboard": {
+      "subtitle": "Pipeline ve aktiviteler için özet görünüm."
+    },
+    "leads": {
+      "title": "Potansiyeller",
+      "subtitle": "Bu sayfa için MVP entegrasyonu sırada.",
+      "empty": "Henüz lead yok.",
+      "modal": {
+        "createTitle": "Lead Ekle",
+        "editTitle": "Lead Düzenle"
+      }
+    },
+    "contacts": {
+      "title": "Kişiler",
+      "subtitle": "Bu sayfa için MVP entegrasyonu sırada.",
+      "empty": "Henüz kişi yok.",
+      "modal": {
+        "createTitle": "Kişi Ekle",
+        "editTitle": "Kişi Düzenle"
+      }
+    },
+    "activities": {
+      "title": "Aktiviteler",
+      "subtitle": "Bu sayfa için MVP entegrasyonu sırada.",
+      "empty": "Henüz aktivite yok.",
+      "dueAtPlaceholder": "Örn: 2025-12-15 veya 15.12.2025",
+      "modal": {
+        "createTitle": "Aktivite Ekle",
+        "editTitle": "Aktivite Düzenle"
+      }
+    },
+    "errors": {
+      "boardFetch": "CRM verisi alınamadı"
+    }
+  },
+  "summary": {
+    "blocks": {
+      "actions": "Aksiyonlar",
+      "receivables": "Alacaklar",
+      "criticalStock": "Kritik Stok",
+      "salesFlow": "Satış Akışı",
+      "openQuotes": "Açık Teklifler",
+      "awaitingInvoiceSales": "Faturalanmayı Bekleyen",
+      "crmFlow": "CRM Akışı",
+      "latestActivities": "Son Aktiviteler"
+    },
+    "today": "Bugün",
+    "thisWeek": "Bu Hafta",
+    "pending": "Bekleyen",
+    "overdue": "Gecikmiş",
+    "criticalProducts": "Kritik Ürünler",
+    "todayOrders": "Bugün",
+    "weekOrders": "Bu Hafta",
+    "openQuotesCount": "Açık Teklif",
+    "awaitingInvoiceCount": "Fatura Bekleyen",
+    "loading": "Yükleniyor",
+    "latestActivitiesPlaceholder": "Henüz bir aktivite yok.",
+    "crm": {
+      "openDeals": "Açık fırsatlar",
+      "expectedAmount": "Beklenen tutar",
+      "noStageData": "Henüz aşama verisi yok.",
+      "unknownStage": "Bilinmeyen aşama"
+    }
+  },
   "presets": {
     "thisMonth": "Bu Ay",
     "lastMonth": "Geçen Ay",
@@ -628,11 +713,11 @@
     "banks": "Bankalar",
     "sales": "Satışlar",
     "crm": "CRM",
-    "crmDashboard": "CRM Dashboard",
-    "crmPipeline": "Pipeline",
-    "crmLeads": "Leads",
-    "crmContacts": "Contacts",
-    "crmActivities": "Activities",
+    "crmDashboard": "CRM Özeti",
+    "crmPipeline": "Satış Süreci",
+    "crmLeads": "Potansiyeller",
+    "crmContacts": "Kişiler",
+    "crmActivities": "Aktiviteler",
     "quotes": "Teklifler",
     "reports": "Raporlar",
     "accounting": "Muhasebe",

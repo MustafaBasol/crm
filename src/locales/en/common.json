@@ -3,6 +3,91 @@
     "name": "comptario",
     "subtitle": "Accounting System"
   },
+  "crm": {
+    "fields": {
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "company": "Company",
+      "status": "Status",
+      "title": "Title",
+      "type": "Type",
+      "dueAt": "Date / Due",
+      "completed": "Completed",
+      "actions": "Actions"
+    },
+    "confirmDelete": {
+      "title": "Confirm Delete",
+      "message": "Delete \"{{name}}\"?"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "titleRequired": "Title is required"
+    },
+    "dashboard": {
+      "subtitle": "An overview of the pipeline and activity."
+    },
+    "leads": {
+      "title": "Leads",
+      "subtitle": "The MVP integration for this page comes next.",
+      "empty": "No leads yet.",
+      "modal": {
+        "createTitle": "Add Lead",
+        "editTitle": "Edit Lead"
+      }
+    },
+    "contacts": {
+      "title": "Contacts",
+      "subtitle": "The MVP integration for this page comes next.",
+      "empty": "No contacts yet.",
+      "modal": {
+        "createTitle": "Add Contact",
+        "editTitle": "Edit Contact"
+      }
+    },
+    "activities": {
+      "title": "Activities",
+      "subtitle": "The MVP integration for this page comes next.",
+      "empty": "No activities yet.",
+      "dueAtPlaceholder": "e.g. 2025-12-15",
+      "modal": {
+        "createTitle": "Add Activity",
+        "editTitle": "Edit Activity"
+      }
+    },
+    "errors": {
+      "boardFetch": "Could not fetch CRM data"
+    }
+  },
+  "summary": {
+    "blocks": {
+      "actions": "Actions",
+      "receivables": "Receivables",
+      "criticalStock": "Critical Stock",
+      "salesFlow": "Sales Flow",
+      "openQuotes": "Open Quotes",
+      "awaitingInvoiceSales": "Awaiting Invoice",
+      "crmFlow": "CRM Flow",
+      "latestActivities": "Latest Activities"
+    },
+    "today": "Today",
+    "thisWeek": "This Week",
+    "pending": "Pending",
+    "overdue": "Overdue",
+    "criticalProducts": "Critical Products",
+    "todayOrders": "Today",
+    "weekOrders": "This Week",
+    "openQuotesCount": "Open Quotes",
+    "awaitingInvoiceCount": "Awaiting Invoice",
+    "loading": "Loading",
+    "latestActivitiesPlaceholder": "No recent activity yet.",
+    "crm": {
+      "openDeals": "Open deals",
+      "expectedAmount": "Expected amount",
+      "noStageData": "No stage data yet.",
+      "unknownStage": "Unknown stage"
+    }
+  },
   "presets": {
     "thisMonth": "This Month",
     "lastMonth": "Last Month",
