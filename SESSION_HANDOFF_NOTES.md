@@ -2,6 +2,41 @@
 
 # Dev Session Notes (2025-12-15)
 
+## Handoff (Backend + Postgres + CRM Smoke) — 2025-12-15
+
+Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
+
+- Rehber: [docs/DEV_BACKEND_POSTGRES_SMOKE.md](docs/DEV_BACKEND_POSTGRES_SMOKE.md)
+- Tek komut smoke test: [backend/scripts/smoke-crm.sh](backend/scripts/smoke-crm.sh)
+- NPM script: `npm run smoke:crm` (root)
+
+### Çalışır durum (son doğrulama)
+
+- Backend 3001’de çalışıyor ve `GET /api/health` JSON dönüyor.
+- Auth smoke: `POST /api/auth/register` + `POST /api/auth/login` başarıyla token üretiyor.
+- CRM smoke: token ile leads/contacts için create→list→update→delete uçları başarıyla çalışıyor.
+
+### Hızlı devam komutları
+
+1. Backend ayakta mı?
+
+- `curl -sS http://127.0.0.1:3001/api/health`
+
+2. CRM smoke test (backend ayaktayken):
+
+- `npm run smoke:crm`
+
+3. Port çakışması (EADDRINUSE) varsa:
+
+- `lsof -nP -iTCP:3001 -sTCP:LISTEN`
+- Birden fazla `nest start --watch` instance’ı çalışıyorsa fazlasını kapat.
+
+### Notlar / Bilinen tuzaklar
+
+- `JWT_SECRET` olmadan backend boot etmiyor (dev’de bile gerekli).
+- Stripe/Billing tarafı prod’da `STRIPE_SECRET_KEY` olmadan fail-fast olabilir; dev’de crash etmemesi için soft-fail yaklaşımı var.
+- Smoke script çıktıları ve token dosyaları `/workspaces/crm/.tmp/` altına yazılıyor.
+
 ## Biten işler (CRM)
 
 - Deal detay ekranı eklendi: `#crm-deal:<id>` hash rotası ile açılıyor.
