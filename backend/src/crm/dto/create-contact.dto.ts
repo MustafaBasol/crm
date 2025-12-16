@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CreateContactDto {
   @IsString()
@@ -19,4 +19,8 @@ export class CreateContactDto {
   @IsString()
   @MaxLength(220)
   company?: string;
+
+  @IsOptional()
+  @IsUUID()
+  accountId?: string | null;
 }

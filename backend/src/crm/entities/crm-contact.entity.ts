@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Customer } from '../../customers/entities/customer.entity';
 
 @Entity('crm_contacts')
 export class CrmContact {
@@ -30,6 +31,14 @@ export class CrmContact {
 
   @Column({ type: 'varchar', length: 220, nullable: true })
   company: string | null;
+
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  accountId: string | null;
+
+  @ManyToOne(() => Customer, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'accountId' })
+  account: Customer | null;
 
   @Index()
   @Column({ type: 'uuid' })

@@ -1,0 +1,1 @@
+{"statusCode":400,"timestamp":"2025-12-16T17:01:56.630Z","path":"/api/crm/activities","method":"POST","error":"Bad Request","message":["opportunityId must be a UUID"]}

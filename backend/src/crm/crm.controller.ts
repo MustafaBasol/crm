@@ -64,8 +64,11 @@ export class CrmController {
 
   @Get('contacts')
   @ApiOperation({ summary: 'List CRM contacts' })
-  async listContacts(@User() user: CurrentUser) {
-    return this.crmService.listContacts(user.tenantId);
+  async listContacts(
+    @User() user: CurrentUser,
+    @Query('accountId') accountId?: string,
+  ) {
+    return this.crmService.listContacts(user.tenantId, user, { accountId });
   }
 
   @Post('contacts')

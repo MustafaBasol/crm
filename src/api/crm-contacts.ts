@@ -3,9 +3,10 @@ import apiClient from './client';
 export type CrmContact = {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  company: string;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  accountId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -15,12 +16,21 @@ export type CreateCrmContactDto = {
   email?: string;
   phone?: string;
   company?: string;
+  accountId?: string | null;
 };
 
 export type UpdateCrmContactDto = Partial<CreateCrmContactDto>;
 
-export const listCrmContacts = async (): Promise<CrmContact[]> => {
-  const res = await apiClient.get<CrmContact[]>('/crm/contacts');
+export const listCrmContacts = async (options?: {
+  accountId?: string;
+}): Promise<CrmContact[]> => {
+  const params = new URLSearchParams();
+  if (options?.accountId) {
+    params.set('accountId', options.accountId);
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  const res = await apiClient.get<CrmContact[]>(`/crm/contacts${suffix}`);
   return res.data;
 };
 

@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import * as contactsApi from '../../api/crm-contacts';
+import * as customersApi from '../../api/customers';
 
 type ContactFormState = {
   name: string;
   email: string;
   phone: string;
   company: string;
+  accountId: string;
 };
 
 const emptyForm: ContactFormState = {
@@ -15,12 +17,14 @@ const emptyForm: ContactFormState = {
   email: '',
   phone: '',
   company: '',
+  accountId: '',
 };
 
 export default function CrmContactsPage() {
   const { t } = useTranslation('common');
 
   const [items, setItems] = useState<contactsApi.CrmContact[]>([]);
+  const [customers, setCustomers] = useState<customersApi.Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,8 +50,19 @@ export default function CrmContactsPage() {
     }
   };
 
+  const loadCustomers = async () => {
+    try {
+      const data = await customersApi.getCustomers();
+      setCustomers(Array.isArray(data) ? data : []);
+    } catch {
+      // Customers load is best-effort; contacts page should still work.
+      setCustomers([]);
+    }
+  };
+
   useEffect(() => {
     void reload();
+    void loadCustomers();
   }, []);
 
   const openCreate = () => {
@@ -65,6 +80,7 @@ export default function CrmContactsPage() {
       email: contact.email ?? '',
       phone: contact.phone ?? '',
       company: contact.company ?? '',
+      accountId: contact.accountId ?? '',
     });
     setIsModalOpen(true);
   };
@@ -90,6 +106,7 @@ export default function CrmContactsPage() {
           email: form.email.trim() || undefined,
           phone: form.phone.trim() || undefined,
           company: form.company.trim() || undefined,
+          accountId: form.accountId.trim() ? form.accountId.trim() : null,
         });
       } else {
         await contactsApi.createCrmContact({
@@ -97,6 +114,7 @@ export default function CrmContactsPage() {
           email: form.email.trim() || undefined,
           phone: form.phone.trim() || undefined,
           company: form.company.trim() || undefined,
+          accountId: form.accountId.trim() ? form.accountId.trim() : undefined,
         });
       }
       await reload();
@@ -133,6 +151,16 @@ export default function CrmContactsPage() {
 
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
 
+  const customerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of customers) {
+      if (c?.id) {
+        map.set(c.id, c.name);
+      }
+    }
+    return map;
+  }, [customers]);
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -168,6 +196,7 @@ export default function CrmContactsPage() {
                 <th className="py-2 pr-4">{t('crm.fields.name')}</th>
                 <th className="py-2 pr-4">{t('crm.fields.email')}</th>
                 <th className="py-2 pr-4">{t('crm.fields.phone')}</th>
+                <th className="py-2 pr-4">{t('crm.fields.account')}</th>
                 <th className="py-2 pr-4">{t('crm.fields.company')}</th>
                 <th className="py-2">{t('crm.fields.actions')}</th>
               </tr>
@@ -178,6 +207,9 @@ export default function CrmContactsPage() {
                   <td className="py-2 pr-4 text-gray-900">{contact.name}</td>
                   <td className="py-2 pr-4 text-gray-700">{contact.email || '-'}</td>
                   <td className="py-2 pr-4 text-gray-700">{contact.phone || '-'}</td>
+                  <td className="py-2 pr-4 text-gray-700">
+                    {contact.accountId ? customerNameById.get(contact.accountId) || '-' : '-'}
+                  </td>
                   <td className="py-2 pr-4 text-gray-700">{contact.company || '-'}</td>
                   <td className="py-2">
                     <div className="flex items-center gap-3">
@@ -214,6 +246,23 @@ export default function CrmContactsPage() {
             {modalError && <div className="mb-4 text-sm text-red-600">{modalError}</div>}
 
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('crm.fields.account')}
+                </label>
+                <select
+                  value={form.accountId}
+                  onChange={(e) => setForm((p) => ({ ...p, accountId: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300"
+                >
+                  <option value="">{t('crm.pipeline.selectPlaceholder')}</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.fields.name')}</label>
                 <input

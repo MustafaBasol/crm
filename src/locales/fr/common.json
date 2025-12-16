@@ -102,6 +102,7 @@
         "open": "Ouvert",
         "completed": "Terminé"
       },
+        "account": "Client (Account)",
       "modal": {
         "createTitle": "Ajouter une activité",
         "editTitle": "Modifier l’activité"
