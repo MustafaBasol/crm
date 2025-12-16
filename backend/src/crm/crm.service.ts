@@ -329,17 +329,6 @@ export class CrmService {
       }
     }
 
-    if ('accountId' in dto) {
-      const nextAccountId = dto.accountId ? String(dto.accountId).trim() : '';
-      if (nextAccountId) {
-        const customer = await this.customerRepo.findOne({
-          where: { tenantId, id: nextAccountId },
-        });
-        if (!customer) throw new NotFoundException('Customer not found');
-      }
-      contact.accountId = nextAccountId || null;
-    }
-
     contact.updatedByUserId = user.id;
     return this.contactRepo.save(contact);
   }
@@ -709,12 +698,20 @@ export class CrmService {
       ? new Date(dto.expectedCloseDate)
       : null;
 
+    const accountId = dto.accountId ? String(dto.accountId).trim() : '';
+    if (accountId) {
+      const customer = await this.customerRepo.findOne({
+        where: { tenantId, id: accountId },
+      });
+      if (!customer) throw new NotFoundException('Customer not found');
+    }
+
     const opp = await this.oppRepo.save(
       this.oppRepo.create({
         tenantId,
         pipelineId: pipeline.id,
         stageId: stage.id,
-        accountId: dto.accountId,
+        accountId: accountId || null,
         ownerUserId: user.id,
         name: dto.name,
         amount: Number(dto.amount ?? 0),
@@ -884,7 +881,16 @@ export class CrmService {
     }
 
     if (dto.accountId != null) {
-      opp.accountId = dto.accountId;
+      const nextAccountId = dto.accountId ? String(dto.accountId).trim() : '';
+      if (nextAccountId) {
+        const customer = await this.customerRepo.findOne({
+          where: { tenantId, id: nextAccountId },
+        });
+        if (!customer) throw new NotFoundException('Customer not found');
+        opp.accountId = nextAccountId;
+      } else {
+        opp.accountId = null;
+      }
     }
 
     if (dto.amount != null) {
@@ -1080,6 +1086,23 @@ export class CrmService {
       });
       if (!contact) throw new NotFoundException('Contact not found');
 
+      if (!this.isAdmin(user)) {
+        if (contact.accountId) {
+          const canViewAllForAccount = await this.canAccessAccount(
+            tenantId,
+            user,
+            contact.accountId,
+          );
+          const canUseContact =
+            canViewAllForAccount || contact.createdByUserId === user.id;
+          if (!canUseContact) throw new ForbiddenException('Not allowed');
+        } else {
+          if (contact.createdByUserId !== user.id) {
+            throw new ForbiddenException('Not allowed');
+          }
+        }
+      }
+
       // If the contact is linked to an account, validate that the account exists.
       // Visibility is enforced on reads; creation is still creator-owned.
       if (contact.accountId) {
@@ -1135,28 +1158,13 @@ export class CrmService {
     }
 
     if (activity.accountId) {
-      const customer = await this.customerRepo.findOne({
-        where: { tenantId, id: activity.accountId },
-      });
-      if (!customer) throw new NotFoundException('Customer not found');
       if (!this.isAdmin(user)) {
-        // same rule as listActivities(accountId)
-        const visibleOpp = await this.oppRepo
-          .createQueryBuilder('opp')
-          .leftJoin(
-            CrmOpportunityMember,
-            'm',
-            'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
-          )
-          .where('opp.tenantId = :tenantId', { tenantId })
-          .andWhere('opp.accountId = :accountId', {
-            accountId: activity.accountId,
-          })
-          .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
-            userId: user.id,
-          })
-          .getOne();
-        if (!visibleOpp && activity.createdByUserId !== user.id) {
+        const canViewAllForAccount = await this.canAccessAccount(
+          tenantId,
+          user,
+          activity.accountId,
+        );
+        if (!canViewAllForAccount && activity.createdByUserId !== user.id) {
           throw new ForbiddenException('Not allowed');
         }
       }
@@ -1173,28 +1181,13 @@ export class CrmService {
     if ('accountId' in dto) {
       const nextAccountId = dto.accountId ?? null;
       if (nextAccountId) {
-        const customer = await this.customerRepo.findOne({
-          where: { tenantId, id: nextAccountId },
-        });
-        if (!customer) throw new NotFoundException('Customer not found');
-
         if (!this.isAdmin(user)) {
-          const visibleOpp = await this.oppRepo
-            .createQueryBuilder('opp')
-            .leftJoin(
-              CrmOpportunityMember,
-              'm',
-              'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
-            )
-            .where('opp.tenantId = :tenantId', { tenantId })
-            .andWhere('opp.accountId = :accountId', {
-              accountId: nextAccountId,
-            })
-            .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
-              userId: user.id,
-            })
-            .getOne();
-          if (!visibleOpp) {
+          const canViewAllForAccount = await this.canAccessAccount(
+            tenantId,
+            user,
+            nextAccountId,
+          );
+          if (!canViewAllForAccount && activity.createdByUserId !== user.id) {
             throw new ForbiddenException('Not allowed');
           }
         }
@@ -1209,6 +1202,23 @@ export class CrmService {
           where: { tenantId, id: nextContactId },
         });
         if (!contact) throw new NotFoundException('Contact not found');
+
+        if (!this.isAdmin(user)) {
+          if (contact.accountId) {
+            const canViewAllForAccount = await this.canAccessAccount(
+              tenantId,
+              user,
+              contact.accountId,
+            );
+            const canUseContact =
+              canViewAllForAccount || contact.createdByUserId === user.id;
+            if (!canUseContact) throw new ForbiddenException('Not allowed');
+          } else {
+            if (contact.createdByUserId !== user.id) {
+              throw new ForbiddenException('Not allowed');
+            }
+          }
+        }
       }
       activity.contactId = nextContactId;
     }
@@ -1266,27 +1276,13 @@ export class CrmService {
     }
 
     if (activity.accountId) {
-      const customer = await this.customerRepo.findOne({
-        where: { tenantId, id: activity.accountId },
-      });
-      if (!customer) throw new NotFoundException('Customer not found');
       if (!this.isAdmin(user)) {
-        const visibleOpp = await this.oppRepo
-          .createQueryBuilder('opp')
-          .leftJoin(
-            CrmOpportunityMember,
-            'm',
-            'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
-          )
-          .where('opp.tenantId = :tenantId', { tenantId })
-          .andWhere('opp.accountId = :accountId', {
-            accountId: activity.accountId,
-          })
-          .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
-            userId: user.id,
-          })
-          .getOne();
-        if (!visibleOpp && activity.createdByUserId !== user.id) {
+        const canViewAllForAccount = await this.canAccessAccount(
+          tenantId,
+          user,
+          activity.accountId,
+        );
+        if (!canViewAllForAccount && activity.createdByUserId !== user.id) {
           throw new ForbiddenException('Not allowed');
         }
       }
