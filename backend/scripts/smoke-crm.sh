@@ -331,6 +331,33 @@ OPP_ID="$(json_get "$OPP_CREATED_JSON" "j.id")"
 [[ -n "$OPP_ID" ]] || fail "Opportunity id missing in create response: $OPP_CREATED_JSON"
 echo "Opportunity ID: $OPP_ID"
 
+if [[ -n "$MEMBER_TOKEN" ]]; then
+  echo "== CRM: board visibility (member can see team opportunity) =="
+  MEMBER_BOARD_JSON="$TMP_DIR/smoke.member.board.json"
+  MEMBER_BOARD_STATUS="$(http_status GET "$API_BASE/crm/board" "" "$MEMBER_TOKEN" "$MEMBER_BOARD_JSON")"
+  [[ "$MEMBER_BOARD_STATUS" == "200" ]] || fail "Expected 200 for member board, got $MEMBER_BOARD_STATUS: $MEMBER_BOARD_JSON"
+  MEMBER_BOARD_HAS_OPP="$(json_get "$MEMBER_BOARD_JSON" "Array.isArray(j?.opportunities) && j.opportunities.some(o => o && o.id === '$OPP_ID')")"
+  [[ "$MEMBER_BOARD_HAS_OPP" == "true" ]] || fail "Member board does not include team opportunity: $MEMBER_BOARD_JSON"
+
+  echo "== CRM: authz (member cannot update team opportunity) =="
+  MEMBER_OPP_PATCH="$TMP_DIR/smoke.member.opp.patch.json"
+  cat > "$MEMBER_OPP_PATCH" <<JSON
+{"name":"HACKED"}
+JSON
+  MEMBER_OPP_PATCH_RES="$TMP_DIR/smoke.member.opp.patch.res.json"
+  MEMBER_OPP_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/opportunities/$OPP_ID" "$MEMBER_OPP_PATCH" "$MEMBER_TOKEN" "$MEMBER_OPP_PATCH_RES")"
+  [[ "$MEMBER_OPP_PATCH_STATUS" == "403" ]] || fail "Expected 403 for member opportunity update, got $MEMBER_OPP_PATCH_STATUS: $MEMBER_OPP_PATCH_RES"
+
+  echo "== CRM: authz (member cannot edit opportunity team) =="
+  MEMBER_OPP_TEAM="$TMP_DIR/smoke.member.opp.team.json"
+  cat > "$MEMBER_OPP_TEAM" <<JSON
+{"userIds":[]}
+JSON
+  MEMBER_OPP_TEAM_RES="$TMP_DIR/smoke.member.opp.team.res.json"
+  MEMBER_OPP_TEAM_STATUS="$(http_status POST "$API_BASE/crm/opportunities/$OPP_ID/team" "$MEMBER_OPP_TEAM" "$MEMBER_TOKEN" "$MEMBER_OPP_TEAM_RES")"
+  [[ "$MEMBER_OPP_TEAM_STATUS" == "403" ]] || fail "Expected 403 for member setTeam, got $MEMBER_OPP_TEAM_STATUS: $MEMBER_OPP_TEAM_RES"
+fi
+
 echo "== CRM: contact accountId (allowed update after visibility) =="
 CONTACT_ALLOWED_PATCH_RES="$TMP_DIR/smoke.contact.allowed.patch.res.json"
 ALLOWED_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/contacts/$CONTACT_ID" "$CONTACT_FORBIDDEN_PATCH" "$TOKEN" "$CONTACT_ALLOWED_PATCH_RES")"
