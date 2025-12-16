@@ -258,7 +258,11 @@ http_json DELETE "$API_BASE/crm/leads/$LEAD_ID" "" "$TOKEN" | tee "$TMP_DIR/smok
 echo "== CRM: contacts CRUD =="
 
 echo "== CRM: pipeline bootstrap (required for opportunities) =="
-http_json POST "$API_BASE/crm/pipeline/bootstrap" "" "$TOKEN" | tee "$TMP_DIR/smoke.crm.bootstrap.json" >/dev/null
+CRM_BOOTSTRAP_JSON="$TMP_DIR/smoke.crm.bootstrap.json"
+http_json POST "$API_BASE/crm/pipeline/bootstrap" "" "$TOKEN" | tee "$CRM_BOOTSTRAP_JSON" >/dev/null
+STAGE_0_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.stageIds[0]")"
+STAGE_1_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.stageIds[1]")"
+STAGE_2_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.stageIds[2]")"
 
 echo "== Customers: create (for contact accountId) =="
 CUSTOMER_CREATE="$TMP_DIR/smoke.customer.create.json"
@@ -328,8 +332,16 @@ fi
 OPP_CREATED_JSON="$TMP_DIR/smoke.opportunity.created.json"
 http_json POST "$API_BASE/crm/opportunities" "$OPP_CREATE" "$TOKEN" | tee "$OPP_CREATED_JSON" >/dev/null
 OPP_ID="$(json_get "$OPP_CREATED_JSON" "j.id")"
+OPP_STAGE_ID="$(json_get "$OPP_CREATED_JSON" "j.stageId")"
 [[ -n "$OPP_ID" ]] || fail "Opportunity id missing in create response: $OPP_CREATED_JSON"
 echo "Opportunity ID: $OPP_ID"
+
+MOVE_STAGE_ID=""
+if [[ -n "$STAGE_1_ID" && "$STAGE_1_ID" != "$OPP_STAGE_ID" ]]; then
+  MOVE_STAGE_ID="$STAGE_1_ID"
+elif [[ -n "$STAGE_2_ID" && "$STAGE_2_ID" != "$OPP_STAGE_ID" ]]; then
+  MOVE_STAGE_ID="$STAGE_2_ID"
+fi
 
 if [[ -n "$MEMBER_TOKEN" ]]; then
   echo "== CRM: board visibility (member can see team opportunity) =="
@@ -356,6 +368,24 @@ JSON
   MEMBER_OPP_TEAM_RES="$TMP_DIR/smoke.member.opp.team.res.json"
   MEMBER_OPP_TEAM_STATUS="$(http_status POST "$API_BASE/crm/opportunities/$OPP_ID/team" "$MEMBER_OPP_TEAM" "$MEMBER_TOKEN" "$MEMBER_OPP_TEAM_RES")"
   [[ "$MEMBER_OPP_TEAM_STATUS" == "403" ]] || fail "Expected 403 for member setTeam, got $MEMBER_OPP_TEAM_STATUS: $MEMBER_OPP_TEAM_RES"
+
+  if [[ -n "$MOVE_STAGE_ID" ]]; then
+    echo "== CRM: authz (member cannot move opportunity stage) =="
+    MEMBER_OPP_MOVE_PAYLOAD="$TMP_DIR/smoke.member.opp.move.json"
+    cat > "$MEMBER_OPP_MOVE_PAYLOAD" <<JSON
+{"stageId":"$MOVE_STAGE_ID"}
+JSON
+    MEMBER_OPP_MOVE_RES="$TMP_DIR/smoke.member.opp.move.res.json"
+    MEMBER_OPP_MOVE_STATUS="$(http_status POST "$API_BASE/crm/opportunities/$OPP_ID/move" "$MEMBER_OPP_MOVE_PAYLOAD" "$MEMBER_TOKEN" "$MEMBER_OPP_MOVE_RES")"
+    [[ "$MEMBER_OPP_MOVE_STATUS" == "403" ]] || fail "Expected 403 for member move stage, got $MEMBER_OPP_MOVE_STATUS: $MEMBER_OPP_MOVE_RES"
+
+    echo "== CRM: stage move (owner allowed) =="
+    OWNER_OPP_MOVE_RES="$TMP_DIR/smoke.owner.opp.move.res.json"
+    OWNER_OPP_MOVE_STATUS="$(http_status POST "$API_BASE/crm/opportunities/$OPP_ID/move" "$MEMBER_OPP_MOVE_PAYLOAD" "$TOKEN" "$OWNER_OPP_MOVE_RES")"
+    [[ "$OWNER_OPP_MOVE_STATUS" == "200" || "$OWNER_OPP_MOVE_STATUS" == "201" ]] || fail "Expected 200/201 for owner move stage, got $OWNER_OPP_MOVE_STATUS: $OWNER_OPP_MOVE_RES"
+  else
+    echo "Move-stage test skipped (no alternate stageId available)."
+  fi
 fi
 
 echo "== CRM: contact accountId (allowed update after visibility) =="

@@ -771,6 +771,12 @@ export class CrmService {
   ) {
     const opp = await this.getOpportunityForAccessCheck(tenantId, user, id);
 
+    // Stage changes are destructive state transitions; restrict to owner/admin.
+    const canMoveStage = this.isAdmin(user) || opp.ownerUserId === user.id;
+    if (!canMoveStage) {
+      throw new ForbiddenException('You do not have permission to move this opportunity');
+    }
+
     const pipeline = await this.pipelineRepo.findOne({
       where: { tenantId, isDefault: true },
     });
