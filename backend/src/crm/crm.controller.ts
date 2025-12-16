@@ -159,10 +159,12 @@ export class CrmController {
     @User() user: CurrentUser,
     @Query('opportunityId') opportunityId?: string,
     @Query('accountId') accountId?: string,
+    @Query('contactId') contactId?: string,
   ) {
     return this.crmService.listActivities(user.tenantId, user, {
       opportunityId,
       accountId,
+      contactId,
     });
   }
 

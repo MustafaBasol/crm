@@ -10,6 +10,7 @@
       "phone": "Phone",
       "company": "Company",
       "status": "Status",
+      "contact": "Contact",
       "title": "Title",
       "type": "Type",
       "assignee": "Assignee",
@@ -87,6 +88,7 @@
       "subtitle": "Track calls, emails, and tasks.",
       "subtitleForDeal": "Activities for \"{{dealName}}\"",
       "subtitleForAccount": "Activities for \"{{accountName}}\"",
+      "subtitleForContact": "Activities for \"{{contactName}}\"",
       "empty": "No activities yet.",
       "dueAtPlaceholder": "e.g. 2025-12-15",
       "filters": {

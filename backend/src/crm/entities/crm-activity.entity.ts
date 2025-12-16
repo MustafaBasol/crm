@@ -11,6 +11,7 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { CrmOpportunity } from './crm-opportunity.entity';
+import { CrmContact } from './crm-contact.entity';
 
 @Entity('crm_activities')
 export class CrmActivity {
@@ -42,6 +43,14 @@ export class CrmActivity {
   @ManyToOne(() => CrmOpportunity, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'opportunityId' })
   opportunity: CrmOpportunity | null;
+
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  contactId: string | null;
+
+  @ManyToOne(() => CrmContact, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'contactId' })
+  contact: CrmContact | null;
 
   // UI currently treats this as a free-form string (e.g. ISO date or localized date)
   @Column({ type: 'varchar', length: 48, nullable: true })

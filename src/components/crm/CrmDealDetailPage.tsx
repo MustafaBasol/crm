@@ -380,7 +380,7 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
             {members.length === 0 && <div className="text-sm text-gray-500">{t('crm.pipeline.noMembers')}</div>}
             <div className="space-y-2">
               {members.map((m) => {
-              <CrmTasksPage opportunityId={opportunityId} dealName={opportunity.name} assignees={taskAssignees} />
+                const memberUserId = m.user.id;
                 const isOwner = user?.id && memberUserId === user.id;
                 const checked = (opportunity.teamUserIds ?? []).includes(memberUserId) || !!isOwner;
                 return (
@@ -408,7 +408,7 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
       <CrmActivitiesPage opportunityId={opportunity.id} dealName={opportunity.name} />
 
       <div className="mt-6">
-        <CrmTasksPage opportunityId={opportunity.id} dealName={opportunity.name} />
+        <CrmTasksPage opportunityId={opportunity.id} dealName={opportunity.name} assignees={taskAssignees} />
       </div>
     </div>
   );

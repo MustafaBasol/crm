@@ -3,7 +3,7 @@
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
   "features": {},
   "postCreateCommand": "npm ci --no-audit --no-fund && cd backend && npm ci --no-audit --no-fund",
-  "postStartCommand": "bash -lc 'if [ \"${AUTO_START:-0}\" = \"1\" ]; then sleep 5 && ./start-safe.sh & fi'",
+  "postStartCommand": "bash -lc 'if [ \"${AUTO_START:-0}\" = \"1\" ]; then sleep 5 && bash ./start-safe.sh & fi'",
   "forwardPorts": [3001, 5174, 5432],
   "portsAttributes": {
     "3001": {

@@ -6,6 +6,7 @@
       "phone": "Telefon",
       "company": "Unternehmen",
       "status": "Status",
+      "contact": "Kontakt",
       "title": "Titel",
       "type": "Typ",
       "assignee": "Zuständig",
@@ -83,6 +84,7 @@
       "subtitle": "Verfolgen Sie Anrufe, E-Mails und Aufgaben.",
       "subtitleForDeal": "Aktivitäten für \"{{dealName}}\"",
       "subtitleForAccount": "Aktivitäten für \"{{accountName}}\"",
+      "subtitleForContact": "Aktivitäten für \"{{contactName}}\"",
       "empty": "Noch keine Aktivitäten.",
       "dueAtPlaceholder": "z. B. 2025-12-15",
       "filters": {

@@ -1,79 +1,112 @@
-#!/bin/bash
-# Güvenli başlatma scripti - Verilerinizi korur
+#!/usr/bin/env bash
+set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
+RUNTIME_DIR="$ROOT_DIR/.runtime"
 
-echo "🚀 Muhasebe Uygulaması Başlatılıyor..."
-echo ""
+BACKEND_PORT="${BACKEND_PORT:-${PORT:-3001}}"
+FRONTEND_PORT="${FRONTEND_PORT:-${VITE_PORT:-5174}}"
+API_HEALTH_URL="http://127.0.0.1:${BACKEND_PORT}/api/health"
 
-# 1. Docker servisleri kontrol et ve başlat
-echo "📦 Docker servisleri kontrol ediliyor..."
-if ! docker ps | grep -q moneyflow-db; then
-    echo "🔄 PostgreSQL başlatılıyor..."
+mkdir -p "$RUNTIME_DIR"
+
+LOCK_FILE="$RUNTIME_DIR/start-safe.lock"
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+    echo "ℹ️ start-safe.sh zaten çalışıyor (lock: $LOCK_FILE). Çıkılıyor."
+    exit 0
+fi
+
+echo "🚀 Uygulama başlatılıyor (safe mode)..."
+echo "- Backend port:  $BACKEND_PORT"
+echo "- Frontend port: $FRONTEND_PORT"
+
+have_docker() {
+    command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1
+}
+
+if have_docker; then
+    if docker ps --format '{{.Names}}' | grep -q '^moneyflow-db$'; then
+        echo "✅ Docker DB çalışıyor (moneyflow-db)"
+    else
+        echo "ℹ️ Docker var ama moneyflow-db container'ı yok/kapalı. (Gerekliyse backend/docker-compose.yml ile başlatın.)"
+    fi
+else
+    echo "ℹ️ Docker yok/erişilemiyor; DB otomatik başlatılmayacak."
+fi
+
+start_backend() {
+    local pid_file="$RUNTIME_DIR/backend.pid"
+    if command -v lsof >/dev/null 2>&1 && lsof -iTCP:"$BACKEND_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+        echo "✅ Backend zaten dinliyor (port $BACKEND_PORT)"
+        return 0
+    fi
+
+    if [ -f "$pid_file" ]; then
+        local old_pid
+        old_pid="$(cat "$pid_file" 2>/dev/null || true)"
+        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+            echo "✅ Backend zaten çalışıyor (PID: $old_pid)"
+            return 0
+        fi
+    fi
+
+    echo "🔧 Backend başlatılıyor..."
     cd "$BACKEND_DIR"
-    docker-compose up -d postgres redis
-    sleep 5
+    nohup npm run start:dev > "$RUNTIME_DIR/backend.log" 2>&1 &
+    echo $! > "$pid_file"
+}
+
+start_frontend() {
+    local pid_file="$RUNTIME_DIR/frontend.pid"
+    if command -v lsof >/dev/null 2>&1 && lsof -iTCP:"$FRONTEND_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+        echo "✅ Frontend zaten dinliyor (port $FRONTEND_PORT)"
+        return 0
+    fi
+
+    if [ -f "$pid_file" ]; then
+        local old_pid
+        old_pid="$(cat "$pid_file" 2>/dev/null || true)"
+        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+            echo "✅ Frontend zaten çalışıyor (PID: $old_pid)"
+            return 0
+        fi
+    fi
+
+    echo "🎨 Frontend başlatılıyor..."
+    cd "$ROOT_DIR"
+    nohup npm run dev > "$RUNTIME_DIR/frontend.log" 2>&1 &
+    echo $! > "$pid_file"
+}
+
+start_backend
+start_frontend
+
+echo "⏳ Backend health kontrolü: $API_HEALTH_URL"
+ATT=0; MAX=20
+until [ $ATT -ge $MAX ]; do
+    CODE=$(curl -sS -o "$RUNTIME_DIR/health.json" -w "%{http_code}" "$API_HEALTH_URL" 2>/dev/null || echo 000)
+    if [ "$CODE" = "200" ]; then
+        echo "✅ Backend ayakta"
+        break
+    fi
+    ATT=$((ATT+1)); sleep 2
+done
+
+echo "\n🌐 URL'ler:"
+if [ -n "${CODESPACE_NAME:-}" ]; then
+    echo "- Frontend: https://${CODESPACE_NAME}-${FRONTEND_PORT}.app.github.dev"
+    echo "- Backend:  https://${CODESPACE_NAME}-${BACKEND_PORT}.app.github.dev"
+    echo "- Swagger:  https://${CODESPACE_NAME}-${BACKEND_PORT}.app.github.dev/api/docs"
 else
-    echo "✅ PostgreSQL zaten çalışıyor"
+    echo "- Frontend: http://localhost:${FRONTEND_PORT}"
+    echo "- Backend:  http://localhost:${BACKEND_PORT}"
+    echo "- Swagger:  http://localhost:${BACKEND_PORT}/api/docs"
 fi
 
-# 2. Backend'i başlat
-echo "🔧 Backend başlatılıyor..."
-pkill -f 'nest start' 2>/dev/null
-cd "$BACKEND_DIR"
-npm run start:dev > /tmp/backend.log 2>&1 &
-sleep 8
+echo "\n📝 Loglar:"
+echo "- Backend:  tail -f $RUNTIME_DIR/backend.log"
+echo "- Frontend: tail -f $RUNTIME_DIR/frontend.log"
 
-# 3. Frontend'i başlat
-echo "🎨 Frontend başlatılıyor..."
-pkill -f 'vite' 2>/dev/null
-cd "$ROOT_DIR"
-npm run dev > /tmp/frontend.log 2>&1 &
-sleep 5
-
-# 4. Durum kontrolü
-echo ""
-echo "📊 Servis Durumu:"
-if lsof -i :3000 >/dev/null 2>&1; then
-    echo "✅ Backend çalışıyor (Port 3000)"
-else
-    echo "❌ Backend başlatılamadı!"
-fi
-
-if lsof -i :5173 >/dev/null 2>&1; then
-    echo "✅ Frontend çalışıyor (Port 5173)"
-else
-    echo "❌ Frontend başlatılamadı!"
-fi
-
-# 5. Veritabanı kontrolü
-echo ""
-echo "🗄️  Veritabanı Durumu:"
-USER_COUNT=$(docker exec moneyflow-db psql -U moneyflow -d moneyflow_dev -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' ')
-if [ ! -z "$USER_COUNT" ]; then
-    echo "✅ Veritabanı bağlantısı OK - $USER_COUNT kullanıcı mevcut"
-else
-    echo "❌ Veritabanına bağlanılamadı!"
-fi
-
-# 6. URL'leri göster
-echo ""
-echo "🌐 Erişim URL'leri:"
-if [ ! -z "$CODESPACE_NAME" ]; then
-    echo "Frontend: https://$CODESPACE_NAME-5173.app.github.dev"
-    echo "Backend:  https://$CODESPACE_NAME-3000.app.github.dev"
-else
-    echo "Frontend: http://localhost:5173"
-    echo "Backend:  http://localhost:3000"
-fi
-
-echo ""
-echo "👤 Demo Giriş:"
-echo "   Email: admin@test.com"
-echo "   Şifre: Test123456"
-echo ""
-echo "💾 Yedekleme: ./quick-backup.sh"
-echo "📖 Dokümantasyon: DATA_PERSISTENCE.md"
-echo ""
-echo "✨ Uygulama hazır!"
+echo "\n🛑 Durdurmak için: ./stop-dev.sh"

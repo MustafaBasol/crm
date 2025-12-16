@@ -24,6 +24,10 @@ export class CreateActivityDto {
   accountId?: string | null;
 
   @IsOptional()
+  @IsUUID()
+  contactId?: string | null;
+
+  @IsOptional()
   @IsString()
   dueAt?: string | null;
 

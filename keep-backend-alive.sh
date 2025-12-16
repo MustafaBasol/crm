@@ -1,32 +1,28 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "🔄 Backend Keep-Alive Script başlatılıyor..."
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUNTIME_DIR="$ROOT_DIR/.runtime"
+mkdir -p "$RUNTIME_DIR"
+
+BACKEND_PORT="${BACKEND_PORT:-${PORT:-3001}}"
+CHECK_INTERVAL_SEC="${CHECK_INTERVAL_SEC:-30}"
+
+echo "🔄 Backend keep-alive başlatıldı (port=${BACKEND_PORT}, interval=${CHECK_INTERVAL_SEC}s)"
+
+backend_health() {
+    curl -fsS --max-time 2 "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null 2>&1
+}
 
 while true; do
-    # Backend çalışıyor mu kontrol et
-    if ! curl -s http://localhost:3000/health > /dev/null 2>&1; then
-        echo "❌ Backend down! Yeniden başlatılıyor..."
-        
-        # Eski işlemleri temizle
-        pkill -f "nest" 2>/dev/null
-        lsof -ti :3000 | xargs kill -9 2>/dev/null
-        
-        # Yeniden başlat
-        cd /workspaces/Muhasabev2/backend
-        nohup npm run start:dev > /tmp/backend-keepalive.log 2>&1 &
-        
-        # Başlamasını bekle
-        sleep 10
-        
-        if curl -s http://localhost:3000/health > /dev/null 2>&1; then
-            echo "✅ Backend başarıyla yeniden başlatıldı!"
-        else
-            echo "❌ Backend başlatılamadı, 30 saniye sonra tekrar denenecek..."
-        fi
-    else
+    if backend_health; then
         echo "✅ Backend çalışıyor ($(date))"
+        sleep "$CHECK_INTERVAL_SEC"
+        continue
     fi
-    
-    # 30 saniye bekle
-    sleep 30
+
+    echo "❌ Backend down! Yeniden başlatılıyor..."
+    bash "$ROOT_DIR/start-backend.sh" || true
+
+    sleep "$CHECK_INTERVAL_SEC"
 done

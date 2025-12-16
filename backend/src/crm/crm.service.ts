@@ -779,14 +779,17 @@ export class CrmService {
   async listActivities(
     tenantId: string,
     user: CurrentUser,
-    options?: { opportunityId?: string; accountId?: string },
+    options?: { opportunityId?: string; accountId?: string; contactId?: string },
   ) {
     const opportunityId = options?.opportunityId?.trim() || undefined;
     const accountId = options?.accountId?.trim() || undefined;
+    const contactId = options?.contactId?.trim() || undefined;
 
-    if (opportunityId && accountId) {
+    const filterCount = [opportunityId, accountId, contactId].filter(Boolean)
+      .length;
+    if (filterCount > 1) {
       throw new BadRequestException(
-        'Provide either opportunityId or accountId, not both',
+        'Provide only one of opportunityId, accountId, contactId',
       );
     }
 
@@ -828,6 +831,26 @@ export class CrmService {
 
       return this.activityRepo.find({
         where: { tenantId, accountId },
+        order: { updatedAt: 'DESC' },
+      });
+    }
+
+    if (contactId) {
+      const contact = await this.contactRepo.findOne({
+        where: { tenantId, id: contactId },
+      });
+      if (!contact) throw new NotFoundException('Contact not found');
+
+      if (this.isAdmin(user)) {
+        return this.activityRepo.find({
+          where: { tenantId, contactId },
+          order: { updatedAt: 'DESC' },
+        });
+      }
+
+      // Contact-linked activities are treated like unlinked MVP items: only the creator (or admin) can see them.
+      return this.activityRepo.find({
+        where: { tenantId, contactId, createdByUserId: user.id },
         order: { updatedAt: 'DESC' },
       });
     }
@@ -924,12 +947,27 @@ export class CrmService {
       );
     }
 
+    const contactId = dto.contactId ?? null;
+    if (contactId) {
+      const contact = await this.contactRepo.findOne({
+        where: { tenantId, id: contactId },
+      });
+      if (!contact) throw new NotFoundException('Contact not found');
+    }
+
+    if ([opportunityId, accountId, contactId].filter(Boolean).length > 1) {
+      throw new BadRequestException(
+        'Provide only one of opportunityId, accountId, contactId',
+      );
+    }
+
     const entity = this.activityRepo.create({
       tenantId,
       title,
       type: String(dto.type ?? '').trim(),
       accountId,
       opportunityId,
+      contactId,
       dueAt: dto.dueAt ?? null,
       completed: Boolean(dto.completed),
       createdByUserId: user.id,
@@ -1032,9 +1070,24 @@ export class CrmService {
       activity.accountId = nextAccountId;
     }
 
-    if (activity.opportunityId && activity.accountId) {
+    if ('contactId' in dto) {
+      const nextContactId = dto.contactId ?? null;
+      if (nextContactId) {
+        const contact = await this.contactRepo.findOne({
+          where: { tenantId, id: nextContactId },
+        });
+        if (!contact) throw new NotFoundException('Contact not found');
+      }
+      activity.contactId = nextContactId;
+    }
+
+    if (
+      [activity.opportunityId, activity.accountId, activity.contactId].filter(
+        Boolean,
+      ).length > 1
+    ) {
       throw new BadRequestException(
-        'Provide either opportunityId or accountId, not both',
+        'Provide only one of opportunityId, accountId, contactId',
       );
     }
 

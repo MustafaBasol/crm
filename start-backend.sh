@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+RUNTIME_DIR="$ROOT_DIR/.runtime"
+BACKEND_DIR="$ROOT_DIR/backend"
+mkdir -p "$RUNTIME_DIR"
+
 echo "🚀 Backend başlatılıyor (yalnızca backend)"
-cd "$(dirname "$0")/backend"
+cd "$BACKEND_DIR"
 
 # .env dosyasını erken yükle (dotenv öncesi), böylece script default'ları .env'i ezmez
 if [ -f ./.env ]; then
@@ -19,17 +24,23 @@ if command -v lsof >/dev/null 2>&1; then
   PIDS=$(lsof -t -i:3001 2>/dev/null || true)
   if [ -n "$PIDS" ]; then
     echo "   🔪 Port 3001 kullanan süreçler sonlandırılıyor: $PIDS"
+    kill $PIDS 2>/dev/null || true
+    sleep 1
     kill -9 $PIDS 2>/dev/null || true
   fi
 fi
 pkill -f "nest start|dist/main|node dist/main|ts-node .*main" 2>/dev/null || true
 sleep 1
 
-# Docker servislerini ayağa kaldır
-if ! docker ps | grep -q "moneyflow-db\|moneyflow-redis"; then
-  echo "🐳 Docker servisleri başlatılıyor..."
-  docker-compose up -d
-  echo "⏳ Veritabanı için kısa bekleme..."; sleep 6
+# Docker servislerini opsiyonel olarak ayağa kaldır
+if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
+  if ! docker ps | grep -q "moneyflow-db\|moneyflow-redis"; then
+    echo "🐳 Docker servisleri başlatılıyor..."
+    docker-compose up -d
+    echo "⏳ Veritabanı için kısa bekleme..."; sleep 6
+  fi
+else
+  echo "ℹ️ Docker yok/erişilemiyor; docker-compose adımı atlandı."
 fi
 
 # Bağımlılıklar
@@ -58,20 +69,21 @@ fi
 
 # Çalıştır ve logları arkaplana al
 echo "🔧 nest start --watch (port $PORT)"
-nohup npm run start:dev > /tmp/backend.log 2>&1 &
+nohup npm run start:dev > "$RUNTIME_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
+echo "$BACKEND_PID" > "$RUNTIME_DIR/backend.pid"
 
-# Health check (health endpoint global prefix dışında)
+# Health check
 ATT=0; MAX=20
 until [ $ATT -ge $MAX ]; do
-  CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "http://localhost:${PORT}/health/email" || echo 000)
+  CODE=$(curl -s -o "$RUNTIME_DIR/health.json" -w "%{http_code}" "http://localhost:${PORT}/api/health" || echo 000)
   if [ "$CODE" = "200" ]; then
     echo "✅ Backend ayakta (PID=$BACKEND_PID, PORT=$PORT)"
-    echo "ℹ️  Loglar: tail -f /tmp/backend.log"
+    echo "ℹ️  Loglar: tail -f $RUNTIME_DIR/backend.log"
     exit 0
   fi
   ATT=$((ATT+1)); sleep 2
 done
 
-echo "❌ Health check başarısız. Logları kontrol edin: tail -n 200 /tmp/backend.log"
+echo "❌ Health check başarısız. Logları kontrol edin: tail -n 200 $RUNTIME_DIR/backend.log"
 exit 1

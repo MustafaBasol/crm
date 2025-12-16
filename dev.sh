@@ -23,12 +23,12 @@ echo -e "${GREEN}═════════════════════
 
 echo -e "${YELLOW}📌 Kullanışlı Komutlar:${NC}"
 echo "   🌐 Frontend: http://localhost:5174"
-echo "   🔧 Backend:  http://localhost:3002"
-echo "   📋 Loglar:   tail -f /tmp/backend.log"
-echo "   📋 Loglar:   tail -f /tmp/frontend.log"
-echo "   🛑 Durdur:   pkill -f 'nest start' && pkill -f 'vite'"
+echo "   🔧 Backend:  http://localhost:3001"
+echo "   📋 Loglar:   tail -f .runtime/backend.log"
+echo "   📋 Loglar:   tail -f .runtime/frontend.log"
+echo "   🛑 Durdur:   npm run stop:all"
 echo ""
 
 echo -e "${BLUE}💡 İpucu: Servisler çökerse otomatik yeniden başlatma için:${NC}"
-echo -e "${YELLOW}   ./watch-services.sh &${NC}"
+echo -e "${YELLOW}   bash ./watch-services.sh &${NC}"
 echo ""

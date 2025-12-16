@@ -16,6 +16,7 @@
       "phone": "Téléphone",
       "company": "Société",
       "status": "Statut",
+      "contact": "Contact",
       "title": "Titre",
       "type": "Type",
       "assignee": "Assigné à",
@@ -93,6 +94,7 @@
       "subtitle": "Suivez les appels, e-mails et tâches.",
       "subtitleForDeal": "Activités pour \"{{dealName}}\"",
       "subtitleForAccount": "Activités pour \"{{accountName}}\"",
+      "subtitleForContact": "Activités pour \"{{contactName}}\"",
       "empty": "Aucune activité pour l’instant.",
       "dueAtPlaceholder": "ex. 2025-12-15",
       "filters": {

@@ -5,7 +5,7 @@
 Codespace her açtığınızda SADECE bunu çalıştırın:
 
 ```bash
-./start-safe.sh
+bash ./start-safe.sh
 ```
 
 **O KADAR!** Başka hiçbir şey yapmayın.
@@ -14,8 +14,9 @@ Codespace her açtığınızda SADECE bunu çalıştırın:
 
 Uygulama başladıktan sonra:
 
-**Frontend:** https://damp-wraith-7q9x5r7j6qrcgg6-5173.app.github.dev
-**Backend:** https://damp-wraith-7q9x5r7j6qrcgg6-3000.app.github.dev
+- Frontend: http://localhost:5174
+- Backend: http://localhost:3001
+- Swagger: http://localhost:3001/api/docs
 
 ## 👤 Giriş
 
@@ -27,7 +28,9 @@ Email: admin@test.com
 ## 🛑 Durdurmak İsterseniz
 
 ```bash
-pkill -f 'nest start' && pkill -f vite
+npm run stop:all
+# veya
+bash ./stop-dev.sh
 ```
 
 ## 💾 Yedek Almak İsterseniz
@@ -45,12 +48,13 @@ pkill -f 'nest start' && pkill -f vite
 ## 📋 VS Code'dan Başlatma
 
 VS Code menüsünden:
+
 1. **Terminal** → **Run Task**
 2. **🚀 Uygulamayı Başlat** seçin
 
 ---
 
-**ÖNEMLİ:** Codespace her açılışta `start-safe.sh` otomatik çalışacak şekilde ayarlandı.
-Artık **hiçbir şey yapmanıza gerek yok**!
+**ÖNEMLİ:** Codespace açılışında otomatik başlatma **varsayılan olarak kapalı**.
+İsterseniz `AUTO_START=1` tanımlarsanız, container açılışında `start-safe.sh` tetiklenir.
 
 **Son Güncelleme:** 27 Ekim 2025 ✅

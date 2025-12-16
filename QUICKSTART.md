@@ -3,12 +3,13 @@
 ## Tek Komutla Başlat
 
 ```bash
-./dev.sh
+npm run start:all
 ```
 
 Bu komut:
+
 - ✅ Eski servisleri durdurur
-- ✅ Backend'i başlatır (Port: 3002)
+- ✅ Backend'i başlatır (Port: 3001)
 - ✅ Frontend'i başlatır (Port: 5174)
 - ✅ Durumları kontrol eder ve rapor verir
 
@@ -17,54 +18,60 @@ Bu komut:
 Servisler çökerse otomatik yeniden başlatmak için:
 
 ```bash
-./watch-services.sh &
+bash ./watch-services.sh &
 ```
 
-Bu, arka planda çalışır ve her 10 saniyede bir servisleri kontrol eder.
+Bu, arka planda çalışır ve varsayılan olarak her 30 saniyede bir servisleri kontrol eder.
 
 ## Manuel Komutlar
 
 ### Servisleri Başlat
+
 ```bash
-./start-all.sh
+bash ./start-dev.sh
 ```
 
 ### Servisleri Durdur
+
 ```bash
-pkill -f 'nest start' && pkill -f 'vite'
+npm run stop:all
 ```
 
 ### Logları İzle
+
 ```bash
 # Backend
-tail -f /tmp/backend.log
+tail -f .runtime/backend.log
 
 # Frontend
-tail -f /tmp/frontend.log
+tail -f .runtime/frontend.log
 ```
 
 ## URL'ler
 
 - **Frontend:** http://localhost:5174
-- **Backend API:** http://localhost:3002
-- **API Docs:** http://localhost:3002/api
+- **Backend API:** http://localhost:3001
+- **API Docs:** http://localhost:3001/api/docs
 
 ## Sorun Giderme
 
 Eğer servisler başlamazsa:
 
 1. Port'ların boş olduğundan emin olun:
+
 ```bash
-lsof -i :3002
+lsof -i :3001
 lsof -i :5174
 ```
 
 2. Tüm servisleri temizleyin:
+
 ```bash
-pkill -f 'nest start' && pkill -f 'vite' && pkill -f 'node'
+npm run stop:all
 ```
 
 3. Yeniden başlatın:
+
 ```bash
-./dev.sh
+npm run start:all
 ```

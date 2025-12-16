@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import * as activitiesApi from '../../api/crm-activities';
+import * as contactsApi from '../../api/crm-contacts';
 
 type ActivityStatusFilter = 'all' | 'open' | 'completed';
 
@@ -10,6 +11,7 @@ type ActivityFormState = {
   type: string;
   dueAt: string;
   completed: boolean;
+  contactId: string;
 };
 
 const emptyForm: ActivityFormState = {
@@ -17,17 +19,27 @@ const emptyForm: ActivityFormState = {
   type: '',
   dueAt: '',
   completed: false,
+  contactId: '',
 };
 
-export default function CrmActivitiesPage(props: { opportunityId?: string; dealName?: string } = {}) {
+export default function CrmActivitiesPage(
+  props: { opportunityId?: string; dealName?: string; contactId?: string; contactName?: string } = {},
+) {
   const { t, i18n } = useTranslation('common');
 
   const opportunityId = props?.opportunityId;
   const dealName = props?.dealName;
+  const contactId = props?.contactId;
+  const contactName = props?.contactName;
+
+  const isScopedTimeline = !!opportunityId || !!contactId;
 
   const [items, setItems] = useState<activitiesApi.CrmActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [contacts, setContacts] = useState<contactsApi.CrmContact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -44,7 +56,13 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
     setError(null);
     setLoading(true);
     try {
-      const data = await activitiesApi.listCrmActivities(opportunityId ? { opportunityId } : undefined);
+      const data = await activitiesApi.listCrmActivities(
+        opportunityId
+          ? { opportunityId }
+          : contactId
+            ? { contactId }
+            : undefined,
+      );
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(getErrorMessage(e));
@@ -55,11 +73,31 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
 
   useEffect(() => {
     void reload();
-  }, [opportunityId]);
+  }, [opportunityId, contactId]);
 
   useEffect(() => {
     setStatusFilter('all');
-  }, [opportunityId]);
+  }, [opportunityId, contactId]);
+
+  useEffect(() => {
+    if (opportunityId || contactId) return;
+    let cancelled = false;
+    const loadContacts = async () => {
+      try {
+        setContactsLoading(true);
+        const data = await contactsApi.listCrmContacts();
+        if (!cancelled) setContacts(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setContacts([]);
+      } finally {
+        if (!cancelled) setContactsLoading(false);
+      }
+    };
+    void loadContacts();
+    return () => {
+      cancelled = true;
+    };
+  }, [opportunityId, contactId]);
 
   const parseDateMs = (value: string | null | undefined): number | null => {
     const raw = String(value ?? '').trim();
@@ -129,6 +167,7 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
       type: activity.type ?? '',
       dueAt: activity.dueAt ?? '',
       completed: !!activity.completed,
+      contactId: activity.contactId ?? '',
     });
     setIsModalOpen(true);
   };
@@ -150,6 +189,13 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
       title,
       type: form.type.trim() || undefined,
       opportunityId: opportunityId || undefined,
+      contactId: contactId
+        ? contactId
+        : opportunityId
+          ? undefined
+          : form.contactId
+            ? form.contactId
+            : null,
       dueAt: form.dueAt.trim() ? form.dueAt.trim() : null,
       completed: !!form.completed,
     };
@@ -197,7 +243,7 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
 
   const timelineRows = useMemo(() => {
     const base = Array.isArray(rows) ? [...rows] : [];
-    const filtered = opportunityId
+    const filtered = isScopedTimeline
       ? base.filter((a) => {
           if (statusFilter === 'completed') return !!a.completed;
           if (statusFilter === 'open') return !a.completed;
@@ -211,7 +257,27 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
 
     filtered.sort((a, b) => sortKey(b) - sortKey(a));
     return filtered;
-  }, [opportunityId, rows, statusFilter]);
+  }, [isScopedTimeline, rows, statusFilter]);
+
+  const timelineGroups = useMemo(() => {
+    const groups = new Map<string, { header: string; ms: number; items: activitiesApi.CrmActivity[] }>();
+
+    for (const activity of timelineRows) {
+      const ms = parseDateMs(activity.dueAt) ?? parseDateMs(activity.createdAt) ?? 0;
+      const header = formatDateLabel(activity.dueAt, activity.createdAt) || '-';
+      const key = `${ms}:${header}`;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.items.push(activity);
+      } else {
+        groups.set(key, { header, ms, items: [activity] });
+      }
+    }
+
+    const arr = Array.from(groups.values());
+    arr.sort((a, b) => b.ms - a.ms);
+    return arr;
+  }, [timelineRows]);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -221,11 +287,13 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
           <div className="mt-2 text-sm text-gray-500">
             {opportunityId
               ? t('crm.activities.subtitleForDeal', { dealName: dealName || '' })
-              : t('crm.activities.subtitle')}
+              : contactId
+                ? t('crm.activities.subtitleForContact', { contactName: contactName || '' })
+                : t('crm.activities.subtitle')}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {opportunityId && (
+          {isScopedTimeline && (
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as ActivityStatusFilter)}
@@ -257,42 +325,51 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
         <div className="mt-6 text-sm text-gray-600">{t('crm.activities.empty')}</div>
       )}
 
-      {!loading && !error && rows.length > 0 && opportunityId && (
-        <div className="mt-6 space-y-3">
-          {timelineRows.map((activity) => {
-            const isCompleted = !!activity.completed;
-            const dateLabel = formatDateLabel(activity.dueAt, activity.createdAt);
-            return (
-              <div key={activity.id} className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className={isCompleted ? 'text-sm font-medium text-gray-700 line-through' : 'text-sm font-medium text-gray-900'}>
-                      {activity.title}
+      {!loading && !error && rows.length > 0 && isScopedTimeline && (
+        <div className="mt-6 space-y-6">
+          {timelineGroups.map((group) => (
+            <div key={`${group.ms}:${group.header}`} className="space-y-3">
+              <div className="text-xs font-semibold text-gray-500">{group.header}</div>
+              <div className="space-y-3">
+                {group.items.map((activity) => {
+                  const isCompleted = !!activity.completed;
+                  return (
+                    <div key={activity.id} className="relative pl-5">
+                      <div className="absolute left-1 top-3 h-full w-px bg-gray-200" />
+                      <div className={isCompleted ? 'absolute left-0 top-3 h-2 w-2 rounded-full bg-gray-300' : 'absolute left-0 top-3 h-2 w-2 rounded-full bg-gray-500'} />
+                      <div className="border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className={isCompleted ? 'text-sm font-medium text-gray-700 line-through' : 'text-sm font-medium text-gray-900'}>
+                              {activity.title}
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                              {activity.type ? <span>{activity.type}</span> : null}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className={isCompleted ? 'px-2 py-1 rounded-md text-xs bg-gray-200 text-gray-700' : 'px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-800'}>
+                              {isCompleted ? t('crm.activities.filters.completed') : t('crm.activities.filters.open')}
+                            </span>
+                            <button type="button" onClick={() => openEdit(activity)} className="text-blue-600 hover:underline text-sm">
+                              {t('common.edit')}
+                            </button>
+                            <button type="button" onClick={() => startDelete(activity)} className="text-red-600 hover:underline text-sm">
+                              {t('common.delete')}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                      {activity.type ? <span>{activity.type}</span> : null}
-                      {dateLabel ? <span>{dateLabel}</span> : null}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={isCompleted ? 'px-2 py-1 rounded-md text-xs bg-gray-200 text-gray-700' : 'px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-800'}>
-                      {isCompleted ? t('crm.activities.filters.completed') : t('crm.activities.filters.open')}
-                    </span>
-                    <button type="button" onClick={() => openEdit(activity)} className="text-blue-600 hover:underline text-sm">
-                      {t('common.edit')}
-                    </button>
-                    <button type="button" onClick={() => startDelete(activity)} className="text-red-600 hover:underline text-sm">
-                      {t('common.delete')}
-                    </button>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
-      {!loading && !error && rows.length > 0 && !opportunityId && (
+      {!loading && !error && rows.length > 0 && !isScopedTimeline && (
         <div className="mt-6 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -346,6 +423,24 @@ export default function CrmActivitiesPage(props: { opportunityId?: string; dealN
             {modalError && <div className="mb-4 text-sm text-red-600">{modalError}</div>}
 
             <div className="space-y-4">
+              {!opportunityId && !contactId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.fields.contact')}</label>
+                  <select
+                    value={form.contactId}
+                    onChange={(e) => setForm((p) => ({ ...p, contactId: e.target.value }))}
+                    className="w-full border rounded-lg px-3 py-2 border-gray-300"
+                    disabled={contactsLoading}
+                  >
+                    <option value="">-</option>
+                    {contacts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.fields.title')}</label>
                 <input

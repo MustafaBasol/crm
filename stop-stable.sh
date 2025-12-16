@@ -1,6 +1,13 @@
-#!/bin/bash#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+echo "🛑 Stable stop (wrapper)"
+bash "$ROOT_DIR/stop-dev.sh"
+exit 0
+
+: <<'LEGACY_STOP_STABLE_SH'
 
 echo "🛑 MoneyFlow uygulamasını durduruyor..."# MoneyFlow - Stop Script
 
@@ -58,3 +65,5 @@ echo "✅ Tüm servisler durduruldu!"pkill -f "nest" 2>/dev/null || true
 pkill -f "vite" 2>/dev/null || true
 
 echo "🏁 Tüm servisler durduruldu!"
+
+LEGACY_STOP_STABLE_SH

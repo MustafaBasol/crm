@@ -10,6 +10,7 @@
       "phone": "Telefon",
       "company": "Şirket",
       "status": "Durum",
+      "contact": "Kişi",
       "title": "Başlık",
       "type": "Tip",
       "assignee": "Atanan",
@@ -87,6 +88,7 @@
       "subtitle": "Arama, e-posta ve görevleri takip edin.",
       "subtitleForDeal": "\"{{dealName}}\" için aktiviteler",
       "subtitleForAccount": "\"{{accountName}}\" için aktiviteler",
+      "subtitleForContact": "\"{{contactName}}\" için aktiviteler",
       "empty": "Henüz aktivite yok.",
       "dueAtPlaceholder": "Örn: 2025-12-15 veya 15.12.2025",
       "filters": {
