@@ -139,6 +139,76 @@ if [[ -z "$TOKEN" ]]; then
   fi
 fi
 
+# === Optional: create a non-admin member user (via organizations) for authz-negative tests ===
+# Disabled by default to avoid polluting DB with org records when plan limits prevent invites.
+ENABLE_MEMBER_FLOW="${ENABLE_MEMBER_FLOW:-0}"
+MEMBER_EMAIL="${MEMBER_EMAIL:-member${TS}@example.com}"
+MEMBER_PASS="${MEMBER_PASS:-Password123!}"
+MEMBER_TOKEN=""
+
+if [[ "$ENABLE_MEMBER_FLOW" == "1" ]]; then
+  ORG_ID=""
+
+  echo "== Orgs: create + invite member (optional) =="
+  ORG_CREATE_PAYLOAD="$TMP_DIR/smoke.org.create.json"
+  cat > "$ORG_CREATE_PAYLOAD" <<JSON
+{"name":"Smoke Org $TS"}
+JSON
+  ORG_CREATE_RES="$TMP_DIR/smoke.org.created.json"
+  ORG_CREATE_STATUS="$(http_status POST "$API_BASE/organizations" "$ORG_CREATE_PAYLOAD" "$TOKEN" "$ORG_CREATE_RES")"
+  if [[ "$ORG_CREATE_STATUS" == "200" || "$ORG_CREATE_STATUS" == "201" ]]; then
+    ORG_ID="$(json_get "$ORG_CREATE_RES" "j.id")"
+  fi
+
+  if [[ -n "$ORG_ID" ]]; then
+    ORG_INVITE_PAYLOAD="$TMP_DIR/smoke.org.invite.json"
+    cat > "$ORG_INVITE_PAYLOAD" <<JSON
+{"email":"$MEMBER_EMAIL","role":"MEMBER"}
+JSON
+    ORG_INVITE_RES="$TMP_DIR/smoke.org.invite.res.json"
+    ORG_INVITE_STATUS="$(http_status POST "$API_BASE/organizations/$ORG_ID/invite" "$ORG_INVITE_PAYLOAD" "$TOKEN" "$ORG_INVITE_RES")"
+    INVITE_TOKEN=""
+    if [[ "$ORG_INVITE_STATUS" == "200" || "$ORG_INVITE_STATUS" == "201" ]]; then
+      INVITE_TOKEN="$(json_get "$ORG_INVITE_RES" "j.token")"
+    fi
+
+    if [[ -n "$INVITE_TOKEN" ]]; then
+      # Register member user (creates personal tenant) and accept invite.
+      MEMBER_REGISTER_PAYLOAD="$TMP_DIR/smoke.member.register.payload.json"
+      cat > "$MEMBER_REGISTER_PAYLOAD" <<JSON
+{"email":"$MEMBER_EMAIL","password":"$MEMBER_PASS","firstName":"Member","lastName":"User"}
+JSON
+      MEMBER_REGISTER_RES="$TMP_DIR/smoke.member.register.res.json"
+      MEMBER_REGISTER_STATUS="$(http_status POST "$API_BASE/auth/register" "$MEMBER_REGISTER_PAYLOAD" "" "$MEMBER_REGISTER_RES")"
+      if [[ "$MEMBER_REGISTER_STATUS" == "200" || "$MEMBER_REGISTER_STATUS" == "201" ]]; then
+        MEMBER_REGISTER_TOKEN="$(json_get "$MEMBER_REGISTER_RES" "j.token||j.accessToken")"
+        if [[ -n "$MEMBER_REGISTER_TOKEN" ]]; then
+          ORG_ACCEPT_PAYLOAD="$TMP_DIR/smoke.org.accept.json"
+          cat > "$ORG_ACCEPT_PAYLOAD" <<JSON
+{"token":"$INVITE_TOKEN"}
+JSON
+          ORG_ACCEPT_RES="$TMP_DIR/smoke.org.accept.res.json"
+          ORG_ACCEPT_STATUS="$(http_status POST "$API_BASE/organizations/accept-invite" "$ORG_ACCEPT_PAYLOAD" "$MEMBER_REGISTER_TOKEN" "$ORG_ACCEPT_RES")"
+          if [[ "$ORG_ACCEPT_STATUS" == "200" || "$ORG_ACCEPT_STATUS" == "201" ]]; then
+            # Refresh to mint a new token with synced tenantId (JWT payload is based on DB user).
+            MEMBER_REFRESH_RES="$TMP_DIR/smoke.member.refresh.res.json"
+            MEMBER_REFRESH_STATUS="$(http_status POST "$API_BASE/auth/refresh" "" "$MEMBER_REGISTER_TOKEN" "$MEMBER_REFRESH_RES")"
+            if [[ "$MEMBER_REFRESH_STATUS" == "200" ]]; then
+              MEMBER_TOKEN="$(json_get "$MEMBER_REFRESH_RES" "j.token")"
+            fi
+          fi
+        fi
+      fi
+    fi
+  fi
+
+  if [[ -n "$MEMBER_TOKEN" ]]; then
+    echo "MEMBER_TOKEN_LEN=${#MEMBER_TOKEN}"
+  else
+    echo "Member flow unavailable; skipping non-admin authz negative tests."
+  fi
+fi
+
 echo -n "$TOKEN" > "$TOKEN_FILE"
 echo "TOKEN_LEN=${#TOKEN} (saved to $TOKEN_FILE)"
 
@@ -222,6 +292,26 @@ echo "== CRM: contact accountId (allowed update after visibility) =="
 CONTACT_ALLOWED_PATCH_RES="$TMP_DIR/smoke.contact.allowed.patch.res.json"
 ALLOWED_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/contacts/$CONTACT_ID" "$CONTACT_FORBIDDEN_PATCH" "$TOKEN" "$CONTACT_ALLOWED_PATCH_RES")"
 [[ "$ALLOWED_PATCH_STATUS" == "200" ]] || fail "Expected 200 for allowed contact accountId update (after visibility), got $ALLOWED_PATCH_STATUS: $CONTACT_ALLOWED_PATCH_RES"
+
+if [[ -n "$MEMBER_TOKEN" ]]; then
+  echo "== CRM: authz (member cannot update owner's contact) =="
+  MEMBER_CONTACT_PATCH="$TMP_DIR/smoke.member.contact.patch.json"
+  cat > "$MEMBER_CONTACT_PATCH" <<JSON
+{"company":"HACKED"}
+JSON
+  MEMBER_CONTACT_PATCH_RES="$TMP_DIR/smoke.member.contact.patch.res.json"
+  MEMBER_CONTACT_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/contacts/$CONTACT_ID" "$MEMBER_CONTACT_PATCH" "$MEMBER_TOKEN" "$MEMBER_CONTACT_PATCH_RES")"
+  [[ "$MEMBER_CONTACT_PATCH_STATUS" == "403" ]] || fail "Expected 403 for member contact update, got $MEMBER_CONTACT_PATCH_STATUS: $MEMBER_CONTACT_PATCH_RES"
+
+  echo "== CRM: authz (member cannot create activity on owner's contact) =="
+  MEMBER_ACTIVITY_CREATE="$TMP_DIR/smoke.member.activity.create.json"
+  cat > "$MEMBER_ACTIVITY_CREATE" <<JSON
+{"title":"Member Forbidden Activity $TS","type":"call","contactId":"$CONTACT_ID","completed":false}
+JSON
+  MEMBER_ACTIVITY_CREATE_RES="$TMP_DIR/smoke.member.activity.create.res.json"
+  MEMBER_ACTIVITY_CREATE_STATUS="$(http_status POST "$API_BASE/crm/activities" "$MEMBER_ACTIVITY_CREATE" "$MEMBER_TOKEN" "$MEMBER_ACTIVITY_CREATE_RES")"
+  [[ "$MEMBER_ACTIVITY_CREATE_STATUS" == "403" ]] || fail "Expected 403 for member activity create with contactId, got $MEMBER_ACTIVITY_CREATE_STATUS: $MEMBER_ACTIVITY_CREATE_RES"
+fi
 
 http_json GET "$API_BASE/crm/contacts" "" "$TOKEN" | tee "$TMP_DIR/smoke.contacts.list.json" >/dev/null
 
