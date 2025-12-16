@@ -272,7 +272,7 @@ CONTACT_ID="$(json_get "$CONTACT_CREATED_JSON" "j.id")"
 
 echo "Contact ID: $CONTACT_ID"
 
-echo "== CRM: contact accountId (forbidden update before visibility) =="
+echo "== CRM: contact accountId update before opportunity visibility =="
 CONTACT_FORBIDDEN_PATCH="$TMP_DIR/smoke.contact.forbidden.patch.json"
 cat > "$CONTACT_FORBIDDEN_PATCH" <<JSON
 {"accountId":"$CUSTOMER_ID"}
@@ -280,11 +280,18 @@ JSON
 CONTACT_FORBIDDEN_PATCH_RES="$TMP_DIR/smoke.contact.forbidden.patch.res.json"
 FORBIDDEN_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/contacts/$CONTACT_ID" "$CONTACT_FORBIDDEN_PATCH" "$TOKEN" "$CONTACT_FORBIDDEN_PATCH_RES")"
 if [[ "$FORBIDDEN_PATCH_STATUS" == "403" ]]; then
-  echo "Got expected 403 for contact accountId update before visibility (non-admin behavior)."
+  echo "Got 403 for contact accountId update before visibility (token likely non-admin)."
 elif [[ "$FORBIDDEN_PATCH_STATUS" == "200" ]]; then
-  echo "Contact accountId update succeeded before visibility (likely OWNER/ADMIN token); continuing."
+  echo "Contact accountId update succeeded before visibility (token likely OWNER/ADMIN); continuing."
 else
   fail "Expected 403 or 200 for contact accountId update before visibility, got $FORBIDDEN_PATCH_STATUS: $CONTACT_FORBIDDEN_PATCH_RES"
+fi
+
+if [[ -n "$MEMBER_TOKEN" ]]; then
+  echo "== CRM: authz (member cannot set accountId on owner's contact) =="
+  MEMBER_CONTACT_ACCOUNT_PATCH_RES="$TMP_DIR/smoke.member.contact.account.patch.res.json"
+  MEMBER_CONTACT_ACCOUNT_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/contacts/$CONTACT_ID" "$CONTACT_FORBIDDEN_PATCH" "$MEMBER_TOKEN" "$MEMBER_CONTACT_ACCOUNT_PATCH_RES")"
+  [[ "$MEMBER_CONTACT_ACCOUNT_PATCH_STATUS" == "403" ]] || fail "Expected 403 for member contact accountId update, got $MEMBER_CONTACT_ACCOUNT_PATCH_STATUS: $MEMBER_CONTACT_ACCOUNT_PATCH_RES"
 fi
 
 echo "== CRM: opportunity create (to grant account visibility) =="
