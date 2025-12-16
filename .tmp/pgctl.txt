@@ -1,3 +1,0 @@
-FOUND_PG_CTL=/usr/lib/postgresql/17/bin/pg_ctl
-pg_ctl (PostgreSQL) 17.6 (Debian 17.6-0+deb13u1)
-/usr/lib/postgresql/17/bin/pg_ctl

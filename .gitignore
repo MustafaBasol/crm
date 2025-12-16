@@ -103,3 +103,10 @@ backend/backend.tar.gz
 comptario-frontend.tar.gz
 
 .devcontainer/devcontainer.json.bak
+
+# Local runtime (never commit)
+.runtime/
+.runtime-local/
+.pgdata/
+.pgsocket/
+.tmp/

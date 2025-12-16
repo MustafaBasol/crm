@@ -1,1 +1,0 @@
-/usr/lib/postgresql/17/bin/postgres "-D" "/workspaces/crm/.runtime/pgdata" "-p" "5543" "-c" "listen_addresses=127.0.0.1" "-c" "unix_socket_directories=/workspaces/crm/.runtime/pgsocket"

@@ -74,6 +74,10 @@ Ne yapar?
 
 - Varsayılan olarak `/workspaces/crm/.tmp/` altına JSON response’lar ve `smoke.token.txt` yazar.
 
+> Önemli: Bu klasör (ve genel olarak `.tmp/`, `.pgdata/`, `.pgsocket/`, `.runtime/`, `.runtime-local/`) **lokal runtime verisidir** ve repoya commit edilmemelidir.
+> Postgres cluster’ını repo içine (ör. `.runtime/pgdata` veya `.pgdata`) kurmak, dosya izinleri/IO sorunları ve **data corruption** gibi problemlerle dev akışını kırabilir.
+> pgdata’yı mutlaka repo dışı bir dizinde tutun (örn. `$HOME/.local/share/crm/pgdata` veya `/tmp/crm-pgdata`).
+
 Özelleştirme (opsiyonel env):
 
 - `BASE_URL` (default `http://127.0.0.1:3001`)
@@ -91,3 +95,12 @@ BASE_URL=http://127.0.0.1:3001 API_PREFIX=/api backend/scripts/smoke-crm.sh
 
 - Stripe/Billing tarafındaki bazı modüller prod’da `STRIPE_SECRET_KEY` olmadan fail-fast davranabilir. Development ortamında crash etmemesi için “soft-fail” yaklaşımı uygulanmıştır.
 - Migration’lar boş DB’de “relation does not exist” gibi zincir kırılmalarına karşı, başlangıç “core tables” migration’ı ile stabilize edilmiştir.
+
+## 5) Repo kirlenmesi (git status) hızlı çözüm
+
+Eğer geçmişte yanlışlıkla repo içine pgdata veya smoke çıktıları yazıldıysa, bir kereye mahsus aşağıdaki komutlarla index’ten çıkarabilirsiniz:
+
+```bash
+cd /workspaces/crm
+git rm -r --cached --ignore-unmatch .runtime .runtime-local .pgdata .pgsocket .tmp
+```
