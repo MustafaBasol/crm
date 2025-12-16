@@ -239,7 +239,9 @@ This invitation will expire on ${expiryLabel}.
     // Create organization
     const organization = this.organizationRepository.create({
       name: createOrganizationDto.name,
-      plan: createOrganizationDto.plan || Plan.STARTER,
+      // IMPORTANT: plan is not user-controllable via public API.
+      // Limits are derived from tenant subscription / admin settings.
+      plan: Plan.STARTER,
     });
 
     const savedOrganization =
@@ -300,7 +302,15 @@ This invitation will expire on ${expiryLabel}.
       );
     }
 
-    await this.organizationRepository.update(id, updateOrganizationDto);
+    // IMPORTANT: plan is not user-controllable via public API.
+    // Only allow updating non-billing fields here.
+    const patch: { name?: string } = {};
+    if (typeof updateOrganizationDto.name === 'string') {
+      patch.name = updateOrganizationDto.name;
+    }
+    if (Object.keys(patch).length > 0) {
+      await this.organizationRepository.update(id, patch);
+    }
     return this.findOne(id, userId);
   }
 

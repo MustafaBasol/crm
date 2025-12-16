@@ -16,6 +16,14 @@ NC='\033[0m' # No Color
 RUNTIME_DIR="$ROOT_DIR/.runtime"
 mkdir -p "$RUNTIME_DIR"
 
+# Docker Compose komutu (v1: docker-compose, v2: docker compose)
+COMPOSE_CMD=""
+if command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+fi
+
 # .env yükle (varsa)
 if [ -f ".env" ]; then
     echo -e "${BLUE}🔐 .env dosyası yükleniyor...${NC}"
@@ -55,7 +63,11 @@ if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
     if ! docker ps | grep -q "moneyflow-db\|moneyflow-redis"; then
         echo -e "${YELLOW}⚠️  Docker servisleri başlatılıyor...${NC}"
         cd "$BACKEND_DIR"
-        docker-compose up -d
+        if [ -n "$COMPOSE_CMD" ]; then
+            $COMPOSE_CMD up -d
+        else
+            echo -e "${YELLOW}ℹ️  Docker Compose yok; docker servisleri başlatılamadı.${NC}"
+        fi
         sleep 5
     fi
 else
@@ -75,20 +87,22 @@ fi
 # Backend loglarını dosyaya yaz
 export NODE_ENV=${NODE_ENV:-development}
 export PORT=${PORT:-3001}
-# DB default'ları: sadece hiçbir yerde set edilmediyse seç
-if [ -z "${DATABASE_HOST:-}" ]; then export DATABASE_HOST=localhost; fi
-if [ -z "${DATABASE_PORT:-}" ]; then
-    if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -q '^moneyflow-db$'; then
-        export DATABASE_PORT=5433
-    elif command -v lsof >/dev/null 2>&1 && lsof -iTCP:5543 -sTCP:LISTEN >/dev/null 2>&1; then
-        export DATABASE_PORT=5543
-    else
-        export DATABASE_PORT=5432
-    fi
+
+# JWT: Dev ortamında .env yoksa backend'in çökmesini önle.
+# Prod'da zaten env zorunlu; burada sadece local/dev için varsayılan veriyoruz.
+if [ -z "${JWT_SECRET:-}" ]; then
+    export JWT_SECRET="dev_only_change_me_32bytes_minimum_secret_key_123456"
 fi
-if [ -z "${DATABASE_USER:-}" ]; then export DATABASE_USER=moneyflow; fi
-if [ -z "${DATABASE_PASSWORD:-}" ]; then export DATABASE_PASSWORD=moneyflow123; fi
-if [ -z "${DATABASE_NAME:-}" ]; then export DATABASE_NAME=moneyflow_dev; fi
+# DB seçimi:
+# - Eğer DATABASE_HOST/DATABASE_URL/DATABASE_TYPE zaten set ise dokunma.
+# - Eğer Docker veya local Postgres portu tespit edilirse Postgres env'lerini set et.
+# - Aksi halde backend'in SQLite fallback'ını kullanabilmesi için DB_SQLITE=true set et.
+if [ -z "${DATABASE_URL:-}" ] && [ -z "${DATABASE_HOST:-}" ] && [ -z "${DATABASE_TYPE:-}" ] && [ -z "${DB_SQLITE:-}" ]; then
+    # Explicit DB env yoksa SQLite fallback kullan.
+    # (Port dinliyor diye rastgele bir Postgres'e bağlanmaya çalışmak, rol/db mismatch yüzünden sık çöküyor.)
+    export DB_SQLITE=true
+    unset DATABASE_HOST DATABASE_PORT DATABASE_USER DATABASE_PASSWORD DATABASE_NAME
+fi
 export MAIL_PROVIDER=${MAIL_PROVIDER:-log}
 export MAIL_FROM=${MAIL_FROM:-no-reply@example.com}
 export MAILERSEND_API_KEY=${MAILERSEND_API_KEY:-}
@@ -98,7 +112,11 @@ echo -e "${BLUE}📬 Mail provider: $MAIL_PROVIDER (from: $MAIL_FROM)${NC}"
 if [ "$MAIL_PROVIDER" = "mailersend" ] && [ -z "$MAILERSEND_API_KEY" ]; then
     echo -e "${RED}❌ MAIL_PROVIDER=mailersend ancak MAILERSEND_API_KEY tanımlı değil. Gönderimler başarısız olacak.${NC}"
 fi
-echo -e "${BLUE}🗄️  DB: $DATABASE_USER@$DATABASE_HOST:$DATABASE_PORT/$DATABASE_NAME${NC}"
+if [ "${DB_SQLITE:-}" = "true" ]; then
+    echo -e "${BLUE}🗄️  DB: SQLite (dev.db)${NC}"
+else
+    echo -e "${BLUE}🗄️  DB: $DATABASE_USER@$DATABASE_HOST:$DATABASE_PORT/$DATABASE_NAME${NC}"
+fi
 nohup npm run start:dev > "$RUNTIME_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 echo "$BACKEND_PID" > "$RUNTIME_DIR/backend.pid"
@@ -156,4 +174,8 @@ echo "  - Frontend: tail -f $RUNTIME_DIR/frontend.log"
 echo ""
 echo "🛑 To stop all services:"
 echo "  - kill $BACKEND_PID $FRONTEND_PID"
-echo "  - docker-compose -f $BACKEND_DIR/docker-compose.yml down"
+if [ -n "$COMPOSE_CMD" ]; then
+    echo "  - $COMPOSE_CMD -f $BACKEND_DIR/docker-compose.yml down"
+else
+    echo "  - (docker compose) -f $BACKEND_DIR/docker-compose.yml down"
+fi

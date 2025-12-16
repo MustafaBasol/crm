@@ -24,17 +24,35 @@ const normalizeColumnTypes = (
   columns: ColumnMetadata[],
   driver?: DriverLike,
 ) => {
-  if (!driver?.options?.type || driver.options.type !== 'postgres') {
+  const dbType = driver?.options?.type;
+  if (!dbType) return;
+
+  if (dbType === 'postgres') {
+    columns.forEach((column) => {
+      if ((column.type as unknown) === Object) {
+        column.type = 'varchar';
+      }
+      if (column.type === 'datetime') {
+        column.type = 'timestamp';
+      }
+    });
     return;
   }
-  columns.forEach((column) => {
-    if ((column.type as unknown) === Object) {
-      column.type = 'varchar';
-    }
-    if (column.type === 'datetime') {
-      column.type = 'timestamp';
-    }
-  });
+
+  // SQLite driver doesn't support native enum type; use simple-enum.
+  if (dbType === 'sqlite') {
+    columns.forEach((column) => {
+      if (column.type === 'enum') {
+        column.type = 'simple-enum';
+      }
+      if (column.type === 'jsonb' || column.type === 'json') {
+        column.type = 'simple-json';
+      }
+      if (column.type === 'timestamptz' || column.type === 'timestamp') {
+        column.type = 'datetime';
+      }
+    });
+  }
 };
 
 export const patchTypeOrmMetadataForTests = () => {

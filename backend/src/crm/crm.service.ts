@@ -83,21 +83,20 @@ export class CrmService {
 
     if (this.isAdmin(user)) return true;
 
-    const visibleOpp = await this.oppRepo
-      .createQueryBuilder('opp')
-      .leftJoin(
-        CrmOpportunityMember,
-        'm',
-        'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
-      )
-      .where('opp.tenantId = :tenantId', { tenantId })
-      .andWhere('opp.accountId = :accountId', { accountId })
-      .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
-        userId: user.id,
-      })
-      .getOne();
+    // Non-admin visibility: a user can access an account iff they are either
+    // the owner or a team member of at least one opportunity linked to that account.
+    const opp = await this.oppRepo.findOne({
+      where: { tenantId, accountId },
+      select: { id: true, ownerUserId: true },
+    });
+    if (!opp) return false;
+    if (opp.ownerUserId === user.id) return true;
 
-    return Boolean(visibleOpp);
+    const membership = await this.oppMemberRepo.findOne({
+      where: { tenantId, opportunityId: opp.id, userId: user.id },
+      select: { id: true },
+    });
+    return Boolean(membership);
   }
 
   private async assertAccountAccessible(

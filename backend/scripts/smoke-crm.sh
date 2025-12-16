@@ -139,6 +139,24 @@ if [[ -z "$TOKEN" ]]; then
   fi
 fi
 
+# Optional: upgrade this freshly-created tenant to unlock plan-limited smoke paths.
+# This is safe because each smoke run registers a brand new tenant.
+ENABLE_SMOKE_UPGRADE="${ENABLE_SMOKE_UPGRADE:-1}"
+if [[ "$ENABLE_SMOKE_UPGRADE" == "1" ]]; then
+  echo "== Tenant: subscription upgrade (optional) =="
+  TENANT_UPGRADE_PAYLOAD="$TMP_DIR/smoke.tenant.upgrade.json"
+  cat > "$TENANT_UPGRADE_PAYLOAD" <<JSON
+{"plan":"professional","users":3,"billing":"monthly"}
+JSON
+  TENANT_UPGRADE_RES="$TMP_DIR/smoke.tenant.upgrade.res.json"
+  TENANT_UPGRADE_STATUS="$(http_status PATCH "$API_BASE/tenants/my-tenant/subscription" "$TENANT_UPGRADE_PAYLOAD" "$TOKEN" "$TENANT_UPGRADE_RES")"
+  if [[ "$TENANT_UPGRADE_STATUS" == "200" ]]; then
+    echo "Tenant upgraded for smoke coverage."
+  else
+    echo "Tenant upgrade skipped/failed (status=$TENANT_UPGRADE_STATUS)."
+  fi
+fi
+
 # === Optional: create a non-admin member user (via organizations) for authz-negative tests ===
 # Disabled by default to avoid polluting DB with org records when plan limits prevent invites.
 ENABLE_MEMBER_FLOW="${ENABLE_MEMBER_FLOW:-0}"
@@ -173,31 +191,23 @@ JSON
     fi
 
     if [[ -n "$INVITE_TOKEN" ]]; then
-      # Register member user (creates personal tenant) and accept invite.
-      MEMBER_REGISTER_PAYLOAD="$TMP_DIR/smoke.member.register.payload.json"
-      cat > "$MEMBER_REGISTER_PAYLOAD" <<JSON
-{"email":"$MEMBER_EMAIL","password":"$MEMBER_PASS","firstName":"Member","lastName":"User"}
+      # Complete invite via public endpoint (creates non-admin user on owner's tenant + accepts invite)
+      MEMBER_COMPLETE_INVITE_PAYLOAD="$TMP_DIR/smoke.member.invite.complete.payload.json"
+      cat > "$MEMBER_COMPLETE_INVITE_PAYLOAD" <<JSON
+{"password":"$MEMBER_PASS"}
 JSON
-      MEMBER_REGISTER_RES="$TMP_DIR/smoke.member.register.res.json"
-      MEMBER_REGISTER_STATUS="$(http_status POST "$API_BASE/auth/register" "$MEMBER_REGISTER_PAYLOAD" "" "$MEMBER_REGISTER_RES")"
-      if [[ "$MEMBER_REGISTER_STATUS" == "200" || "$MEMBER_REGISTER_STATUS" == "201" ]]; then
-        MEMBER_REGISTER_TOKEN="$(json_get "$MEMBER_REGISTER_RES" "j.token||j.accessToken")"
-        if [[ -n "$MEMBER_REGISTER_TOKEN" ]]; then
-          ORG_ACCEPT_PAYLOAD="$TMP_DIR/smoke.org.accept.json"
-          cat > "$ORG_ACCEPT_PAYLOAD" <<JSON
-{"token":"$INVITE_TOKEN"}
+      MEMBER_COMPLETE_INVITE_RES="$TMP_DIR/smoke.member.invite.complete.res.json"
+      MEMBER_COMPLETE_INVITE_STATUS="$(http_status POST "$API_BASE/public/invites/$INVITE_TOKEN/register" "$MEMBER_COMPLETE_INVITE_PAYLOAD" "" "$MEMBER_COMPLETE_INVITE_RES")"
+
+      if [[ "$MEMBER_COMPLETE_INVITE_STATUS" == "200" || "$MEMBER_COMPLETE_INVITE_STATUS" == "201" ]]; then
+        # Login as member to get a real non-admin JWT
+        MEMBER_LOGIN_PAYLOAD="$TMP_DIR/smoke.member.login.payload.json"
+        cat > "$MEMBER_LOGIN_PAYLOAD" <<JSON
+{"email":"$MEMBER_EMAIL","password":"$MEMBER_PASS"}
 JSON
-          ORG_ACCEPT_RES="$TMP_DIR/smoke.org.accept.res.json"
-          ORG_ACCEPT_STATUS="$(http_status POST "$API_BASE/organizations/accept-invite" "$ORG_ACCEPT_PAYLOAD" "$MEMBER_REGISTER_TOKEN" "$ORG_ACCEPT_RES")"
-          if [[ "$ORG_ACCEPT_STATUS" == "200" || "$ORG_ACCEPT_STATUS" == "201" ]]; then
-            # Refresh to mint a new token with synced tenantId (JWT payload is based on DB user).
-            MEMBER_REFRESH_RES="$TMP_DIR/smoke.member.refresh.res.json"
-            MEMBER_REFRESH_STATUS="$(http_status POST "$API_BASE/auth/refresh" "" "$MEMBER_REGISTER_TOKEN" "$MEMBER_REFRESH_RES")"
-            if [[ "$MEMBER_REFRESH_STATUS" == "200" ]]; then
-              MEMBER_TOKEN="$(json_get "$MEMBER_REFRESH_RES" "j.token")"
-            fi
-          fi
-        fi
+        MEMBER_LOGIN_RES="$TMP_DIR/smoke.member.login.res.json"
+        http_json POST "$API_BASE/auth/login" "$MEMBER_LOGIN_PAYLOAD" | tee "$MEMBER_LOGIN_RES" >/dev/null
+        MEMBER_TOKEN="$(json_get "$MEMBER_LOGIN_RES" "j.accessToken||j.token")"
       fi
     fi
   fi

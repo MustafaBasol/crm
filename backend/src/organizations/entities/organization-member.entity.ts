@@ -12,7 +12,9 @@ import { Organization } from './organization.entity';
 import { User } from '../../users/entities/user.entity';
 import { Role } from '../../common/enums/organization.enum';
 
-const __isTestEnv =
+const __sqliteFriendlyEnv =
+  process.env.DB_SQLITE === 'true' ||
+  process.env.DATABASE_TYPE === 'sqlite' ||
   process.env.NODE_ENV === 'test' ||
   typeof process.env.JEST_WORKER_ID !== 'undefined';
 
@@ -31,8 +33,8 @@ export class OrganizationMember {
   userId: string;
 
   @Column({
-    type: __isTestEnv ? 'text' : 'enum',
-    enum: __isTestEnv ? undefined : Role,
+    type: __sqliteFriendlyEnv ? 'simple-enum' : 'enum',
+    enum: Role,
     default: Role.MEMBER,
   })
   role: Role;

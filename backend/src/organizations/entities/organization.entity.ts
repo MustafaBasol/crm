@@ -10,7 +10,9 @@ import { OrganizationMember } from './organization-member.entity';
 import { Invite } from './invite.entity';
 import { Plan } from '../../common/enums/organization.enum';
 
-const __isTestEnv =
+const __sqliteFriendlyEnv =
+  process.env.DB_SQLITE === 'true' ||
+  process.env.DATABASE_TYPE === 'sqlite' ||
   process.env.NODE_ENV === 'test' ||
   typeof process.env.JEST_WORKER_ID !== 'undefined';
 
@@ -23,8 +25,8 @@ export class Organization {
   name: string;
 
   @Column({
-    type: __isTestEnv ? 'text' : 'enum',
-    enum: __isTestEnv ? undefined : Plan,
+    type: __sqliteFriendlyEnv ? 'simple-enum' : 'enum',
+    enum: Plan,
     default: Plan.STARTER,
   })
   plan: Plan;

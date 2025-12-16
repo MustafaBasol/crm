@@ -29,12 +29,12 @@ export class CrmOpportunity {
 
   // Account = Customer
   @Index()
-  @Column({ type: 'uuid' })
-  accountId: string;
+  @Column({ type: 'uuid', nullable: true })
+  accountId: string | null;
 
-  @ManyToOne(() => Customer, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Customer, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'accountId' })
-  account: Customer;
+  account: Customer | null;
 
   @Index()
   @Column({ type: 'uuid' })
