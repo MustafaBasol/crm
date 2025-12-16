@@ -2,6 +2,46 @@
 
 # Dev Session Notes (2025-12-15)
 
+## Handoff (CRM authz: opportunity stage move) — 2025-12-16
+
+Bu sohbet sıfırlanırsa, en güncel güvenlik kararı ve doğrulaması burada.
+
+### Son durum (yeşil doğrulamalar)
+
+- Backend build başarılı: `cd backend && npm run build`
+- Backend Jest testleri başarılı: `cd backend && npm test -- --runInBand`
+- CRM smoke (admin-only) başarılı: `backend/scripts/smoke-crm.sh`
+- CRM smoke (member-flow + upgrade) başarılı:
+   - `ENABLE_MEMBER_FLOW=1 ENABLE_SMOKE_UPGRADE=1 backend/scripts/smoke-crm.sh`
+
+Not: repo root’ta `npm test` script’i yok; test için backend içinde çalıştır.
+
+### Yapılan değişiklik (kural netleştirme)
+
+- Opportunity stage taşıma (`POST /api/crm/opportunities/:id/move`) artık **sadece owner veya admin** tarafından yapılabilir.
+   - Team member erişimi (okuma/board görünürlüğü) devam eder; fakat stage move **403 Forbidden**.
+
+İlgili commit:
+
+- f05e148 — Restrict opportunity stage move to owner/admin
+
+İlgili dosyalar:
+
+- [backend/src/crm/crm.service.ts](backend/src/crm/crm.service.ts)
+- [backend/scripts/smoke-crm.sh](backend/scripts/smoke-crm.sh)
+
+### Smoke kapsamı (regresyon yakalama)
+
+- Member-flow aktifken:
+   - Member `POST /crm/opportunities/:id/move` → **403**
+   - Owner aynı move payload’ı ile → **200/201**
+
+### Yeni sohbette devam (kalan işler)
+
+1. (Opsiyonel) Yetki politikasını ürün kararı olarak netleştir: team member stage move asla mı, yoksa belirli rollerle mi? Şu an güvenli varsayılan: owner/admin-only.
+2. (Opsiyonel) Eğer “team member stage move” istenecekse: explicit permission/role model ekleyip smoke’a pozitif senaryo ekle.
+3. CRM authz yüzeyi büyüdükçe smoke’ı küçük parçalara ayırmayı değerlendir (örn. `smoke-crm-authz.sh`), ama şimdilik tek dosya yeterli.
+
 ## Handoff (Backend + Postgres + CRM Smoke) — 2025-12-15
 
 Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
