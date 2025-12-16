@@ -163,6 +163,7 @@ ENABLE_MEMBER_FLOW="${ENABLE_MEMBER_FLOW:-0}"
 MEMBER_EMAIL="${MEMBER_EMAIL:-member${TS}@example.com}"
 MEMBER_PASS="${MEMBER_PASS:-Password123!}"
 MEMBER_TOKEN=""
+MEMBER_USER_ID=""
 
 if [[ "$ENABLE_MEMBER_FLOW" == "1" ]]; then
   ORG_ID=""
@@ -214,6 +215,16 @@ JSON
 
   if [[ -n "$MEMBER_TOKEN" ]]; then
     echo "MEMBER_TOKEN_LEN=${#MEMBER_TOKEN}"
+
+    echo "== Auth: member profile (/auth/me) =="
+    MEMBER_ME_JSON="$TMP_DIR/smoke.member.me.json"
+    http_json GET "$API_BASE/auth/me" "" "$MEMBER_TOKEN" | tee "$MEMBER_ME_JSON" >/dev/null
+    MEMBER_USER_ID="$(json_get "$MEMBER_ME_JSON" "j.id||j.user?.id||j.data?.id")"
+    if [[ -n "$MEMBER_USER_ID" ]]; then
+      echo "MEMBER_USER_ID=$MEMBER_USER_ID"
+    else
+      echo "Member user id not found; team-membership positive checks will be skipped."
+    fi
   else
     echo "Member flow unavailable; skipping non-admin authz negative tests."
   fi
@@ -292,13 +303,28 @@ if [[ -n "$MEMBER_TOKEN" ]]; then
   MEMBER_CONTACT_ACCOUNT_PATCH_RES="$TMP_DIR/smoke.member.contact.account.patch.res.json"
   MEMBER_CONTACT_ACCOUNT_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/contacts/$CONTACT_ID" "$CONTACT_FORBIDDEN_PATCH" "$MEMBER_TOKEN" "$MEMBER_CONTACT_ACCOUNT_PATCH_RES")"
   [[ "$MEMBER_CONTACT_ACCOUNT_PATCH_STATUS" == "403" ]] || fail "Expected 403 for member contact accountId update, got $MEMBER_CONTACT_ACCOUNT_PATCH_STATUS: $MEMBER_CONTACT_ACCOUNT_PATCH_RES"
+
+  echo "== CRM: authz (member cannot create activity on owner's contact before visibility) =="
+  MEMBER_ACTIVITY_CREATE_PRE="$TMP_DIR/smoke.member.activity.create.pre.json"
+  cat > "$MEMBER_ACTIVITY_CREATE_PRE" <<JSON
+{"title":"Member Forbidden Activity (pre-access) $TS","type":"call","contactId":"$CONTACT_ID","completed":false}
+JSON
+  MEMBER_ACTIVITY_CREATE_PRE_RES="$TMP_DIR/smoke.member.activity.create.pre.res.json"
+  MEMBER_ACTIVITY_CREATE_PRE_STATUS="$(http_status POST "$API_BASE/crm/activities" "$MEMBER_ACTIVITY_CREATE_PRE" "$MEMBER_TOKEN" "$MEMBER_ACTIVITY_CREATE_PRE_RES")"
+  [[ "$MEMBER_ACTIVITY_CREATE_PRE_STATUS" == "403" ]] || fail "Expected 403 for member activity create pre-visibility, got $MEMBER_ACTIVITY_CREATE_PRE_STATUS: $MEMBER_ACTIVITY_CREATE_PRE_RES"
 fi
 
 echo "== CRM: opportunity create (to grant account visibility) =="
 OPP_CREATE="$TMP_DIR/smoke.opportunity.create.json"
-cat > "$OPP_CREATE" <<JSON
+if [[ -n "$MEMBER_USER_ID" ]]; then
+  cat > "$OPP_CREATE" <<JSON
+{"accountId":"$CUSTOMER_ID","name":"Opp Smoke $TS","amount":0,"currency":"TRY","teamUserIds":["$MEMBER_USER_ID"]}
+JSON
+else
+  cat > "$OPP_CREATE" <<JSON
 {"accountId":"$CUSTOMER_ID","name":"Opp Smoke $TS","amount":0,"currency":"TRY"}
 JSON
+fi
 OPP_CREATED_JSON="$TMP_DIR/smoke.opportunity.created.json"
 http_json POST "$API_BASE/crm/opportunities" "$OPP_CREATE" "$TOKEN" | tee "$OPP_CREATED_JSON" >/dev/null
 OPP_ID="$(json_get "$OPP_CREATED_JSON" "j.id")"
@@ -311,6 +337,13 @@ ALLOWED_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/contacts/$CONTACT_ID" "
 [[ "$ALLOWED_PATCH_STATUS" == "200" ]] || fail "Expected 200 for allowed contact accountId update (after visibility), got $ALLOWED_PATCH_STATUS: $CONTACT_ALLOWED_PATCH_RES"
 
 if [[ -n "$MEMBER_TOKEN" ]]; then
+  echo "== CRM: authz (member can list contacts by accountId after opportunity team access) =="
+  MEMBER_CONTACTS_BY_ACCOUNT_JSON="$TMP_DIR/smoke.member.contacts.by-account.json"
+  MEMBER_CONTACTS_BY_ACCOUNT_STATUS="$(http_status GET "$API_BASE/crm/contacts?accountId=$CUSTOMER_ID" "" "$MEMBER_TOKEN" "$MEMBER_CONTACTS_BY_ACCOUNT_JSON")"
+  [[ "$MEMBER_CONTACTS_BY_ACCOUNT_STATUS" == "200" ]] || fail "Expected 200 for member contacts list by accountId, got $MEMBER_CONTACTS_BY_ACCOUNT_STATUS: $MEMBER_CONTACTS_BY_ACCOUNT_JSON"
+  MEMBER_FOUND_CONTACT_IN_FILTER="$(json_get "$MEMBER_CONTACTS_BY_ACCOUNT_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$CONTACT_ID')")"
+  [[ "$MEMBER_FOUND_CONTACT_IN_FILTER" == "true" ]] || fail "Member could not see contact in accountId filtered list: $MEMBER_CONTACTS_BY_ACCOUNT_JSON"
+
   echo "== CRM: authz (member cannot update owner's contact) =="
   MEMBER_CONTACT_PATCH="$TMP_DIR/smoke.member.contact.patch.json"
   cat > "$MEMBER_CONTACT_PATCH" <<JSON
@@ -320,14 +353,21 @@ JSON
   MEMBER_CONTACT_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/contacts/$CONTACT_ID" "$MEMBER_CONTACT_PATCH" "$MEMBER_TOKEN" "$MEMBER_CONTACT_PATCH_RES")"
   [[ "$MEMBER_CONTACT_PATCH_STATUS" == "403" ]] || fail "Expected 403 for member contact update, got $MEMBER_CONTACT_PATCH_STATUS: $MEMBER_CONTACT_PATCH_RES"
 
-  echo "== CRM: authz (member cannot create activity on owner's contact) =="
+  echo "== CRM: authz (member can create activity on contact after visibility) =="
   MEMBER_ACTIVITY_CREATE="$TMP_DIR/smoke.member.activity.create.json"
   cat > "$MEMBER_ACTIVITY_CREATE" <<JSON
-{"title":"Member Forbidden Activity $TS","type":"call","contactId":"$CONTACT_ID","completed":false}
+{"title":"Member Activity (post-access) $TS","type":"call","contactId":"$CONTACT_ID","completed":false}
 JSON
   MEMBER_ACTIVITY_CREATE_RES="$TMP_DIR/smoke.member.activity.create.res.json"
   MEMBER_ACTIVITY_CREATE_STATUS="$(http_status POST "$API_BASE/crm/activities" "$MEMBER_ACTIVITY_CREATE" "$MEMBER_TOKEN" "$MEMBER_ACTIVITY_CREATE_RES")"
-  [[ "$MEMBER_ACTIVITY_CREATE_STATUS" == "403" ]] || fail "Expected 403 for member activity create with contactId, got $MEMBER_ACTIVITY_CREATE_STATUS: $MEMBER_ACTIVITY_CREATE_RES"
+  if [[ "$MEMBER_ACTIVITY_CREATE_STATUS" == "200" || "$MEMBER_ACTIVITY_CREATE_STATUS" == "201" ]]; then
+    MEMBER_ACTIVITY_ID="$(json_get "$MEMBER_ACTIVITY_CREATE_RES" "j.id")"
+    if [[ -n "$MEMBER_ACTIVITY_ID" ]]; then
+      http_json DELETE "$API_BASE/crm/activities/$MEMBER_ACTIVITY_ID" "" "$MEMBER_TOKEN" | tee "$TMP_DIR/smoke.member.activity.deleted.json" >/dev/null
+    fi
+  else
+    fail "Expected 200/201 for member activity create post-access, got $MEMBER_ACTIVITY_CREATE_STATUS: $MEMBER_ACTIVITY_CREATE_RES"
+  fi
 fi
 
 http_json GET "$API_BASE/crm/contacts" "" "$TOKEN" | tee "$TMP_DIR/smoke.contacts.list.json" >/dev/null
