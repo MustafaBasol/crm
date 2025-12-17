@@ -69,6 +69,9 @@ export default function CrmActivitiesPage(
 
   const [statusFilter, setStatusFilter] = useState<ActivityStatusFilter>('all');
 
+  const canPickContactInModal =
+    scope === 'global' && !(editing?.opportunityId || editing?.accountId);
+
   const reload = async () => {
     setError(null);
     setLoading(true);
@@ -216,8 +219,10 @@ export default function CrmActivitiesPage(
             ? undefined
             : scope === 'account'
               ? null
-              : form.contactId
+              : canPickContactInModal
                 ? form.contactId
+                  ? form.contactId
+                  : null
                 : null,
       dueAt: form.dueAt.trim() ? form.dueAt.trim() : null,
       completed: !!form.completed,
@@ -448,7 +453,7 @@ export default function CrmActivitiesPage(
             {modalError && <div className="mb-4 text-sm text-red-600">{modalError}</div>}
 
             <div className="space-y-4">
-              {scope === 'global' && (
+              {canPickContactInModal && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.fields.contact')}</label>
                   <select
