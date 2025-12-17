@@ -23,8 +23,10 @@ Uçlar (özet):
 - Leads: `GET/POST/PATCH/DELETE /crm/leads`
 - Contacts: `GET/POST/PATCH/DELETE /crm/contacts` (+ `accountId` query)
 - Pipeline/Board: `POST /crm/pipeline/bootstrap`, `GET /crm/board`
+- Stages-only: `GET /crm/stages`
 - Opportunities:
   - `POST /crm/opportunities`
+  - `GET /crm/opportunities` (pagination + filtre: `q`, `stageId`, `accountId`, `status`, `limit`, `offset`)
   - `PATCH /crm/opportunities/:id`
   - `POST /crm/opportunities/:id/team`
   - `POST /crm/opportunities/:id/move`
@@ -51,27 +53,32 @@ API base:
 
 ## Phase 1 Checklist (MVP)
 
-1) Backend ayakta + smoke yeşil
+1. Backend ayakta + smoke yeşil
+
 - `npm run start:backend`
 - `npm run smoke:crm`
 - `npm run smoke:crm:authz`
 
-2) CRM ekranları için minimum veri yüzeyi
+2. CRM ekranları için minimum veri yüzeyi
+
 - Board + pipeline stages (pipeline/board)
 - Deal detail: opportunity CRUD + team + move (gerekirse `GET /crm/opportunities/:id`)
 - Activities: deal/contact/account scoped list + create/edit/delete
 - Tasks: deal/account scoped list + create/edit/delete
 
-3) Yetki kuralları
+3. Yetki kuralları
+
 - Stage move politika kararı: team member **asla** stage move yapamaz (owner/admin/ORG ADMIN/OWNER izinli)
 - Visibility: non-admin kullanıcılar yalnız owner/team olduğu opportunity’leri, bunlara bağlı account/contact/activities/tasks üzerinden görebilmeli.
 
-4) Test kapsaması
+4. Test kapsaması
+
 - Smoke: CRM CRUD + activities accountId/contactId + tasks + authz
 - (Opsiyonel) E2E: stage-move authz (zaten mevcut)
 
 ## Phase 2 (Sonraki)
 
-- Deal detail için board yerine daha ince-grained endpoint’ler (stages-only, opportunities list pagination/search)
+- Deal detail için board yerine daha ince-grained endpoint’ler (stages-only + `GET /crm/opportunities/:id`) ✅
+- Opportunities list pagination/search (UI tarafında pipeline/board ayrıştırması için altyapı)
 - CRM list ekranları: server-side filtre/sort/pagination
 - Audit / activity feed zenginleştirme (actor, entity snapshot, comments)

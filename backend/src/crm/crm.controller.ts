@@ -127,6 +127,29 @@ export class CrmController {
     return this.crmService.createOpportunity(user.tenantId, user, dto);
   }
 
+  @Get('opportunities')
+  @ApiOperation({
+    summary: 'List opportunities (scoped by visibility; supports pagination)',
+  })
+  async listOpportunities(
+    @User() user: CurrentUser,
+    @Query('q') q?: string,
+    @Query('stageId') stageId?: string,
+    @Query('accountId') accountId?: string,
+    @Query('status') status?: 'open' | 'won' | 'lost',
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.crmService.listOpportunities(user.tenantId, user, {
+      q,
+      stageId,
+      accountId,
+      status,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
+  }
+
   @Get('opportunities/:id')
   @ApiOperation({ summary: 'Get opportunity by id (scoped by visibility)' })
   async getOpportunity(@User() user: CurrentUser, @Param('id') id: string) {

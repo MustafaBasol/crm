@@ -1006,14 +1006,19 @@ export class CrmService {
   async listActivities(
     tenantId: string,
     user: CurrentUser,
-    options?: { opportunityId?: string; accountId?: string; contactId?: string },
+    options?: {
+      opportunityId?: string;
+      accountId?: string;
+      contactId?: string;
+    },
   ) {
     const opportunityId = options?.opportunityId?.trim() || undefined;
     const accountId = options?.accountId?.trim() || undefined;
     const contactId = options?.contactId?.trim() || undefined;
 
-    const filterCount = [opportunityId, accountId, contactId].filter(Boolean)
-      .length;
+    const filterCount = [opportunityId, accountId, contactId].filter(
+      Boolean,
+    ).length;
     if (filterCount > 1) {
       throw new BadRequestException(
         'Provide only one of opportunityId, accountId, contactId',
@@ -1482,6 +1487,107 @@ export class CrmService {
           .filter((m) => m.opportunityId === o.id)
           .map((m) => m.userId),
       })),
+    };
+  }
+
+  async listOpportunities(
+    tenantId: string,
+    user: CurrentUser,
+    opts?: {
+      q?: string;
+      stageId?: string;
+      accountId?: string;
+      status?: CrmOpportunityStatus;
+      limit?: number;
+      offset?: number;
+    },
+  ) {
+    const pipeline = await this.pipelineRepo.findOne({
+      where: { tenantId, isDefault: true },
+    });
+    if (!pipeline) {
+      return { items: [], total: 0, limit: 0, offset: 0 };
+    }
+
+    const rawLimit = Number(opts?.limit ?? 50);
+    const rawOffset = Number(opts?.offset ?? 0);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(200, Math.floor(rawLimit)))
+      : 50;
+    const offset = Number.isFinite(rawOffset)
+      ? Math.max(0, Math.floor(rawOffset))
+      : 0;
+
+    const qb = this.oppRepo
+      .createQueryBuilder('o')
+      .where('o.tenantId = :tenantId', { tenantId })
+      .andWhere('o.pipelineId = :pipelineId', { pipelineId: pipeline.id });
+
+    if (!this.isAdmin(user)) {
+      const memberRows = await this.oppMemberRepo.find({
+        where: { tenantId, userId: user.id },
+        select: { opportunityId: true },
+      });
+      const memberOppIds = memberRows.map((r) => r.opportunityId);
+
+      qb.andWhere(
+        new Brackets((inner) => {
+          inner.where('o.ownerUserId = :userId', { userId: user.id });
+          if (memberOppIds.length) {
+            inner.orWhere('o.id IN (:...memberOppIds)', { memberOppIds });
+          }
+        }),
+      );
+    }
+
+    if (opts?.stageId) {
+      qb.andWhere('o.stageId = :stageId', { stageId: opts.stageId });
+    }
+    if (opts?.accountId) {
+      qb.andWhere('o.accountId = :accountId', { accountId: opts.accountId });
+    }
+    if (opts?.status) {
+      qb.andWhere('o.status = :status', { status: opts.status });
+    }
+    if (opts?.q) {
+      const q = String(opts.q).trim();
+      if (q) {
+        qb.andWhere('LOWER(o.name) LIKE :q', { q: `%${q.toLowerCase()}%` });
+      }
+    }
+
+    qb.orderBy('o.updatedAt', 'DESC').skip(offset).take(limit);
+
+    const [opportunities, total] = await qb.getManyAndCount();
+
+    const members = await this.oppMemberRepo.find({
+      where: {
+        tenantId,
+        opportunityId: opportunities.length
+          ? In(opportunities.map((o) => o.id))
+          : In(['00000000-0000-0000-0000-000000000000']),
+      },
+      select: { opportunityId: true, userId: true },
+    });
+
+    return {
+      items: opportunities.map((o) => ({
+        id: o.id,
+        name: o.name,
+        amount: o.amount,
+        currency: o.currency,
+        stageId: o.stageId,
+        accountId: o.accountId,
+        ownerUserId: o.ownerUserId,
+        expectedCloseDate: this.toExpectedCloseDateString(o.expectedCloseDate),
+        status: o.status,
+        teamUserIds: members
+          .filter((m) => m.opportunityId === o.id)
+          .map((m) => m.userId),
+      })),
+      total,
+      limit,
+      offset,
     };
   }
 

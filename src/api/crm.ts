@@ -27,6 +27,13 @@ export type CrmBoardResponse = {
   opportunities: CrmOpportunity[];
 };
 
+export type CrmOpportunityListResponse = {
+  items: CrmOpportunity[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type CreateOpportunityRequest = {
   accountId: string;
   name: string;
@@ -56,6 +63,27 @@ export const getBoard = async (): Promise<CrmBoardResponse> => {
 
 export const getOpportunity = async (opportunityId: string): Promise<CrmOpportunity> => {
   const res = await apiClient.get<CrmOpportunity>(`/crm/opportunities/${opportunityId}`);
+  return res.data;
+};
+
+export const listOpportunities = async (params?: {
+  q?: string;
+  stageId?: string;
+  accountId?: string;
+  status?: 'open' | 'won' | 'lost';
+  limit?: number;
+  offset?: number;
+}): Promise<CrmOpportunityListResponse> => {
+  const search = new URLSearchParams();
+  if (params?.q) search.set('q', params.q);
+  if (params?.stageId) search.set('stageId', params.stageId);
+  if (params?.accountId) search.set('accountId', params.accountId);
+  if (params?.status) search.set('status', params.status);
+  if (typeof params?.limit === 'number') search.set('limit', String(params.limit));
+  if (typeof params?.offset === 'number') search.set('offset', String(params.offset));
+
+  const suffix = search.toString();
+  const res = await apiClient.get<CrmOpportunityListResponse>(`/crm/opportunities${suffix ? `?${suffix}` : ''}`);
   return res.data;
 };
 
