@@ -22,7 +22,8 @@ Uçlar (özet):
 
 - Leads: `GET/POST/PATCH/DELETE /crm/leads`
 - Contacts: `GET/POST/PATCH/DELETE /crm/contacts` (+ `accountId` query)
-- Pipeline/Board: `POST /crm/pipeline/bootstrap`, `GET /crm/board`
+- Pipeline bootstrap: `POST /crm/pipeline/bootstrap`
+- Board (opsiyonel/legacy): `GET /crm/board` (stages+opportunities tek payload)
 - Stages-only: `GET /crm/stages`
 - Opportunities:
   - `POST /crm/opportunities`

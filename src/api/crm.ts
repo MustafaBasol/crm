@@ -21,12 +21,6 @@ export type CrmOpportunity = {
   teamUserIds: string[];
 };
 
-export type CrmBoardResponse = {
-  pipeline: { id: string; name: string } | null;
-  stages: CrmStage[];
-  opportunities: CrmOpportunity[];
-};
-
 export type CrmOpportunityListResponse = {
   items: CrmOpportunity[];
   total: number;
@@ -53,11 +47,6 @@ export const bootstrapPipeline = async () => {
 
 export const getStages = async (): Promise<CrmStage[]> => {
   const res = await apiClient.get<CrmStage[]>('/crm/stages');
-  return res.data;
-};
-
-export const getBoard = async (): Promise<CrmBoardResponse> => {
-  const res = await apiClient.get<CrmBoardResponse>('/crm/board');
   return res.data;
 };
 
