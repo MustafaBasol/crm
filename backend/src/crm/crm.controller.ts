@@ -26,6 +26,7 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
+import { CrmOpportunityStatus } from './entities/crm-opportunity.entity';
 
 @ApiTags('crm')
 @Controller('crm')
@@ -136,15 +137,22 @@ export class CrmController {
     @Query('q') q?: string,
     @Query('stageId') stageId?: string,
     @Query('accountId') accountId?: string,
-    @Query('status') status?: 'open' | 'won' | 'lost',
+    @Query('status') status?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
+    const statusValue: CrmOpportunityStatus | undefined =
+      status === CrmOpportunityStatus.OPEN ||
+      status === CrmOpportunityStatus.WON ||
+      status === CrmOpportunityStatus.LOST
+        ? (status as CrmOpportunityStatus)
+        : undefined;
+
     return this.crmService.listOpportunities(user.tenantId, user, {
       q,
       stageId,
       accountId,
-      status,
+      status: statusValue,
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
     });

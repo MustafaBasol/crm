@@ -269,6 +269,12 @@ STAGE_0_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.sta
 STAGE_1_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.stageIds[1]")"
 STAGE_2_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.stageIds[2]")"
 
+echo "== CRM: stages-only endpoint (/crm/stages) =="
+STAGES_JSON="$TMP_DIR/smoke.crm.stages.json"
+http_json GET "$API_BASE/crm/stages" "" "$TOKEN" | tee "$STAGES_JSON" >/dev/null
+STAGES_HAS_STAGE0="$(json_get "$STAGES_JSON" "Array.isArray(j) && j.some(s => s && s.id === '$STAGE_0_ID')")"
+[[ "$STAGES_HAS_STAGE0" == "true" ]] || fail "Stages list missing bootstrap stageId: $STAGES_JSON"
+
 echo "== Customers: create (for contact accountId) =="
 CUSTOMER_CREATE="$TMP_DIR/smoke.customer.create.json"
 cat > "$CUSTOMER_CREATE" <<JSON
@@ -341,6 +347,17 @@ OPP_STAGE_ID="$(json_get "$OPP_CREATED_JSON" "j.stageId")"
 [[ -n "$OPP_ID" ]] || fail "Opportunity id missing in create response: $OPP_CREATED_JSON"
 echo "Opportunity ID: $OPP_ID"
 
+echo "== CRM: opportunities list endpoint (/crm/opportunities) =="
+OPPS_LIST_JSON="$TMP_DIR/smoke.crm.opps.list.json"
+http_json GET "$API_BASE/crm/opportunities?limit=50&offset=0" "" "$TOKEN" | tee "$OPPS_LIST_JSON" >/dev/null
+OPPS_LIST_HAS_OPP="$(json_get "$OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID')")"
+[[ "$OPPS_LIST_HAS_OPP" == "true" ]] || fail "Owner opportunities list missing created opportunity: $OPPS_LIST_JSON"
+
+OPPS_LIST_TOTAL="$(json_get "$OPPS_LIST_JSON" "typeof j.total === 'number' ? String(j.total) : ''")"
+OPPS_LIST_LIMIT="$(json_get "$OPPS_LIST_JSON" "typeof j.limit === 'number' ? String(j.limit) : ''")"
+OPPS_LIST_OFFSET="$(json_get "$OPPS_LIST_JSON" "typeof j.offset === 'number' ? String(j.offset) : ''")"
+[[ -n "$OPPS_LIST_TOTAL" && -n "$OPPS_LIST_LIMIT" && -n "$OPPS_LIST_OFFSET" ]] || fail "Opportunities list missing pagination fields: $OPPS_LIST_JSON"
+
 MOVE_STAGE_ID=""
 if [[ -n "$STAGE_1_ID" && "$STAGE_1_ID" != "$OPP_STAGE_ID" ]]; then
   MOVE_STAGE_ID="$STAGE_1_ID"
@@ -349,12 +366,12 @@ elif [[ -n "$STAGE_2_ID" && "$STAGE_2_ID" != "$OPP_STAGE_ID" ]]; then
 fi
 
 if [[ -n "$MEMBER_TOKEN" ]]; then
-  echo "== CRM: board visibility (member can see team opportunity) =="
-  MEMBER_BOARD_JSON="$TMP_DIR/smoke.member.board.json"
-  MEMBER_BOARD_STATUS="$(http_status GET "$API_BASE/crm/board" "" "$MEMBER_TOKEN" "$MEMBER_BOARD_JSON")"
-  [[ "$MEMBER_BOARD_STATUS" == "200" ]] || fail "Expected 200 for member board, got $MEMBER_BOARD_STATUS: $MEMBER_BOARD_JSON"
-  MEMBER_BOARD_HAS_OPP="$(json_get "$MEMBER_BOARD_JSON" "Array.isArray(j?.opportunities) && j.opportunities.some(o => o && o.id === '$OPP_ID')")"
-  [[ "$MEMBER_BOARD_HAS_OPP" == "true" ]] || fail "Member board does not include team opportunity: $MEMBER_BOARD_JSON"
+  echo "== CRM: opportunities visibility (member can see team opportunity) =="
+  MEMBER_OPPS_LIST_JSON="$TMP_DIR/smoke.member.opps.list.json"
+  MEMBER_OPPS_LIST_STATUS="$(http_status GET "$API_BASE/crm/opportunities?limit=50&offset=0" "" "$MEMBER_TOKEN" "$MEMBER_OPPS_LIST_JSON")"
+  [[ "$MEMBER_OPPS_LIST_STATUS" == "200" ]] || fail "Expected 200 for member opportunities list, got $MEMBER_OPPS_LIST_STATUS: $MEMBER_OPPS_LIST_JSON"
+  MEMBER_OPPS_LIST_HAS_OPP="$(json_get "$MEMBER_OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID')")"
+  [[ "$MEMBER_OPPS_LIST_HAS_OPP" == "true" ]] || fail "Member opportunities list does not include team opportunity: $MEMBER_OPPS_LIST_JSON"
 
   echo "== CRM: authz (member cannot update team opportunity) =="
   MEMBER_OPP_PATCH="$TMP_DIR/smoke.member.opp.patch.json"
