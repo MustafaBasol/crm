@@ -49,6 +49,11 @@ export const getBoard = async (): Promise<CrmBoardResponse> => {
   return res.data;
 };
 
+export const getOpportunity = async (opportunityId: string): Promise<CrmOpportunity> => {
+  const res = await apiClient.get<CrmOpportunity>(`/crm/opportunities/${opportunityId}`);
+  return res.data;
+};
+
 export const createOpportunity = async (data: CreateOpportunityRequest): Promise<CrmOpportunity> => {
   const res = await apiClient.post<CrmOpportunity>('/crm/opportunities', data);
   return res.data;

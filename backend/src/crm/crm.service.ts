@@ -1464,4 +1464,26 @@ export class CrmService {
       })),
     };
   }
+
+  async getOpportunity(tenantId: string, user: CurrentUser, id: string) {
+    const opp = await this.getOpportunityForAccessCheck(tenantId, user, id);
+
+    const members = await this.oppMemberRepo.find({
+      where: { tenantId, opportunityId: opp.id },
+      select: { userId: true },
+    });
+
+    return {
+      id: opp.id,
+      name: opp.name,
+      amount: opp.amount,
+      currency: opp.currency,
+      stageId: opp.stageId,
+      accountId: opp.accountId,
+      ownerUserId: opp.ownerUserId,
+      expectedCloseDate: this.toExpectedCloseDateString(opp.expectedCloseDate),
+      status: opp.status,
+      teamUserIds: members.map((m) => m.userId),
+    };
+  }
 }

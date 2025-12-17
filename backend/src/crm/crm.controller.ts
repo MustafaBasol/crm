@@ -121,6 +121,12 @@ export class CrmController {
     return this.crmService.createOpportunity(user.tenantId, user, dto);
   }
 
+  @Get('opportunities/:id')
+  @ApiOperation({ summary: 'Get opportunity by id (scoped by visibility)' })
+  async getOpportunity(@User() user: CurrentUser, @Param('id') id: string) {
+    return this.crmService.getOpportunity(user.tenantId, user, id);
+  }
+
   @Post('opportunities/:id/move')
   @ApiOperation({ summary: 'Move opportunity to another stage' })
   async move(
