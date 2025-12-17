@@ -285,6 +285,22 @@ http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OWNER_OP
 OWNER_OPP_DETAIL_ID_MATCH="$(json_get "$OWNER_OPP_DETAIL_JSON" "j && j.id === '$OPP_ID'")"
 [[ "$OWNER_OPP_DETAIL_ID_MATCH" == "true" ]] || fail "Owner opportunity detail id mismatch: $OWNER_OPP_DETAIL_JSON"
 
+echo "== Quotes: owner can create quote linked to opportunity =="
+QUOTE_CREATE_JSON="$TMP_DIR/smoke-authz.quote.create.json"
+QUOTE_CREATED_JSON="$TMP_DIR/smoke-authz.quote.created.json"
+cat > "$QUOTE_CREATE_JSON" <<JSON
+{"opportunityId":"$OPP_ID","customerId":"$CUSTOMER_ID","issueDate":"$(date +%F)","validUntil":"$(date -d '+30 days' +%F)","currency":"TRY","total":0,"items":[],"scopeOfWorkHtml":""}
+JSON
+http_json POST "$API_BASE/quotes" "$QUOTE_CREATE_JSON" "$TOKEN" | tee "$QUOTE_CREATED_JSON" >/dev/null
+QUOTE_ID="$(json_get "$QUOTE_CREATED_JSON" "j.id")"
+[[ -n "$QUOTE_ID" ]] || fail "Quote id missing in create response: $QUOTE_CREATED_JSON"
+
+echo "== Quotes: owner can list quotes by opportunityId =="
+OWNER_QUOTES_BY_OPP_JSON="$TMP_DIR/smoke-authz.owner.quotes.by-opp.json"
+http_json GET "$API_BASE/quotes?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$OWNER_QUOTES_BY_OPP_JSON" >/dev/null
+OWNER_QUOTES_BY_OPP_HAS_QUOTE="$(json_get "$OWNER_QUOTES_BY_OPP_JSON" "Array.isArray(j) && j.some(q => q && q.id === '$QUOTE_ID')")"
+[[ "$OWNER_QUOTES_BY_OPP_HAS_QUOTE" == "true" ]] || fail "Owner quotes by opportunityId missing created quote: $OWNER_QUOTES_BY_OPP_JSON"
+
 MOVE_STAGE_ID=""
 if [[ -n "$STAGE_1_ID" && "$STAGE_1_ID" != "$OPP_STAGE_ID" ]]; then
   MOVE_STAGE_ID="$STAGE_1_ID"
@@ -307,6 +323,13 @@ if [[ -n "$MEMBER_TOKEN" ]]; then
   MEMBER_OPP_DETAIL_ID_MATCH="$(json_get "$MEMBER_OPP_DETAIL_JSON" "j && j.id === '$OPP_ID'")"
   [[ "$MEMBER_OPP_DETAIL_ID_MATCH" == "true" ]] || fail "Member opportunity detail id mismatch: $MEMBER_OPP_DETAIL_JSON"
 
+  echo "== Authz: member can list quotes by team opportunityId =="
+  MEMBER_QUOTES_BY_OPP_JSON="$TMP_DIR/smoke-authz.member.quotes.by-opp.json"
+  MEMBER_QUOTES_BY_OPP_STATUS="$(http_status GET "$API_BASE/quotes?opportunityId=$OPP_ID" "" "$MEMBER_TOKEN" "$MEMBER_QUOTES_BY_OPP_JSON")"
+  [[ "$MEMBER_QUOTES_BY_OPP_STATUS" == "200" ]] || fail "Expected 200 for member quotes by opportunityId, got $MEMBER_QUOTES_BY_OPP_STATUS: $MEMBER_QUOTES_BY_OPP_JSON"
+  MEMBER_QUOTES_BY_OPP_HAS_QUOTE="$(json_get "$MEMBER_QUOTES_BY_OPP_JSON" "Array.isArray(j) && j.some(q => q && q.id === '$QUOTE_ID')")"
+  [[ "$MEMBER_QUOTES_BY_OPP_HAS_QUOTE" == "true" ]] || fail "Member quotes by opportunityId missing quote: $MEMBER_QUOTES_BY_OPP_JSON"
+
   if [[ "$MEMBER_ROLE" != "ADMIN" && "$MEMBER_ROLE" != "OWNER" ]]; then
     echo "== Authz: non-admin member cannot see private opportunity =="
     OPP_PRIVATE_CREATE="$TMP_DIR/smoke-authz.opportunity.private.create.json"
@@ -324,6 +347,11 @@ JSON
 
     MEMBER_PRIVATE_LIST_HAS_OPP="$(json_get "$MEMBER_OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_PRIVATE_ID')")"
     [[ "$MEMBER_PRIVATE_LIST_HAS_OPP" != "true" ]] || fail "Member opportunities list unexpectedly includes private opportunity: $MEMBER_OPPS_LIST_JSON"
+
+    echo "== Authz: non-admin member cannot list quotes by private opportunityId =="
+    MEMBER_PRIVATE_QUOTES_BY_OPP_JSON="$TMP_DIR/smoke-authz.member.quotes.private.by-opp.json"
+    MEMBER_PRIVATE_QUOTES_BY_OPP_STATUS="$(http_status GET "$API_BASE/quotes?opportunityId=$OPP_PRIVATE_ID" "" "$MEMBER_TOKEN" "$MEMBER_PRIVATE_QUOTES_BY_OPP_JSON")"
+    [[ "$MEMBER_PRIVATE_QUOTES_BY_OPP_STATUS" == "404" || "$MEMBER_PRIVATE_QUOTES_BY_OPP_STATUS" == "403" ]] || fail "Expected 404/403 for member quotes by private opportunityId, got $MEMBER_PRIVATE_QUOTES_BY_OPP_STATUS: $MEMBER_PRIVATE_QUOTES_BY_OPP_JSON"
   fi
 
   echo "== Authz: member cannot update opportunity fields =="

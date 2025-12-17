@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { logger } from '../../utils/logger';
 import * as crmApi from '../../api/crm';
+import * as quotesApi from '../../api/quotes';
 import { Currency, useCurrency } from '../../contexts/CurrencyContext';
 import { getCustomers, Customer } from '../../api/customers';
 import { organizationsApi, OrganizationMember } from '../../api/organizations';
@@ -44,6 +45,8 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
   const [opportunity, setOpportunity] = useState<crmApi.CrmOpportunity | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [linkedQuotes, setLinkedQuotes] = useState<quotesApi.Quote[]>([]);
+  const [creatingQuote, setCreatingQuote] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [savingTeam, setSavingTeam] = useState(false);
@@ -104,6 +107,15 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
       setStages(stageData ?? []);
       setCustomers(customersData ?? []);
 
+      try {
+        const quotes = await quotesApi.getQuotes({ opportunityId });
+        setLinkedQuotes(Array.isArray(quotes) ? quotes : []);
+      } catch (e) {
+        // Quotes list should not block deal page
+        logger.warn('crm.dealDetail.quotes.loadFailed', e);
+        setLinkedQuotes([]);
+      }
+
       const org = (orgs ?? [])[0];
       if (org?.id) {
         const membersData = await organizationsApi.getMembers(org.id);
@@ -138,8 +150,73 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
     try {
       const oppData = await crmApi.getOpportunity(opportunityId);
       setOpportunity(oppData);
+      try {
+        const quotes = await quotesApi.getQuotes({ opportunityId });
+        setLinkedQuotes(Array.isArray(quotes) ? quotes : []);
+      } catch {
+        // ignore
+      }
     } catch (e) {
       setError(getErrorMessage(e));
+    }
+  };
+
+  const createDraftQuoteFromDeal = async () => {
+    if (!opportunity) return;
+    if (!opportunity.accountId) {
+      setError(t('crm.pipeline.validation.accountRequired') as string);
+      return;
+    }
+
+    const ok = window.confirm(
+      t('crm.dealDetail.createQuoteConfirm', {
+        defaultValue: 'Bu anlaşma için taslak teklif oluşturulsun mu?',
+      }) as string,
+    );
+    if (!ok) return;
+
+    const today = new Date();
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const addDays = (d: Date, days: number) =>
+      new Date(d.getTime() + days * 86400000);
+
+    const currency =
+      (opportunity.currency as quotesApi.CreateQuoteDto['currency']) || 'TRY';
+    const total = Number(opportunity.amount ?? 0) || 0;
+    const itemTotal = total;
+
+    try {
+      setCreatingQuote(true);
+      const created = await quotesApi.createQuote({
+        opportunityId: opportunity.id,
+        customerId: opportunity.accountId,
+        issueDate: iso(today),
+        validUntil: iso(addDays(today, 30)),
+        currency,
+        total,
+        items: [
+          {
+            description: opportunity.name || (t('crm.dealDetail.title') as string),
+            quantity: 1,
+            unitPrice: total,
+            total: itemTotal,
+          },
+        ],
+        scopeOfWorkHtml: '',
+      });
+      if (created?.id) {
+        try {
+          window.location.hash = `quotes-edit:${created.id}`;
+          return;
+        } catch {
+          // ignore
+        }
+      }
+      await reloadOpportunity();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setCreatingQuote(false);
     }
   };
 
@@ -292,6 +369,18 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
             </button>
             <button
               type="button"
+              onClick={() => void createDraftQuoteFromDeal()}
+              className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              disabled={creatingQuote}
+            >
+              {creatingQuote
+                ? (t('common.loading', { defaultValue: 'Yükleniyor...' }) as string)
+                : (t('crm.dealDetail.createQuote', {
+                    defaultValue: 'Teklif oluştur',
+                  }) as string)}
+            </button>
+            <button
+              type="button"
               onClick={save}
               className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm disabled:opacity-50"
               disabled={saving}
@@ -410,6 +499,83 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
         </div>
 
         {error && <div className="mt-4 text-sm text-red-600">{error}</div>}
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm font-semibold text-gray-900">
+            {t('crm.dealDetail.linkedQuotes', {
+              defaultValue: 'Bağlı teklifler',
+            })}{' '}
+            <span className="text-xs font-normal text-gray-500">
+              ({linkedQuotes.length})
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                window.location.hash = 'quotes';
+              } catch {
+                // ignore
+              }
+            }}
+            className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            {t('quotes.title', { defaultValue: 'Teklifler' }) as string}
+          </button>
+        </div>
+
+        {linkedQuotes.length === 0 ? (
+          <div className="mt-3 text-sm text-gray-600">
+            {t('crm.dealDetail.noLinkedQuotes', {
+              defaultValue: 'Bu anlaşmaya bağlı teklif yok.',
+            })}
+          </div>
+        ) : (
+          <div className="mt-3 overflow-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500">
+                  <th className="py-2 pr-4">{t('quotes.table.quote', { defaultValue: 'Teklif' }) as string}</th>
+                  <th className="py-2 pr-4">{t('quotes.table.status', { defaultValue: 'Durum' }) as string}</th>
+                  <th className="py-2 pr-4">{t('quotes.table.date', { defaultValue: 'Tarih' }) as string}</th>
+                  <th className="py-2">{t('quotes.table.amount', { defaultValue: 'Tutar' }) as string}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {linkedQuotes.map((q) => {
+                  const issue = q.issueDate ? String(q.issueDate).slice(0, 10) : '';
+                  const total = Number(q.total ?? 0) || 0;
+                  const cur = (q.currency as any) || 'TRY';
+                  return (
+                    <tr key={q.id} className="text-gray-800">
+                      <td className="py-2 pr-4 font-medium">
+                        <button
+                          type="button"
+                          className="text-indigo-600 hover:text-indigo-800"
+                          onClick={() => {
+                            try {
+                              window.location.hash = `quotes-edit:${q.id}`;
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                          title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                        >
+                          {q.quoteNumber}
+                        </button>
+                      </td>
+                      <td className="py-2 pr-4">{String(q.status || '').toUpperCase()}</td>
+                      <td className="py-2 pr-4">{issue}</td>
+                      <td className="py-2">{formatCurrency(total, cur)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <CrmActivitiesPage opportunityId={opportunity.id} dealName={opportunity.name} />

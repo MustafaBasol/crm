@@ -13,6 +13,7 @@ import { UpdateSaleDto } from './dto/update-sale.dto';
 import { Customer } from '../customers/entities/customer.entity';
 import { Product } from '../products/entities/product.entity';
 import { ProductCategory } from '../products/entities/product-category.entity';
+import { Quote, QuoteStatus } from '../quotes/entities/quote.entity';
 
 @Injectable()
 export class SalesService {
@@ -27,7 +28,81 @@ export class SalesService {
     private readonly productsRepository: Repository<Product>,
     @InjectRepository(ProductCategory)
     private readonly categoriesRepository: Repository<ProductCategory>,
+    @InjectRepository(Quote)
+    private readonly quotesRepository: Repository<Quote>,
   ) {}
+
+  private isUuid(val?: string | null) {
+    if (!val) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      val,
+    );
+  }
+
+  private formatDateISO(date: Date): string {
+    return new Date(date).toISOString().slice(0, 10);
+  }
+
+  async createFromQuote(tenantId: string, quoteId: string): Promise<Sale> {
+    const qid = String(quoteId || '').trim();
+    if (!this.isUuid(qid)) {
+      throw new BadRequestException('Invalid quoteId');
+    }
+
+    const quote = await this.quotesRepository.findOne({
+      where: { tenantId, id: qid },
+    });
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    if (quote.status !== QuoteStatus.ACCEPTED) {
+      throw new BadRequestException('Only accepted quotes can be converted');
+    }
+
+    const rawItems = Array.isArray(quote.items) ? quote.items : [];
+    const items: SaleItemDto[] = rawItems
+      .filter(Boolean)
+      .map((it: any) => {
+        const quantity = Math.max(0, Number(it.quantity ?? it.qty ?? 0) || 0);
+        const unitPrice = Math.max(
+          0,
+          Number(it.unitPrice ?? it.price ?? it.unit_price ?? 0) || 0,
+        );
+        const productId = typeof it.productId === 'string' && this.isUuid(it.productId)
+          ? it.productId
+          : undefined;
+        const productName =
+          (typeof it.productName === 'string' && it.productName.trim()) ||
+          (typeof it.description === 'string' && it.description.trim()) ||
+          undefined;
+
+        const taxRate =
+          it.taxRate !== undefined && it.taxRate !== null && `${it.taxRate}`.trim() !== ''
+            ? Number(it.taxRate)
+            : undefined;
+
+        return {
+          productId,
+          productName,
+          quantity,
+          unitPrice,
+          taxRate: Number.isFinite(taxRate as number) ? (taxRate as number) : undefined,
+        };
+      });
+
+    const dto: CreateSaleDto = {
+      customerId: quote.customerId || undefined,
+      customerName: quote.customerName || undefined,
+      saleDate: this.formatDateISO(quote.issueDate || new Date()),
+      items,
+      discountAmount: 0,
+      notes: quote.quoteNumber ? `From quote ${quote.quoteNumber}` : 'From quote',
+      sourceQuoteId: quote.id,
+    };
+
+    return this.create(tenantId, dto);
+  }
 
   private logStockOrCustomerFailure(
     event: string,

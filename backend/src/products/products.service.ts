@@ -93,7 +93,9 @@ export class ProductsService {
     const updated = await this.findOne(id, tenantId);
 
     if (process.env.NODE_ENV !== 'test') {
-      this.logger.debug(`Product updated (id=${updated.id}, name=${updated.name})`);
+      this.logger.debug(
+        `Product updated (id=${updated.id}, name=${updated.name})`,
+      );
     }
 
     return updated;

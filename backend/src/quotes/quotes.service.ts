@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Like, Repository } from 'typeorm';
 import { Quote, QuoteStatus } from './entities/quote.entity';
@@ -6,6 +11,11 @@ import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
+import { CrmOpportunity, CrmOpportunityStatus } from '../crm/entities/crm-opportunity.entity';
+import { CrmOpportunityMember } from '../crm/entities/crm-opportunity-member.entity';
+import { CrmStage } from '../crm/entities/crm-stage.entity';
+import type { CurrentUser } from '../common/decorators/user.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 type QuoteWithPublicProfile = Quote & {
   tenantPublicProfile?: TenantPublicProfile;
@@ -88,7 +98,113 @@ export class QuotesService {
     private readonly tenantsRepo: Repository<Tenant>,
     @InjectRepository(BankAccount)
     private readonly bankAccountsRepo: Repository<BankAccount>,
+    @InjectRepository(CrmOpportunity)
+    private readonly crmOppRepo: Repository<CrmOpportunity>,
+    @InjectRepository(CrmOpportunityMember)
+    private readonly crmOppMemberRepo: Repository<CrmOpportunityMember>,
+    @InjectRepository(CrmStage)
+    private readonly crmStageRepo: Repository<CrmStage>,
   ) {}
+
+  private async syncLinkedOpportunityWon(quote: Quote): Promise<void> {
+    const opportunityId = this.normalizeUuidOrNull(quote?.opportunityId);
+    if (!opportunityId) return;
+
+    try {
+      const opp = await this.crmOppRepo.findOne({
+        where: { tenantId: quote.tenantId, id: opportunityId },
+      });
+      if (!opp) return;
+
+      // Kapalı-won stage'i bul (aynı pipeline içinde)
+      let wonStageId: string | null = null;
+      try {
+        const stages = await this.crmStageRepo.find({
+          where: {
+            tenantId: quote.tenantId,
+            pipelineId: opp.pipelineId,
+            isClosedWon: true,
+          },
+          order: { order: 'DESC' },
+          take: 1,
+          select: { id: true },
+        });
+        if (Array.isArray(stages) && stages[0]?.id) {
+          wonStageId = stages[0].id;
+        }
+      } catch (error) {
+        this.logWarning('quotes.syncLinkedOpportunityWon.stageLookupFailed', error);
+        wonStageId = null;
+      }
+
+      const now = new Date();
+      // Minimal: status + timestamps; stage varsa onu da güncelle
+      // (stage bulunamazsa mevcut stage korunur)
+      opp.status = CrmOpportunityStatus.WON;
+      opp.wonAt = now;
+      opp.lostAt = null;
+      opp.lostReason = null;
+      if (wonStageId && opp.stageId !== wonStageId) {
+        opp.stageId = wonStageId;
+      }
+
+      await this.crmOppRepo.save(opp);
+    } catch (error) {
+      this.logWarning('quotes.syncLinkedOpportunityWon.failed', error);
+    }
+  }
+
+  private isAdmin(user: CurrentUser): boolean {
+    return (
+      user?.role === UserRole.SUPER_ADMIN ||
+      user?.role === UserRole.TENANT_ADMIN
+    );
+  }
+
+  private normalizeUuidOrNull(value?: string | null): string | null {
+    const v = (value || '').trim();
+    if (!v) return null;
+    return this.isUuid(v) ? v : null;
+  }
+
+  private async ensureOpportunityAccessOrThrow(
+    tenantId: string,
+    user: CurrentUser,
+    opportunityId: string,
+  ): Promise<CrmOpportunity> {
+    const oid = this.normalizeUuidOrNull(opportunityId);
+    if (!oid) {
+      throw new BadRequestException('Invalid opportunityId');
+    }
+
+    if (this.isAdmin(user)) {
+      const opp = await this.crmOppRepo.findOne({
+        where: { tenantId, id: oid },
+      });
+      if (!opp) throw new NotFoundException('Opportunity not found');
+      return opp;
+    }
+
+    const opp = await this.crmOppRepo
+      .createQueryBuilder('opp')
+      .leftJoin(
+        CrmOpportunityMember,
+        'm',
+        'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+      )
+      .where('opp.tenantId = :tenantId', { tenantId })
+      .andWhere('opp.id = :id', { id: oid })
+      .andWhere('(opp.ownerUserId = :userId OR m.userId = :userId)', {
+        userId: user.id,
+      })
+      .getOne();
+
+    if (!opp) {
+      // NotFound to avoid existence probing.
+      throw new NotFoundException('Opportunity not found');
+    }
+    return opp;
+  }
 
   private logWarning(
     event: string,
@@ -184,11 +300,37 @@ export class QuotesService {
     return `${prefix}${String(next).padStart(4, '0')}`;
   }
 
-  async create(tenantId: string, dto: CreateQuoteDto) {
+  async create(tenantId: string, dto: CreateQuoteDto, user?: CurrentUser) {
     const safeCustomerId = await this.ensureCustomerExistsOrNull(
       dto.customerId ?? null,
     );
     const safeCustomerName = (dto.customerName || '').trim() || null;
+
+    let opportunityId: string | null = null;
+    let oppAccountId: string | null = null;
+    if (dto.opportunityId) {
+      if (!user) throw new BadRequestException('User context required');
+      const opp = await this.ensureOpportunityAccessOrThrow(
+        tenantId,
+        user,
+        dto.opportunityId,
+      );
+      opportunityId = opp.id;
+      oppAccountId = opp.accountId || null;
+
+      // If client provided a customerId, it must match opportunity.accountId
+      if (safeCustomerId && oppAccountId && safeCustomerId !== oppAccountId) {
+        throw new BadRequestException(
+          'customerId must match opportunity accountId',
+        );
+      }
+    }
+
+    const resolvedCustomerId =
+      safeCustomerId ||
+      (oppAccountId
+        ? await this.ensureCustomerExistsOrNull(oppAccountId)
+        : null);
 
     // Benzersiz teklif numarası üretimi: olası yarış koşullarına karşı birkaç kez dene
     let attempts = 0;
@@ -218,8 +360,9 @@ export class QuotesService {
         tenantId,
         publicId: generatedPublicId,
         quoteNumber,
-        customerId: safeCustomerId,
+        customerId: resolvedCustomerId,
         customerName: safeCustomerName,
+        opportunityId,
         issueDate: new Date(dto.issueDate),
         validUntil: dto.validUntil ? new Date(dto.validUntil) : null,
         currency: dto.currency,
@@ -229,6 +372,16 @@ export class QuotesService {
         scopeOfWorkHtml: dto.scopeOfWorkHtml || null,
         version: 1,
         revisions: [],
+        createdById: user?.id ?? null,
+        createdByName: user
+          ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+            user.email
+          : null,
+        updatedById: user?.id ?? null,
+        updatedByName: user
+          ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+            user.email
+          : null,
       });
       try {
         return await this.repo.save(q);
@@ -253,9 +406,24 @@ export class QuotesService {
     );
   }
 
-  async findAll(tenantId: string) {
+  async findAll(
+    tenantId: string,
+    user: CurrentUser,
+    opts?: { opportunityId?: string },
+  ) {
+    let opportunityId: string | undefined = undefined;
+    if (opts?.opportunityId) {
+      // Enforce visibility when filtering by opportunity
+      const opp = await this.ensureOpportunityAccessOrThrow(
+        tenantId,
+        user,
+        opts.opportunityId,
+      );
+      opportunityId = opp.id;
+    }
+
     const list = await this.repo.find({
-      where: { tenantId },
+      where: opportunityId ? { tenantId, opportunityId } : { tenantId },
       order: { createdAt: 'DESC' },
     });
     // Otomatik expire kontrolü
@@ -290,6 +458,9 @@ export class QuotesService {
       q.scopeOfWorkHtml = dto.scopeOfWorkHtml || null;
     if (typeof dto.status !== 'undefined') q.status = dto.status;
     // Not: version ve revisions alanları sunucu tarafından yönetilir; DTO üzerinden güncellenmez
+
+    // Attribution best-effort (when fields exist)
+    // Controller currently doesn't pass user; keep backward-compatible.
 
     return this.repo.save(q);
   }
@@ -383,7 +554,9 @@ export class QuotesService {
   async accept(publicId: string) {
     const q = await this.findByPublicId(publicId);
     q.status = QuoteStatus.ACCEPTED;
-    return this.repo.save(q);
+    const saved = await this.repo.save(q);
+    await this.syncLinkedOpportunityWon(saved);
+    return saved;
   }
 
   async decline(publicId: string) {

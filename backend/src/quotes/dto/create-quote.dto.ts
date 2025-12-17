@@ -26,6 +26,13 @@ export class CreateQuoteDto {
   @IsString()
   customerId?: string;
 
+  @ApiPropertyOptional({
+    description: 'CRM opportunity ID (UUID) to link this quote to a deal',
+  })
+  @IsOptional()
+  @IsString()
+  opportunityId?: string;
+
   @ApiProperty({ description: 'Issue date (YYYY-MM-DD)' })
   @IsDateString()
   issueDate!: string;

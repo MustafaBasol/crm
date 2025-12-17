@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class EnsureUserAuthColumns1770100000000
-  implements MigrationInterface
-{
+export class EnsureUserAuthColumns1770100000000 implements MigrationInterface {
   name = 'EnsureUserAuthColumns1770100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -82,7 +80,9 @@ export class EnsureUserAuthColumns1770100000000
     await queryRunner.query(
       `ALTER TABLE "users" DROP COLUMN IF EXISTS "notificationPreferences"`,
     );
-    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN IF EXISTS "tokenVersion"`);
+    await queryRunner.query(
+      `ALTER TABLE "users" DROP COLUMN IF EXISTS "tokenVersion"`,
+    );
 
     await queryRunner.query(
       `ALTER TABLE "users" DROP COLUMN IF EXISTS "removedFromTenantId"`,
@@ -97,7 +97,9 @@ export class EnsureUserAuthColumns1770100000000
       `ALTER TABLE "users" DROP COLUMN IF EXISTS "removedFromTenantAt"`,
     );
 
-    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN IF EXISTS "currentOrgId"`);
+    await queryRunner.query(
+      `ALTER TABLE "users" DROP COLUMN IF EXISTS "currentOrgId"`,
+    );
 
     await queryRunner.query(
       `ALTER TABLE "users" DROP COLUMN IF EXISTS "passwordResetExpiresAt"`,
@@ -115,7 +117,9 @@ export class EnsureUserAuthColumns1770100000000
     await queryRunner.query(
       `ALTER TABLE "users" DROP COLUMN IF EXISTS "emailVerificationToken"`,
     );
-    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN IF EXISTS "isEmailVerified"`);
+    await queryRunner.query(
+      `ALTER TABLE "users" DROP COLUMN IF EXISTS "isEmailVerified"`,
+    );
 
     await queryRunner.query(
       `ALTER TABLE "users" DROP COLUMN IF EXISTS "twoFactorEnabledAt"`,
@@ -126,9 +130,13 @@ export class EnsureUserAuthColumns1770100000000
     await queryRunner.query(
       `ALTER TABLE "users" DROP COLUMN IF EXISTS "twoFactorEnabled"`,
     );
-    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN IF EXISTS "twoFactorSecret"`);
+    await queryRunner.query(
+      `ALTER TABLE "users" DROP COLUMN IF EXISTS "twoFactorSecret"`,
+    );
 
-    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN IF EXISTS "isPendingDeletion"`);
+    await queryRunner.query(
+      `ALTER TABLE "users" DROP COLUMN IF EXISTS "isPendingDeletion"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "users" DROP COLUMN IF EXISTS "deletionRequestedAt"`,
     );

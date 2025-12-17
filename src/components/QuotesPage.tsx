@@ -22,6 +22,8 @@ interface QuotesPageProps {
   onAddQuote?: () => void;
   customers?: Customer[];
   products?: Product[];
+  initialOpenQuoteId?: string;
+  initialOpenMode?: 'view' | 'edit';
 }
 
 type QuoteLineItem = QuoteItemDto & { id: string };
@@ -109,7 +111,12 @@ const mapQuoteFromApi = (quote: QuoteApiRecord): QuoteListItem => ({
   updatedByName: quote.updatedByName,
 });
 
-const QuotesPage: React.FC<QuotesPageProps> = ({ customers = [], products = [] }) => {
+const QuotesPage: React.FC<QuotesPageProps> = ({
+  customers = [],
+  products = [],
+  initialOpenQuoteId,
+  initialOpenMode = 'view',
+}) => {
   const { t } = useTranslation();
   const { formatCurrency, currency: defaultCurrency } = useCurrency();
   const { tenant, user: authUser } = useAuth();
@@ -168,6 +175,7 @@ const QuotesPage: React.FC<QuotesPageProps> = ({ customers = [], products = [] }
   const iso = (d: Date) => d.toISOString().slice(0,10);
   const [quotes, setQuotes] = useState<QuoteListItem[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState<boolean>(true);
+  const [initialOpenHandled, setInitialOpenHandled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -195,6 +203,23 @@ const QuotesPage: React.FC<QuotesPageProps> = ({ customers = [], products = [] }
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (initialOpenHandled) return;
+    const id = String(initialOpenQuoteId || '').trim();
+    if (!id) return;
+    if (isLoadingQuotes) return;
+
+    const target = quotes.find((q) => String(q.id) === id) || null;
+    if (target) {
+      if (initialOpenMode === 'edit') {
+        openEdit(target);
+      } else {
+        openView(target);
+      }
+    }
+    setInitialOpenHandled(true);
+  }, [initialOpenHandled, initialOpenMode, initialOpenQuoteId, isLoadingQuotes, quotes]);
 
   const filtered = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();

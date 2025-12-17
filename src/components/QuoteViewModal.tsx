@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
-import { X, Edit, Calendar, User, BadgeDollarSign, Send, Check, XCircle, FileDown, RefreshCw, Lock, Link as LinkIcon } from 'lucide-react';
+import { X, Edit, Calendar, User, BadgeDollarSign, Send, Check, XCircle, FileDown, RefreshCw, Lock, Link as LinkIcon, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { sanitizeRteHtml } from '../utils/security';
 import ConfirmModal from './ConfirmModal';
 import { logger } from '../utils/logger';
 import { safeLocalStorage } from '../utils/localStorageSafe';
+import * as salesApi from '../api/sales';
 import type {
   Quote as QuoteApiModel,
   QuoteStatus as QuoteApiStatus,
@@ -69,6 +70,7 @@ const QuoteViewModal: React.FC<QuoteViewModalProps> = ({ isOpen, onClose, quote,
   const { t, i18n } = useTranslation();
   const { formatCurrency } = useCurrency();
   const [confirmAccept, setConfirmAccept] = React.useState(false);
+  const [convertingToSale, setConvertingToSale] = React.useState(false);
 
   // Yalnızca işaretlenen alanlar için dil yardımcıları ve etiketler
   const getActiveLang = () => {
@@ -437,6 +439,65 @@ const QuoteViewModal: React.FC<QuoteViewModalProps> = ({ isOpen, onClose, quote,
               >
                 <LinkIcon className="w-4 h-4" />
                 <span className="text-sm font-medium">{t('quotes.actions.copyPublicLink', { defaultValue: 'Public Link Kopyala' })}</span>
+              </button>
+            )}
+
+            {/* Accepted quote -> Sale conversion */}
+            {quote.status === 'accepted' && (
+              <button
+                onClick={async () => {
+                  if (convertingToSale) return;
+                  setConvertingToSale(true);
+                  try {
+                    const sale = await salesApi.createSaleFromQuote(quote.id);
+                    try {
+                      window.dispatchEvent(
+                        new CustomEvent('showToast', {
+                          detail: {
+                            message: t('quotes.actions.convertToSaleSuccess', { defaultValue: 'Satış oluşturuldu.' }) as string,
+                            tone: 'success',
+                          },
+                        }),
+                      );
+                    } catch (toastError) {
+                      logger.debug('QuoteViewModal: toast dispatch failed', toastError);
+                    }
+                    onClose();
+                    setTimeout(() => {
+                      try {
+                        window.dispatchEvent(new CustomEvent('open-sale-edit', { detail: { sale } }));
+                      } catch (evtError) {
+                        logger.debug('QuoteViewModal: open-sale-edit dispatch failed', evtError);
+                      }
+                    }, 50);
+                  } catch (err) {
+                    logger.warn('QuoteViewModal: convertToSale failed', err);
+                    try {
+                      window.dispatchEvent(
+                        new CustomEvent('showToast', {
+                          detail: {
+                            message: t('quotes.actions.convertToSaleFailed', { defaultValue: 'Satış oluşturulamadı.' }) as string,
+                            tone: 'error',
+                          },
+                        }),
+                      );
+                    } catch (toastError) {
+                      logger.debug('QuoteViewModal: error toast dispatch failed', toastError);
+                    }
+                  } finally {
+                    setConvertingToSale(false);
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200"
+                title={t('quotes.actions.convertToSale', { defaultValue: 'Satışa Dönüştür' })}
+                disabled={convertingToSale}
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {convertingToSale
+                    ? (t('common.loading', { defaultValue: 'Yükleniyor…' }) as string)
+                    : (t('quotes.actions.convertToSale', { defaultValue: 'Satışa Dönüştür' }) as string)}
+                </span>
               </button>
             )}
 

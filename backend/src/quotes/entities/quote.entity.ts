@@ -46,6 +46,10 @@ export class Quote {
   @Column({ type: 'uuid', nullable: true })
   customerId: string | null;
 
+  // CRM opportunity (deal) link
+  @Column({ type: 'uuid', nullable: true })
+  opportunityId: string | null;
+
   @ManyToOne(() => Customer, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'customerId' })
   customer: Customer | null;

@@ -353,6 +353,49 @@ http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OPP_DETA
 OPP_DETAIL_ID_MATCH="$(json_get "$OPP_DETAIL_JSON" "j && j.id === '$OPP_ID'")"
 [[ "$OPP_DETAIL_ID_MATCH" == "true" ]] || fail "Opportunity detail id mismatch: $OPP_DETAIL_JSON"
 
+echo "== Quotes: create (linked to opportunity) =="
+QUOTE_CREATE_JSON="$TMP_DIR/smoke.quote.create.json"
+QUOTE_CREATED_JSON="$TMP_DIR/smoke.quote.created.json"
+cat > "$QUOTE_CREATE_JSON" <<JSON
+{"opportunityId":"$OPP_ID","customerId":"$CUSTOMER_ID","issueDate":"$(date +%F)","validUntil":"$(date -d '+30 days' +%F)","currency":"TRY","total":0,"items":[],"scopeOfWorkHtml":""}
+JSON
+http_json POST "$API_BASE/quotes" "$QUOTE_CREATE_JSON" "$TOKEN" | tee "$QUOTE_CREATED_JSON" >/dev/null
+QUOTE_ID="$(json_get "$QUOTE_CREATED_JSON" "j.id")"
+[[ -n "$QUOTE_ID" ]] || fail "Quote id missing in create response: $QUOTE_CREATED_JSON"
+
+QUOTE_PUBLIC_ID="$(json_get "$QUOTE_CREATED_JSON" "j.publicId")"
+[[ -n "$QUOTE_PUBLIC_ID" ]] || fail "Quote publicId missing in create response: $QUOTE_CREATED_JSON"
+
+echo "== Quotes: public accept triggers opportunity won =="
+QUOTE_ACCEPTED_JSON="$TMP_DIR/smoke.quote.accepted.json"
+http_json POST "$API_BASE/public/quotes/$QUOTE_PUBLIC_ID/accept" "" "" | tee "$QUOTE_ACCEPTED_JSON" >/dev/null
+QUOTE_ACCEPTED_STATUS="$(json_get "$QUOTE_ACCEPTED_JSON" "j.status")"
+[[ "$QUOTE_ACCEPTED_STATUS" == "accepted" ]] || fail "Expected accepted status after public accept, got '$QUOTE_ACCEPTED_STATUS': $QUOTE_ACCEPTED_JSON"
+
+echo "== Sales: create from accepted quote (idempotent) =="
+SALE_FROM_QUOTE_JSON="$TMP_DIR/smoke.sale.from.quote.json"
+http_json POST "$API_BASE/sales/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$SALE_FROM_QUOTE_JSON" >/dev/null
+SALE_ID="$(json_get "$SALE_FROM_QUOTE_JSON" "j.id")"
+[[ -n "$SALE_ID" ]] || fail "Sale id missing in create-from-quote response: $SALE_FROM_QUOTE_JSON"
+SALE_SRC_MATCH="$(json_get "$SALE_FROM_QUOTE_JSON" "j && String(j.sourceQuoteId||'') === '$QUOTE_ID'")"
+[[ "$SALE_SRC_MATCH" == "true" ]] || fail "Expected sale.sourceQuoteId to match quote id: $SALE_FROM_QUOTE_JSON"
+
+SALE_FROM_QUOTE_2_JSON="$TMP_DIR/smoke.sale.from.quote.2.json"
+http_json POST "$API_BASE/sales/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$SALE_FROM_QUOTE_2_JSON" >/dev/null
+SALE_ID_2="$(json_get "$SALE_FROM_QUOTE_2_JSON" "j.id")"
+[[ "$SALE_ID_2" == "$SALE_ID" ]] || fail "Expected idempotent create-from-quote to return same sale id; got $SALE_ID then $SALE_ID_2"
+
+OPP_DETAIL_AFTER_ACCEPT_JSON="$TMP_DIR/smoke.crm.opp.detail.after.accept.json"
+http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OPP_DETAIL_AFTER_ACCEPT_JSON" >/dev/null
+OPP_AFTER_STATUS_WON="$(json_get "$OPP_DETAIL_AFTER_ACCEPT_JSON" "j && j.status === 'won'")"
+[[ "$OPP_AFTER_STATUS_WON" == "true" ]] || fail "Expected opportunity status won after quote accept: $OPP_DETAIL_AFTER_ACCEPT_JSON"
+
+echo "== Quotes: list by opportunityId filter =="
+QUOTES_BY_OPP_JSON="$TMP_DIR/smoke.quotes.by-opp.json"
+http_json GET "$API_BASE/quotes?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$QUOTES_BY_OPP_JSON" >/dev/null
+QUOTES_BY_OPP_HAS_QUOTE="$(json_get "$QUOTES_BY_OPP_JSON" "Array.isArray(j) && j.some(q => q && q.id === '$QUOTE_ID')")"
+[[ "$QUOTES_BY_OPP_HAS_QUOTE" == "true" ]] || fail "Quotes list by opportunityId missing created quote: $QUOTES_BY_OPP_JSON"
+
 echo "== CRM: opportunities list endpoint (/crm/opportunities) =="
 OPPS_LIST_JSON="$TMP_DIR/smoke.crm.opps.list.json"
 http_json GET "$API_BASE/crm/opportunities?limit=50&offset=0" "" "$TOKEN" | tee "$OPPS_LIST_JSON" >/dev/null
@@ -418,6 +461,13 @@ JSON
   else
     echo "Move-stage test skipped (no alternate stageId available)."
   fi
+
+  echo "== Quotes: member can list quotes by team opportunityId =="
+  MEMBER_QUOTES_BY_OPP_JSON="$TMP_DIR/smoke.member.quotes.by-opp.json"
+  MEMBER_QUOTES_BY_OPP_STATUS="$(http_status GET "$API_BASE/quotes?opportunityId=$OPP_ID" "" "$MEMBER_TOKEN" "$MEMBER_QUOTES_BY_OPP_JSON")"
+  [[ "$MEMBER_QUOTES_BY_OPP_STATUS" == "200" ]] || fail "Expected 200 for member quotes by opportunityId, got $MEMBER_QUOTES_BY_OPP_STATUS: $MEMBER_QUOTES_BY_OPP_JSON"
+  MEMBER_QUOTES_BY_OPP_HAS_QUOTE="$(json_get "$MEMBER_QUOTES_BY_OPP_JSON" "Array.isArray(j) && j.some(q => q && q.id === '$QUOTE_ID')")"
+  [[ "$MEMBER_QUOTES_BY_OPP_HAS_QUOTE" == "true" ]] || fail "Member quotes by opportunityId missing quote: $MEMBER_QUOTES_BY_OPP_JSON"
 fi
 
 echo "== CRM: contact accountId (allowed update after visibility) =="

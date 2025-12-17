@@ -58,6 +58,11 @@ export const createSale = async (data: CreateSaleDto): Promise<SaleRecord> => {
   return res.data;
 };
 
+export const createSaleFromQuote = async (quoteId: string): Promise<SaleRecord> => {
+  const res = await apiClient.post<SaleRecord>(`/sales/from-quote/${encodeURIComponent(String(quoteId))}`);
+  return res.data;
+};
+
 export const updateSale = async (id: string, data: UpdateSaleDto): Promise<SaleRecord> => {
   const res = await apiClient.patch<SaleRecord>(`/sales/${id}`, data);
   return res.data;

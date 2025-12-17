@@ -5411,6 +5411,31 @@ const AppContent: React.FC = () => {
         </React.Suspense>
       );
     }
+
+    // Dinamik rota: quotes-open:<quoteId>
+    if (currentPage.startsWith('quotes-open:')) {
+      const quoteId = currentPage.replace('quotes-open:', '');
+      return (
+        <QuotesPage
+          customers={customers}
+          products={products}
+          initialOpenQuoteId={quoteId}
+        />
+      );
+    }
+
+    // Dinamik rota: quotes-edit:<quoteId>
+    if (currentPage.startsWith('quotes-edit:')) {
+      const quoteId = currentPage.replace('quotes-edit:', '');
+      return (
+        <QuotesPage
+          customers={customers}
+          products={products}
+          initialOpenQuoteId={quoteId}
+          initialOpenMode="edit"
+        />
+      );
+    }
     switch (currentPage) {
       case "summary":
         return (
