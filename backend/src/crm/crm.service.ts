@@ -1425,68 +1425,33 @@ export class CrmService {
       return { pipeline: null, stages: [], opportunities: [] };
     }
 
-    const stages = await this.stageRepo.find({
-      where: { tenantId, pipelineId: pipeline.id },
-      order: { order: 'ASC' },
-    });
+    const stages = await this.listStages(tenantId);
 
-    let opportunities: CrmOpportunity[] = [];
+    const opportunities: Awaited<
+      ReturnType<typeof this.listOpportunities>
+    >['items'] = [];
+    let offset = 0;
 
-    if (this.isAdmin(user)) {
-      opportunities = await this.oppRepo.find({
-        where: { tenantId, pipelineId: pipeline.id },
-        order: { updatedAt: 'DESC' },
+    // Board endpoint returns the full set (legacy behavior). We page internally
+    // using the same visibility-scoped query as listOpportunities.
+    // listOpportunities clamps limit to max 200.
+    for (;;) {
+      const page = await this.listOpportunities(tenantId, user, {
+        limit: 200,
+        offset,
       });
-    } else {
-      const memberRows = await this.oppMemberRepo.find({
-        where: { tenantId, userId: user.id },
-        select: { opportunityId: true },
-      });
-      const memberOppIds = memberRows.map((r) => r.opportunityId);
 
-      opportunities = await this.oppRepo.find({
-        where: [
-          { tenantId, pipelineId: pipeline.id, ownerUserId: user.id },
-          ...(memberOppIds.length
-            ? [{ tenantId, pipelineId: pipeline.id, id: In(memberOppIds) }]
-            : []),
-        ],
-        order: { updatedAt: 'DESC' },
-      });
+      opportunities.push(...page.items);
+
+      if (!page.items.length) break;
+      offset += page.items.length;
+      if (offset >= page.total) break;
     }
-
-    const members = await this.oppMemberRepo.find({
-      where: {
-        tenantId,
-        opportunityId: opportunities.length
-          ? In(opportunities.map((o) => o.id))
-          : In(['00000000-0000-0000-0000-000000000000']),
-      },
-    });
 
     return {
       pipeline: { id: pipeline.id, name: pipeline.name },
-      stages: stages.map((s) => ({
-        id: s.id,
-        name: s.name,
-        order: s.order,
-        isClosedWon: s.isClosedWon,
-        isClosedLost: s.isClosedLost,
-      })),
-      opportunities: opportunities.map((o) => ({
-        id: o.id,
-        name: o.name,
-        amount: o.amount,
-        currency: o.currency,
-        stageId: o.stageId,
-        accountId: o.accountId,
-        ownerUserId: o.ownerUserId,
-        expectedCloseDate: this.toExpectedCloseDateString(o.expectedCloseDate),
-        status: o.status,
-        teamUserIds: members
-          .filter((m) => m.opportunityId === o.id)
-          .map((m) => m.userId),
-      })),
+      stages,
+      opportunities,
     };
   }
 
