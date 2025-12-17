@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://127.0.0.1:3001}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/smoke-lib.sh"
+smoke_ensure_base_url
+
 API_PREFIX="${API_PREFIX:-/api}"
 API_BASE="$BASE_URL$API_PREFIX"
 

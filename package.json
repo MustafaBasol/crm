@@ -11,7 +11,8 @@
     "start:all": "bash ./start-dev.sh",
     "stop:all": "bash ./stop-dev.sh",
     "start:backend": "bash ./start-backend.sh",
-    "smoke:crm": "bash ./backend/scripts/smoke-crm.sh"
+    "smoke:crm": "bash ./backend/scripts/smoke-crm.sh",
+    "smoke:crm:authz": "bash ./backend/scripts/smoke-crm-authz.sh"
   },
   "dependencies": {
     "axios": "^1.12.2",

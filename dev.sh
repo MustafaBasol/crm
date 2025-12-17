@@ -23,7 +23,11 @@ echo -e "${GREEN}═════════════════════
 
 echo -e "${YELLOW}📌 Kullanışlı Komutlar:${NC}"
 echo "   🌐 Frontend: http://localhost:5174"
-echo "   🔧 Backend:  http://localhost:3001"
+BACKEND_PORT="$(grep -E '^\s*PORT\s*=' "$ROOT_DIR/backend/.env" 2>/dev/null | tail -n 1 | sed -E 's/^\s*PORT\s*=\s*//; s/\s*$//; s/^"|"$//g; s/^\x27|\x27$//g')"
+if [[ ! "$BACKEND_PORT" =~ ^[0-9]+$ ]]; then
+	BACKEND_PORT="3001"
+fi
+echo "   🔧 Backend:  http://localhost:${BACKEND_PORT}"
 echo "   📋 Loglar:   tail -f .runtime/backend.log"
 echo "   📋 Loglar:   tail -f .runtime/frontend.log"
 echo "   🛑 Durdur:   npm run stop:all"

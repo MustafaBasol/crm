@@ -382,7 +382,7 @@ export default function CrmActivitiesPage(
               </tr>
             </thead>
             <tbody>
-              {rows.map((activity) => (
+              {timelineRows.map((activity) => (
                 <tr key={activity.id} className="border-b last:border-b-0">
                   <td className="py-2 pr-4 text-gray-900">{activity.title}</td>
                   <td className="py-2 pr-4 text-gray-700">{activity.type || '-'}</td>

@@ -40,7 +40,8 @@ Not: [backend/test/run-e2e.sh](backend/test/run-e2e.sh) `.env` dosyasını sourc
 
 - Opportunity stage taşıma (`POST /api/crm/opportunities/:id/move`) artık **rol bazlı**:
   - İzinli: tenant admin (user.role), opportunity owner, veya (current org içinde) organization `ADMIN/OWNER`.
-  - Team member erişimi (okuma/board görünürlüğü) devam eder; normal `MEMBER` için stage move **403 Forbidden**.
+  - Team member erişimi (okuma/board görünürlüğü) devam eder; ancak **team member olmak stage move yetkisi vermez**.
+  - Karar: **team member stage move asla**. Normal `MEMBER` için stage move **403 Forbidden**.
   - Not: organization `ADMIN/OWNER` için opportunity team üyeliği zorunlu değil.
 
 İlgili commit:
@@ -74,9 +75,10 @@ Not: [backend/test/run-e2e.sh](backend/test/run-e2e.sh) `.env` dosyasını sourc
 
 ### Yeni sohbette devam (kalan işler)
 
-1. (Opsiyonel) Yetki politikasını ürün kararı olarak netleştir: team member stage move asla mı, yoksa belirli rollerle mi? Şu an güvenli varsayılan: owner/admin-only.
-2. (Opsiyonel) Eğer “team member stage move” istenecekse: explicit permission/role model ekleyip smoke’a pozitif senaryo ekle.
-3. CRM authz yüzeyi büyüdükçe smoke’ı küçük parçalara ayırmayı değerlendir (örn. `smoke-crm-authz.sh`), ama şimdilik tek dosya yeterli.
+1. Yetki politikası (ürün kararı): **team member stage move asla**. İzin sadece: tenant admin, opportunity owner, veya current org `ADMIN/OWNER`.
+2. CRM authz yüzeyi büyüdükçe smoke’ı küçük parçalara ayırmayı değerlendir (örn. `smoke-crm-authz.sh`), ama şimdilik tek dosya yeterli.
+
+Not: Artık authz odaklı daha kısa smoke mevcut: `npm run smoke:crm:authz` (script: `backend/scripts/smoke-crm-authz.sh`).
 
 ## Handoff (Backend + Postgres + CRM Smoke) — 2025-12-15
 
@@ -85,10 +87,12 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 - Rehber: [docs/DEV_BACKEND_POSTGRES_SMOKE.md](docs/DEV_BACKEND_POSTGRES_SMOKE.md)
 - Tek komut smoke test: [backend/scripts/smoke-crm.sh](backend/scripts/smoke-crm.sh)
 - NPM script: `npm run smoke:crm` (root)
+- Authz odaklı NPM script: `npm run smoke:crm:authz`
 
 ### Çalışır durum (son doğrulama)
 
-- Backend 3001’de çalışıyor ve `GET /api/health` JSON dönüyor.
+- Backend portu `backend/.env` içindeki `PORT` değişkenine göre çalışır (pratikte genelde **3000** veya **3001**). `npm run start:backend` bu değeri dikkate alır.
+- `GET /api/health` JSON dönüyor.
 - Auth smoke: `POST /api/auth/register` + `POST /api/auth/login` başarıyla token üretiyor.
 - CRM smoke: token ile leads/contacts için create→list→update→delete uçları başarıyla çalışıyor.
 
@@ -96,7 +100,9 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 
 1. Backend ayakta mı?
 
-- `curl -sS http://127.0.0.1:3001/api/health`
+- Önce 3000 dene, değilse 3001:
+  - `curl -sS http://127.0.0.1:3000/api/health`
+  - `curl -sS http://127.0.0.1:3001/api/health`
 
 2. CRM smoke test (backend ayaktayken):
 
@@ -104,7 +110,9 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 
 3. Port çakışması (EADDRINUSE) varsa:
 
-- `lsof -nP -iTCP:3001 -sTCP:LISTEN`
+- İlgili port hangisiyse onu kontrol et (örn. 3000/3001):
+  - `lsof -nP -iTCP:3000 -sTCP:LISTEN`
+  - `lsof -nP -iTCP:3001 -sTCP:LISTEN`
 - Birden fazla `nest start --watch` instance’ı çalışıyorsa fazlasını kapat.
 
 ### Notlar / Bilinen tuzaklar
@@ -112,6 +120,16 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 - `JWT_SECRET` olmadan backend boot etmiyor (dev’de bile gerekli).
 - Stripe/Billing tarafı prod’da `STRIPE_SECRET_KEY` olmadan fail-fast olabilir; dev’de crash etmemesi için soft-fail yaklaşımı var.
 - Smoke script çıktıları ve token dosyaları `/workspaces/crm/.tmp/` altına yazılıyor.
+- `npm run start:backend` port temizliğini sabit bir port üzerinden yapmaz; `.env`’deki `PORT` ile aynı portu temizleyip başlatır (EADDRINUSE flakiness’i azaltır).
+- Devcontainer local Postgres (cluster: `17/main`, port `5432`) “down” olursa DB bağlantısı patlamasın diye:
+  - `start-backend.sh` ve `start-dev.sh` otomatik `backend/scripts/ensure-postgres.sh` çalıştırır.
+  - Script `systemctl` kullanmaz (container’da systemd yok); `sudo -n pg_ctlcluster ...` ile cluster’ı başlatır.
+  - İstersen dev akışında kapat: `ENSURE_POSTGRES=0 npm run start:backend`
+- Smoke script’ler (`npm run smoke:crm`, `npm run smoke:crm:authz`) artık **port sabitlemez**:
+  - `BASE_URL` set edilmediyse önce `backend/.env` içindeki `PORT` okunur.
+  - `PORT` yoksa health probe ile `3000` → `3001` denenir.
+  - Override: `BASE_URL=http://127.0.0.1:XXXX` veya `BACKEND_URL=...`.
+  - (İleri kullanım) `BACKEND_ENV_FILE=...` veya `BACKEND_PORT=...`.
 
 ## Biten işler (CRM)
 
