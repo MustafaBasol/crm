@@ -23,7 +23,14 @@ const emptyForm: ActivityFormState = {
 };
 
 export default function CrmActivitiesPage(
-  props: { opportunityId?: string; dealName?: string; contactId?: string; contactName?: string } = {},
+  props: {
+    opportunityId?: string;
+    dealName?: string;
+    contactId?: string;
+    contactName?: string;
+    accountId?: string;
+    accountName?: string;
+  } = {},
 ) {
   const { t, i18n } = useTranslation('common');
 
@@ -31,8 +38,18 @@ export default function CrmActivitiesPage(
   const dealName = props?.dealName;
   const contactId = props?.contactId;
   const contactName = props?.contactName;
+  const accountId = props?.accountId;
+  const accountName = props?.accountName;
 
-  const isScopedTimeline = !!opportunityId || !!contactId;
+  const scope: 'opportunity' | 'contact' | 'account' | 'global' = opportunityId
+    ? 'opportunity'
+    : contactId
+      ? 'contact'
+      : accountId
+        ? 'account'
+        : 'global';
+
+  const isScopedTimeline = scope !== 'global';
 
   const [items, setItems] = useState<activitiesApi.CrmActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,11 +74,13 @@ export default function CrmActivitiesPage(
     setLoading(true);
     try {
       const data = await activitiesApi.listCrmActivities(
-        opportunityId
-          ? { opportunityId }
-          : contactId
-            ? { contactId }
-            : undefined,
+        scope === 'opportunity'
+          ? { opportunityId: opportunityId as string }
+          : scope === 'contact'
+            ? { contactId: contactId as string }
+            : scope === 'account'
+              ? { accountId: accountId as string }
+              : undefined,
       );
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -73,14 +92,14 @@ export default function CrmActivitiesPage(
 
   useEffect(() => {
     void reload();
-  }, [opportunityId, contactId]);
+  }, [opportunityId, contactId, accountId]);
 
   useEffect(() => {
     setStatusFilter('all');
-  }, [opportunityId, contactId]);
+  }, [opportunityId, contactId, accountId]);
 
   useEffect(() => {
-    if (opportunityId || contactId) return;
+    if (scope !== 'global') return;
     let cancelled = false;
     const loadContacts = async () => {
       try {
@@ -97,7 +116,7 @@ export default function CrmActivitiesPage(
     return () => {
       cancelled = true;
     };
-  }, [opportunityId, contactId]);
+  }, [scope]);
 
   const parseDateMs = (value: string | null | undefined): number | null => {
     const raw = String(value ?? '').trim();
@@ -188,14 +207,18 @@ export default function CrmActivitiesPage(
     const payload: activitiesApi.CreateCrmActivityDto = {
       title,
       type: form.type.trim() || undefined,
-      opportunityId: opportunityId || undefined,
-      contactId: contactId
-        ? contactId
-        : opportunityId
-          ? undefined
-          : form.contactId
-            ? form.contactId
-            : null,
+      opportunityId: scope === 'opportunity' ? (opportunityId as string) : undefined,
+      accountId: scope === 'account' ? (accountId as string) : undefined,
+      contactId:
+        scope === 'contact'
+          ? (contactId as string)
+          : scope === 'opportunity'
+            ? undefined
+            : scope === 'account'
+              ? null
+              : form.contactId
+                ? form.contactId
+                : null,
       dueAt: form.dueAt.trim() ? form.dueAt.trim() : null,
       completed: !!form.completed,
     };
@@ -285,11 +308,13 @@ export default function CrmActivitiesPage(
         <div>
           <div className="text-sm font-semibold text-gray-900">{t('crm.activities.title')}</div>
           <div className="mt-2 text-sm text-gray-500">
-            {opportunityId
+            {scope === 'opportunity'
               ? t('crm.activities.subtitleForDeal', { dealName: dealName || '' })
-              : contactId
+              : scope === 'contact'
                 ? t('crm.activities.subtitleForContact', { contactName: contactName || '' })
-                : t('crm.activities.subtitle')}
+                : scope === 'account'
+                  ? t('crm.activities.subtitleForAccount', { accountName: accountName || '' })
+                  : t('crm.activities.subtitle')}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -423,7 +448,7 @@ export default function CrmActivitiesPage(
             {modalError && <div className="mb-4 text-sm text-red-600">{modalError}</div>}
 
             <div className="space-y-4">
-              {!opportunityId && !contactId && (
+              {scope === 'global' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.fields.contact')}</label>
                   <select
