@@ -44,6 +44,11 @@ export const bootstrapPipeline = async () => {
   return res.data;
 };
 
+export const getStages = async (): Promise<CrmStage[]> => {
+  const res = await apiClient.get<CrmStage[]>('/crm/stages');
+  return res.data;
+};
+
 export const getBoard = async (): Promise<CrmBoardResponse> => {
   const res = await apiClient.get<CrmBoardResponse>('/crm/board');
   return res.data;

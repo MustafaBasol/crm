@@ -1392,6 +1392,26 @@ export class CrmService {
     return opp;
   }
 
+  async listStages(tenantId: string) {
+    const pipeline = await this.pipelineRepo.findOne({
+      where: { tenantId, isDefault: true },
+    });
+    if (!pipeline) return [];
+
+    const stages = await this.stageRepo.find({
+      where: { tenantId, pipelineId: pipeline.id },
+      order: { order: 'ASC' },
+    });
+
+    return stages.map((s) => ({
+      id: s.id,
+      name: s.name,
+      order: s.order,
+      isClosedWon: s.isClosedWon,
+      isClosedLost: s.isClosedLost,
+    }));
+  }
+
   async getBoard(tenantId: string, user: CurrentUser) {
     const pipeline = await this.pipelineRepo.findOne({
       where: { tenantId, isDefault: true },

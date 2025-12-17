@@ -104,6 +104,12 @@ export class CrmController {
     return this.crmService.bootstrapDefaultPipeline(user.tenantId);
   }
 
+  @Get('stages')
+  @ApiOperation({ summary: 'List default pipeline stages' })
+  async listStages(@User() user: CurrentUser) {
+    return this.crmService.listStages(user.tenantId);
+  }
+
   @Get('board')
   @ApiOperation({
     summary: 'Get pipeline board (stages + opportunities) scoped by visibility',

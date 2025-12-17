@@ -40,18 +40,14 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [board, setBoard] = useState<crmApi.CrmBoardResponse | null>(null);
+  const [stages, setStages] = useState<crmApi.CrmStage[]>([]);
+  const [opportunity, setOpportunity] = useState<crmApi.CrmOpportunity | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
 
   const [saving, setSaving] = useState(false);
   const [savingTeam, setSavingTeam] = useState(false);
   const [movingStage, setMovingStage] = useState(false);
-
-  const stages: crmApi.CrmStage[] = board?.stages ?? [];
-  const opportunities: crmApi.CrmOpportunity[] = board?.opportunities ?? [];
-
-  const opportunity = useMemo(() => opportunities.find((o) => o.id === opportunityId) ?? null, [opportunities, opportunityId]);
 
   const taskAssignees = useMemo(() => {
     if (!opportunity) return [] as Array<{ id: string; label: string }>;
@@ -98,12 +94,14 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
     setError(null);
     setLoading(true);
     try {
-      const [boardData, customersData, orgs] = await Promise.all([
-        crmApi.getBoard(),
+      const [oppData, stageData, customersData, orgs] = await Promise.all([
+        crmApi.getOpportunity(opportunityId),
+        crmApi.getStages(),
         getCustomers(),
         organizationsApi.getAll(),
       ]);
-      setBoard(boardData);
+      setOpportunity(oppData);
+      setStages(stageData ?? []);
       setCustomers(customersData ?? []);
 
       const org = (orgs ?? [])[0];
@@ -135,6 +133,15 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
       expectedCloseDate: opportunity.expectedCloseDate ?? '',
     });
   }, [opportunity, defaultCurrency]);
+
+  const reloadOpportunity = async () => {
+    try {
+      const oppData = await crmApi.getOpportunity(opportunityId);
+      setOpportunity(oppData);
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
 
   const backToPipeline = () => {
     try {
@@ -174,7 +181,7 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
         currency: form.currency,
         expectedCloseDate: form.expectedCloseDate ? form.expectedCloseDate : null,
       });
-      await reloadAll();
+      await reloadOpportunity();
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -192,7 +199,7 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
       const next = has ? current.filter((id) => id !== userId) : [...current, userId];
       const ensuredOwnerTeam = Array.from(new Set([...(next ?? []), ...(user?.id ? [user.id] : [])]));
       await crmApi.setOpportunityTeam(opportunity.id, ensuredOwnerTeam);
-      await reloadAll();
+      await reloadOpportunity();
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -207,7 +214,7 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
     try {
       setMovingStage(true);
       await crmApi.moveOpportunity(opportunity.id, stageId);
-      await reloadAll();
+      await reloadOpportunity();
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
