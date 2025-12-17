@@ -455,6 +455,24 @@ ACTIVITY_ID="$(json_get "$ACTIVITY_CREATED_JSON" "j.id")"
 [[ -n "$ACTIVITY_ID" ]] || fail "Activity id missing in create response: $ACTIVITY_CREATED_JSON"
 echo "Activity ID: $ACTIVITY_ID"
 
+# Activities: accountId filter (CustomerViewModal path)
+echo "== CRM: activities (accountId filter) =="
+ACCOUNT_ACTIVITY_CREATE="$TMP_DIR/smoke.activity.account.create.json"
+cat > "$ACCOUNT_ACTIVITY_CREATE" <<JSON
+{"title":"Account Activity Smoke $TS","type":"note","accountId":"$CUSTOMER_ID","completed":false}
+JSON
+ACCOUNT_ACTIVITY_CREATED_JSON="$TMP_DIR/smoke.activity.account.created.json"
+http_json POST "$API_BASE/crm/activities" "$ACCOUNT_ACTIVITY_CREATE" "$TOKEN" | tee "$ACCOUNT_ACTIVITY_CREATED_JSON" >/dev/null
+ACCOUNT_ACTIVITY_ID="$(json_get "$ACCOUNT_ACTIVITY_CREATED_JSON" "j.id")"
+[[ -n "$ACCOUNT_ACTIVITY_ID" ]] || fail "Account activity id missing in create response: $ACCOUNT_ACTIVITY_CREATED_JSON"
+
+ACCOUNT_ACTIVITIES_FILTERED_JSON="$TMP_DIR/smoke.activities.filtered.by-account.json"
+http_json GET "$API_BASE/crm/activities?accountId=$CUSTOMER_ID" "" "$TOKEN" | tee "$ACCOUNT_ACTIVITIES_FILTERED_JSON" >/dev/null
+FOUND_ACCOUNT_ACTIVITY_IN_FILTER="$(json_get "$ACCOUNT_ACTIVITIES_FILTERED_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$ACCOUNT_ACTIVITY_ID')")"
+[[ "$FOUND_ACCOUNT_ACTIVITY_IN_FILTER" == "true" ]] || fail "Created account activity not found in accountId filtered list: $ACCOUNT_ACTIVITIES_FILTERED_JSON"
+
+http_json DELETE "$API_BASE/crm/activities/$ACCOUNT_ACTIVITY_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.activity.account.deleted.json" >/dev/null
+
 echo "== CRM: activities (single relation rule) =="
 ACTIVITY_INVALID_CREATE="$TMP_DIR/smoke.activity.invalid.create.json"
 cat > "$ACTIVITY_INVALID_CREATE" <<JSON
@@ -479,6 +497,29 @@ FOUND_IN_FILTER="$(json_get "$ACTIVITIES_FILTERED_JSON" "Array.isArray(j) && j.s
 
 http_json DELETE "$API_BASE/crm/activities/$ACTIVITY_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.activity.deleted.json" >/dev/null
 
+# Tasks CRUD (minimal coverage)
+echo "== CRM: tasks CRUD =="
+TASK_CREATE="$TMP_DIR/smoke.task.create.json"
+cat > "$TASK_CREATE" <<JSON
+{"title":"Task Smoke $TS","opportunityId":"$OPP_ID","accountId":null,"dueAt":"2025-12-15","completed":false,"assigneeUserId":null}
+JSON
+TASK_CREATED_JSON="$TMP_DIR/smoke.task.created.json"
+http_json POST "$API_BASE/crm/tasks" "$TASK_CREATE" "$TOKEN" | tee "$TASK_CREATED_JSON" >/dev/null
+TASK_ID="$(json_get "$TASK_CREATED_JSON" "j.id")"
+[[ -n "$TASK_ID" ]] || fail "Task id missing in create response: $TASK_CREATED_JSON"
+
+TASKS_FILTERED_JSON="$TMP_DIR/smoke.tasks.filtered.by-opportunity.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$TASKS_FILTERED_JSON" >/dev/null
+FOUND_TASK_IN_FILTER="$(json_get "$TASKS_FILTERED_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$TASK_ID')")"
+[[ "$FOUND_TASK_IN_FILTER" == "true" ]] || fail "Created task not found in opportunityId filtered list: $TASKS_FILTERED_JSON"
+
+TASK_UPDATE="$TMP_DIR/smoke.task.update.json"
+cat > "$TASK_UPDATE" <<JSON
+{"completed":true}
+JSON
+http_json PATCH "$API_BASE/crm/tasks/$TASK_ID" "$TASK_UPDATE" "$TOKEN" | tee "$TMP_DIR/smoke.task.updated.json" >/dev/null
+http_json DELETE "$API_BASE/crm/tasks/$TASK_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.task.deleted.json" >/dev/null
+
 cat > "$CONTACT_UPDATE" <<JSON
 {"company":"ACME Updated"}
 JSON
@@ -493,5 +534,7 @@ echo "- Auth: register+login"
 echo "- CRM: leads+contacts CRUD"
 echo "- Customers: create+delete (for contact accountId)"
 echo "- CRM: activities contactId filter"
+echo "- CRM: activities accountId filter"
 echo "- CRM: activities single relation rule"
 echo "- CRM: activities single relation rule (PATCH)"
+echo "- CRM: tasks CRUD"
