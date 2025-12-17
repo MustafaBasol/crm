@@ -279,6 +279,12 @@ OPP_ID="$(json_get "$OPP_CREATED_JSON" "j.id")"
 OPP_STAGE_ID="$(json_get "$OPP_CREATED_JSON" "j.stageId")"
 [[ -n "$OPP_ID" ]] || fail "Opportunity id missing in create response: $OPP_CREATED_JSON"
 
+echo "== Authz: owner can fetch opportunity detail =="
+OWNER_OPP_DETAIL_JSON="$TMP_DIR/smoke-authz.owner.opp.detail.json"
+http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OWNER_OPP_DETAIL_JSON" >/dev/null
+OWNER_OPP_DETAIL_ID_MATCH="$(json_get "$OWNER_OPP_DETAIL_JSON" "j && j.id === '$OPP_ID'")"
+[[ "$OWNER_OPP_DETAIL_ID_MATCH" == "true" ]] || fail "Owner opportunity detail id mismatch: $OWNER_OPP_DETAIL_JSON"
+
 MOVE_STAGE_ID=""
 if [[ -n "$STAGE_1_ID" && "$STAGE_1_ID" != "$OPP_STAGE_ID" ]]; then
   MOVE_STAGE_ID="$STAGE_1_ID"
@@ -293,6 +299,32 @@ if [[ -n "$MEMBER_TOKEN" ]]; then
   [[ "$MEMBER_OPPS_LIST_STATUS" == "200" ]] || fail "Expected 200 for member opportunities list, got $MEMBER_OPPS_LIST_STATUS: $MEMBER_OPPS_LIST_JSON"
   MEMBER_OPPS_LIST_HAS_OPP="$(json_get "$MEMBER_OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID')")"
   [[ "$MEMBER_OPPS_LIST_HAS_OPP" == "true" ]] || fail "Member opportunities list does not include team opportunity: $MEMBER_OPPS_LIST_JSON"
+
+  echo "== Authz: member can fetch team opportunity detail =="
+  MEMBER_OPP_DETAIL_JSON="$TMP_DIR/smoke-authz.member.opp.detail.json"
+  MEMBER_OPP_DETAIL_STATUS="$(http_status GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$MEMBER_TOKEN" "$MEMBER_OPP_DETAIL_JSON")"
+  [[ "$MEMBER_OPP_DETAIL_STATUS" == "200" ]] || fail "Expected 200 for member opportunity detail, got $MEMBER_OPP_DETAIL_STATUS: $MEMBER_OPP_DETAIL_JSON"
+  MEMBER_OPP_DETAIL_ID_MATCH="$(json_get "$MEMBER_OPP_DETAIL_JSON" "j && j.id === '$OPP_ID'")"
+  [[ "$MEMBER_OPP_DETAIL_ID_MATCH" == "true" ]] || fail "Member opportunity detail id mismatch: $MEMBER_OPP_DETAIL_JSON"
+
+  if [[ "$MEMBER_ROLE" != "ADMIN" && "$MEMBER_ROLE" != "OWNER" ]]; then
+    echo "== Authz: non-admin member cannot see private opportunity =="
+    OPP_PRIVATE_CREATE="$TMP_DIR/smoke-authz.opportunity.private.create.json"
+    OPP_PRIVATE_CREATED_JSON="$TMP_DIR/smoke-authz.opportunity.private.created.json"
+    cat > "$OPP_PRIVATE_CREATE" <<JSON
+{"accountId":"$CUSTOMER_ID","name":"Opp Private Authz Smoke $TS","amount":0,"currency":"TRY"}
+JSON
+    http_json POST "$API_BASE/crm/opportunities" "$OPP_PRIVATE_CREATE" "$TOKEN" | tee "$OPP_PRIVATE_CREATED_JSON" >/dev/null
+    OPP_PRIVATE_ID="$(json_get "$OPP_PRIVATE_CREATED_JSON" "j.id")"
+    [[ -n "$OPP_PRIVATE_ID" ]] || fail "Private opportunity id missing in create response: $OPP_PRIVATE_CREATED_JSON"
+
+    MEMBER_PRIVATE_DETAIL_JSON="$TMP_DIR/smoke-authz.member.opp.private.detail.json"
+    MEMBER_PRIVATE_DETAIL_STATUS="$(http_status GET "$API_BASE/crm/opportunities/$OPP_PRIVATE_ID" "" "$MEMBER_TOKEN" "$MEMBER_PRIVATE_DETAIL_JSON")"
+    [[ "$MEMBER_PRIVATE_DETAIL_STATUS" == "403" || "$MEMBER_PRIVATE_DETAIL_STATUS" == "404" ]] || fail "Expected 403/404 for member private opportunity detail, got $MEMBER_PRIVATE_DETAIL_STATUS: $MEMBER_PRIVATE_DETAIL_JSON"
+
+    MEMBER_PRIVATE_LIST_HAS_OPP="$(json_get "$MEMBER_OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_PRIVATE_ID')")"
+    [[ "$MEMBER_PRIVATE_LIST_HAS_OPP" != "true" ]] || fail "Member opportunities list unexpectedly includes private opportunity: $MEMBER_OPPS_LIST_JSON"
+  fi
 
   echo "== Authz: member cannot update opportunity fields =="
   MEMBER_OPP_PATCH="$TMP_DIR/smoke-authz.member.opp.patch.json"

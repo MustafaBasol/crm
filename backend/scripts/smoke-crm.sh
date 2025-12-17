@@ -347,6 +347,12 @@ OPP_STAGE_ID="$(json_get "$OPP_CREATED_JSON" "j.stageId")"
 [[ -n "$OPP_ID" ]] || fail "Opportunity id missing in create response: $OPP_CREATED_JSON"
 echo "Opportunity ID: $OPP_ID"
 
+echo "== CRM: opportunity detail endpoint (/crm/opportunities/:id) =="
+OPP_DETAIL_JSON="$TMP_DIR/smoke.crm.opp.detail.json"
+http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OPP_DETAIL_JSON" >/dev/null
+OPP_DETAIL_ID_MATCH="$(json_get "$OPP_DETAIL_JSON" "j && j.id === '$OPP_ID'")"
+[[ "$OPP_DETAIL_ID_MATCH" == "true" ]] || fail "Opportunity detail id mismatch: $OPP_DETAIL_JSON"
+
 echo "== CRM: opportunities list endpoint (/crm/opportunities) =="
 OPPS_LIST_JSON="$TMP_DIR/smoke.crm.opps.list.json"
 http_json GET "$API_BASE/crm/opportunities?limit=50&offset=0" "" "$TOKEN" | tee "$OPPS_LIST_JSON" >/dev/null
