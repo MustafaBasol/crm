@@ -32,6 +32,8 @@ import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import type { CurrentUser } from '../common/decorators/user.decorator';
 import { UserRole } from '../users/entities/user.entity';
+import { OrganizationMember } from '../organizations/entities/organization-member.entity';
+import { Role as OrganizationRole } from '../common/enums/organization.enum';
 
 const DEFAULT_PIPELINE_NAME = 'Default Pipeline';
 const DEFAULT_STAGES = [
@@ -69,7 +71,26 @@ export class CrmService {
 
     @InjectRepository(Customer)
     private readonly customerRepo: Repository<Customer>,
+
+    @InjectRepository(OrganizationMember)
+    private readonly organizationMemberRepo: Repository<OrganizationMember>,
   ) {}
+
+  private async isCurrentOrgAdminOrOwner(user: CurrentUser): Promise<boolean> {
+    const orgId = user?.currentOrgId;
+    if (!orgId) return false;
+
+    const row = await this.organizationMemberRepo.findOne({
+      where: {
+        organizationId: orgId,
+        userId: user.id,
+        role: In([OrganizationRole.ADMIN, OrganizationRole.OWNER]),
+      },
+      select: { id: true },
+    });
+
+    return Boolean(row?.id);
+  }
 
   private async canAccessAccount(
     tenantId: string,
@@ -769,12 +790,21 @@ export class CrmService {
     id: string,
     dto: MoveOpportunityDto,
   ) {
-    const opp = await this.getOpportunityForAccessCheck(tenantId, user, id);
+    const opp = await this.getOpportunityForMoveStageCheck(tenantId, user, id);
 
-    // Stage changes are destructive state transitions; restrict to owner/admin.
-    const canMoveStage = this.isAdmin(user) || opp.ownerUserId === user.id;
+    // Stage changes are destructive state transitions.
+    // Policy:
+    // - allow tenant admins
+    // - allow opportunity owner
+    // - allow organization ADMIN/OWNER (currentOrgId) *if they already have access* (team/owner)
+    const canMoveStage =
+      this.isAdmin(user) ||
+      opp.ownerUserId === user.id ||
+      (await this.isCurrentOrgAdminOrOwner(user));
     if (!canMoveStage) {
-      throw new ForbiddenException('You do not have permission to move this opportunity');
+      throw new ForbiddenException(
+        'You do not have permission to move this opportunity',
+      );
     }
 
     const pipeline = await this.pipelineRepo.findOne({
@@ -825,6 +855,29 @@ export class CrmService {
       status: saved.status,
       teamUserIds,
     };
+  }
+
+  private async getOpportunityForMoveStageCheck(
+    tenantId: string,
+    user: CurrentUser,
+    id: string,
+  ): Promise<CrmOpportunity> {
+    if (this.isAdmin(user)) {
+      const opp = await this.oppRepo.findOne({ where: { tenantId, id } });
+      if (!opp) throw new NotFoundException('Opportunity not found');
+      return opp;
+    }
+
+    // Org ADMIN/OWNER can move any opportunity in the current tenant,
+    // even if they are not explicitly on the opportunity team.
+    if (await this.isCurrentOrgAdminOrOwner(user)) {
+      const opp = await this.oppRepo.findOne({ where: { tenantId, id } });
+      if (!opp) throw new NotFoundException('Opportunity not found');
+      return opp;
+    }
+
+    // Default visibility: owner or opportunity team members
+    return this.getOpportunityForAccessCheck(tenantId, user, id);
   }
 
   async setOpportunityTeam(

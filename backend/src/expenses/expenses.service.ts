@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository, FindOptionsWhere } from 'typeorm';
@@ -21,6 +22,8 @@ import {
 
 @Injectable()
 export class ExpensesService {
+  private readonly logger = new Logger(ExpensesService.name);
+
   constructor(
     @InjectRepository(Expense)
     private expensesRepository: Repository<Expense>,
@@ -116,11 +119,13 @@ export class ExpensesService {
     id: string,
     updateExpenseDto: UpdateExpenseDto,
   ): Promise<Expense> {
-    console.log('ExpensesService.update called with:', {
-      tenantId,
-      id,
-      updateExpenseDto: JSON.stringify(updateExpenseDto),
-    });
+    if (process.env.NODE_ENV !== 'test') {
+      this.logger.debug(
+        `update called (tenantId=${tenantId}, id=${id}, payload=${JSON.stringify(
+          updateExpenseDto,
+        )})`,
+      );
+    }
 
     try {
       const expense = await this.findOne(tenantId, id);
@@ -134,18 +139,24 @@ export class ExpensesService {
         updateExpenseDto.amount = Number(updateExpenseDto.amount);
       }
 
-      console.log(
-        'Processed updateExpenseDto:',
-        JSON.stringify(updateExpenseDto),
-      );
+      if (process.env.NODE_ENV !== 'test') {
+        this.logger.debug(
+          `Processed updateExpenseDto: ${JSON.stringify(updateExpenseDto)}`,
+        );
+      }
 
       Object.assign(expense, updateExpenseDto);
       const savedExpense = await this.expensesRepository.save(expense);
-      console.log('Updated expense found:', JSON.stringify(savedExpense));
+      if (process.env.NODE_ENV !== 'test') {
+        this.logger.debug(`Updated expense: ${JSON.stringify(savedExpense)}`);
+      }
 
       return savedExpense;
     } catch (error) {
-      console.error('Error in ExpensesService.update:', error);
+      this.logger.error(
+        'Error in ExpensesService.update',
+        error instanceof Error ? error.stack : String(error),
+      );
       throw error;
     }
   }

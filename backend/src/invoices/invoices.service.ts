@@ -279,10 +279,11 @@ export class InvoicesService {
       ? rawItems
       : [];
 
-    console.log('📊 Backend: Fatura KDV hesaplaması başlıyor:', {
-      itemCount: items.length,
-      firstItem: items[0],
-    });
+    if (process.env.NODE_ENV !== 'test') {
+      this.logger.debug(
+        `Invoice tax calc start (tenantId=${tenantId}, itemCount=${items.length})`,
+      );
+    }
 
     // Her ürün için KDV hesapla (Fiyatlar KDV HARİÇ)
     let subtotal = 0; // KDV HARİÇ toplam
@@ -299,14 +300,15 @@ export class InvoicesService {
         item.taxRate = effectiveRate;
       }
 
-      console.log('  📌 Item:', {
-        product: item.productName || item.description,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        itemTotal,
-        taxRate: effectiveRate,
-        itemTax,
-      });
+      if (process.env.NODE_ENV !== 'test') {
+        this.logger.debug(
+          `Invoice line (product=${item.productName || item.description || 'n/a'}, qty=${String(
+            item.quantity,
+          )}, unitPrice=${String(item.unitPrice)}, taxRate=${String(
+            effectiveRate,
+          )})`,
+        );
+      }
 
       subtotal += itemTotal; // KDV HARİÇ toplam
       taxAmount += itemTax; // KDV toplamı
@@ -315,12 +317,11 @@ export class InvoicesService {
     const discountAmount = Number(createInvoiceDto.discountAmount) || 0;
     const total = subtotal + taxAmount - discountAmount; // KDV DAHİL toplam
 
-    console.log('✅ Backend: Fatura toplamları:', {
-      subtotal,
-      taxAmount,
-      discountAmount,
-      total,
-    });
+    if (process.env.NODE_ENV !== 'test') {
+      this.logger.debug(
+        `Invoice totals (subtotal=${subtotal}, taxAmount=${taxAmount}, discount=${discountAmount}, total=${total})`,
+      );
+    }
 
     const payload: DeepPartial<Invoice> = {
       ...createInvoiceDto,

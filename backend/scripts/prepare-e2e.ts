@@ -183,6 +183,17 @@ const ensureExtensions = async (config: DatabaseConfig): Promise<void> => {
 
 const SKIPPABLE_PG_ERROR_CODES = new Set(['42P07', '42701']);
 
+const asBooleanLabel = (value: boolean | { rejectUnauthorized: boolean }): string =>
+  value ? 'true' : 'false';
+
+const isPgAuthError = (error: unknown): boolean => {
+  const anyError = error as { code?: string; message?: string } | null;
+  const code = anyError?.code;
+  if (code === '28P01') return true;
+  const message = String(anyError?.message ?? '');
+  return /password authentication failed/i.test(message);
+};
+
 const toErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
@@ -234,6 +245,14 @@ const main = async () => {
   process.env.NODE_ENV = 'test';
   const target = resolveTargetConfig();
   const admin = resolveAdminConfig(target);
+
+  logger.log(
+    `🔎 Target DB: ${target.username}@${target.host}:${target.port}/${target.database} (ssl=${asBooleanLabel(target.ssl)})`,
+  );
+  logger.log(
+    `🔎 Admin DB: ${admin.username}@${admin.host}:${admin.port}/${admin.database} (ssl=${asBooleanLabel(admin.ssl)})`,
+  );
+
   await recreateDatabase(target, admin);
   await ensureExtensions(target);
   await migrateAndSeed(target);
@@ -251,6 +270,14 @@ main().catch((error) => {
       return String(error);
     }
   })();
+
+  if (isPgAuthError(error)) {
+    logger.error(
+      '🔐 Postgres authentication failed. Check TEST_DATABASE_HOST/PORT/USER/PASSWORD (or DATABASE_*). ' +
+        'If you use Docker: `backend/docker-compose.yml` maps Postgres to 5433, repo-root `docker-compose.yml` maps to 5543. ' +
+        'You can copy `backend/.env.test.example` to `backend/.env.test` and set the correct port/password for your local Postgres.',
+    );
+  }
   logger.error(`❌ Failed to prepare Postgres for e2e tests: ${message}`);
   process.exit(1);
 });

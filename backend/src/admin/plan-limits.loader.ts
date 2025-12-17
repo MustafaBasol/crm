@@ -1,8 +1,10 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PlanLimitsService } from './plan-limits.service';
 
 @Injectable()
 export class PlanLimitsLoader implements OnModuleInit {
+  private readonly logger = new Logger(PlanLimitsLoader.name);
+
   constructor(private readonly planLimitsService: PlanLimitsService) {}
 
   onModuleInit() {
@@ -10,12 +12,15 @@ export class PlanLimitsLoader implements OnModuleInit {
     try {
       this.planLimitsService.applyOverridesOnBootstrap();
 
-      console.log(
-        '✅ Plan limit overrides applied from config/plan-limits.json',
-      );
+      // Avoid noisy console output in e2e runs.
+      if (process.env.NODE_ENV !== 'test') {
+        this.logger.log(
+          'Plan limit overrides applied from config/plan-limits.json',
+        );
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      console.warn('⚠️ Failed to apply plan limit overrides:', reason);
+      this.logger.warn(`Failed to apply plan limit overrides: ${reason}`);
     }
   }
 }

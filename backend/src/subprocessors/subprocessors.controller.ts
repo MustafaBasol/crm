@@ -1,7 +1,9 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Logger } from '@nestjs/common';
 
 @Controller('api/subprocessors')
 export class SubprocessorsController {
+  private readonly logger = new Logger(SubprocessorsController.name);
+
   // Hardcoded data for now - will be replaced with proper JSON loading later
   private readonly subprocessorsData = {
     lastUpdated: '2024-10-30T00:00:00.000Z',
@@ -72,11 +74,11 @@ export class SubprocessorsController {
 
   @Get()
   async getSubprocessors() {
-    console.log('📍 SubprocessorsController: Returning hardcoded data');
-    console.log(
-      '📍 Subprocessors count:',
-      this.subprocessorsData.subprocessors.length,
-    );
+    if (process.env.NODE_ENV !== 'test') {
+      this.logger.debug(
+        `Returning hardcoded data (count=${this.subprocessorsData.subprocessors.length})`,
+      );
+    }
     return this.subprocessorsData;
   }
 

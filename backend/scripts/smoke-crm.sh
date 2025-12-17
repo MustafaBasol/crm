@@ -162,6 +162,7 @@ fi
 ENABLE_MEMBER_FLOW="${ENABLE_MEMBER_FLOW:-0}"
 MEMBER_EMAIL="${MEMBER_EMAIL:-member${TS}@example.com}"
 MEMBER_PASS="${MEMBER_PASS:-Password123!}"
+MEMBER_ROLE="${MEMBER_ROLE:-MEMBER}"
 MEMBER_TOKEN=""
 MEMBER_USER_ID=""
 
@@ -182,7 +183,7 @@ JSON
   if [[ -n "$ORG_ID" ]]; then
     ORG_INVITE_PAYLOAD="$TMP_DIR/smoke.org.invite.json"
     cat > "$ORG_INVITE_PAYLOAD" <<JSON
-{"email":"$MEMBER_EMAIL","role":"MEMBER"}
+  {"email":"$MEMBER_EMAIL","role":"$MEMBER_ROLE"}
 JSON
     ORG_INVITE_RES="$TMP_DIR/smoke.org.invite.res.json"
     ORG_INVITE_STATUS="$(http_status POST "$API_BASE/organizations/$ORG_ID/invite" "$ORG_INVITE_PAYLOAD" "$TOKEN" "$ORG_INVITE_RES")"
@@ -377,7 +378,11 @@ JSON
 JSON
     MEMBER_OPP_MOVE_RES="$TMP_DIR/smoke.member.opp.move.res.json"
     MEMBER_OPP_MOVE_STATUS="$(http_status POST "$API_BASE/crm/opportunities/$OPP_ID/move" "$MEMBER_OPP_MOVE_PAYLOAD" "$MEMBER_TOKEN" "$MEMBER_OPP_MOVE_RES")"
-    [[ "$MEMBER_OPP_MOVE_STATUS" == "403" ]] || fail "Expected 403 for member move stage, got $MEMBER_OPP_MOVE_STATUS: $MEMBER_OPP_MOVE_RES"
+    if [[ "$MEMBER_ROLE" == "ADMIN" || "$MEMBER_ROLE" == "OWNER" ]]; then
+      [[ "$MEMBER_OPP_MOVE_STATUS" == "200" || "$MEMBER_OPP_MOVE_STATUS" == "201" ]] || fail "Expected 200/201 for org-admin member move stage, got $MEMBER_OPP_MOVE_STATUS: $MEMBER_OPP_MOVE_RES"
+    else
+      [[ "$MEMBER_OPP_MOVE_STATUS" == "403" ]] || fail "Expected 403 for member move stage, got $MEMBER_OPP_MOVE_STATUS: $MEMBER_OPP_MOVE_RES"
+    fi
 
     echo "== CRM: stage move (owner allowed) =="
     OWNER_OPP_MOVE_RES="$TMP_DIR/smoke.owner.opp.move.res.json"

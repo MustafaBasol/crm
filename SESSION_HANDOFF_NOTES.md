@@ -10,16 +10,38 @@ Bu sohbet sıfırlanırsa, en güncel güvenlik kararı ve doğrulaması burada.
 
 - Backend build başarılı: `cd backend && npm run build`
 - Backend Jest testleri başarılı: `cd backend && npm test -- --runInBand`
+- CRM stage-move authz e2e testi eklendi ve PASS: `cd backend && ./test/run-e2e.sh crm-opportunity-move-authz.e2e-spec.ts`
+- E2E kapsamı genişletildi:
+  - org `ADMIN` kullanıcısı `OWNER` rolüne promote edilince stage move hâlâ izinli (OWNER yolu doğrulanıyor)
+  - org rolü `MEMBER` olsa bile opportunity **owner** olan kullanıcı stage move yapabiliyor
+- E2E DB için env (Postgres auth hatası alırsan):
+  - `cp backend/.env.test.example backend/.env.test`
+  - Postgres’u nasıl çalıştırdığına göre `TEST_DATABASE_PORT` ayarla:
+    - `cd backend && docker compose up -d postgres` → genelde `5433`
+    - repo root `docker compose up -d postgres` → genelde `5543`
+    - (Docker yoksa) Dev container içindeki local Postgres → `5432` (cluster: 17/main)
+  - Eğer “DROP/CREATE DATABASE” yetkisi hatası alırsan admin override kullan:
+    - `TEST_DATABASE_ADMIN_USER=node`
+    - `TEST_DATABASE_ADMIN_PASSWORD=moneyflow123`
 - CRM smoke (admin-only) başarılı: `backend/scripts/smoke-crm.sh`
 - CRM smoke (member-flow + upgrade) başarılı:
-   - `ENABLE_MEMBER_FLOW=1 ENABLE_SMOKE_UPGRADE=1 backend/scripts/smoke-crm.sh`
+
+  - `ENABLE_MEMBER_FLOW=1 ENABLE_SMOKE_UPGRADE=1 backend/scripts/smoke-crm.sh`
+
+- E2E/SMOKE çıktısı için log gürültüsü azaltıldı:
+  - `ProductsService` ve `OrganizationsService` içindeki bazı `console.log` çağrıları `Logger`/`debug` seviyesine alındı ve testte susturuldu.
+  - `InvoicesService` (KDV hesaplama debug logları), `ExpensesService.update` ve `SubprocessorsController` içindeki `console.*` çağrıları da aynı şekilde testte susturuldu.
 
 Not: repo root’ta `npm test` script’i yok; test için backend içinde çalıştır.
 
+Not: [backend/test/run-e2e.sh](backend/test/run-e2e.sh) `.env` dosyasını source etmez (bash-uyumlu değil). `.env.test` mevcutsa yükler; ancak komutta `TEST_DATABASE_*` değişkenleri verilirse bunlar önceliklidir.
+
 ### Yapılan değişiklik (kural netleştirme)
 
-- Opportunity stage taşıma (`POST /api/crm/opportunities/:id/move`) artık **sadece owner veya admin** tarafından yapılabilir.
-   - Team member erişimi (okuma/board görünürlüğü) devam eder; fakat stage move **403 Forbidden**.
+- Opportunity stage taşıma (`POST /api/crm/opportunities/:id/move`) artık **rol bazlı**:
+  - İzinli: tenant admin (user.role), opportunity owner, veya (current org içinde) organization `ADMIN/OWNER`.
+  - Team member erişimi (okuma/board görünürlüğü) devam eder; normal `MEMBER` için stage move **403 Forbidden**.
+  - Not: organization `ADMIN/OWNER` için opportunity team üyeliği zorunlu değil.
 
 İlgili commit:
 
@@ -29,12 +51,26 @@ Not: repo root’ta `npm test` script’i yok; test için backend içinde çalı
 
 - [backend/src/crm/crm.service.ts](backend/src/crm/crm.service.ts)
 - [backend/scripts/smoke-crm.sh](backend/scripts/smoke-crm.sh)
+- [backend/test/crm-opportunity-move-authz.e2e-spec.ts](backend/test/crm-opportunity-move-authz.e2e-spec.ts)
+
+### E2E altyapısı (bu oturumda yapılanlar)
+
+- Jest e2e’lerde `JWT_SECRET` zorunluluğu:
+  - `./test/run-e2e.sh` artık testler için varsayılan `JWT_SECRET` set ediyor (AuthModule “default-secret” kabul etmiyor).
+  - Örnek env’e de eklendi: [backend/.env.test.example](backend/.env.test.example)
+- Jest teardown sonrası TypeORM “import after environment has been torn down” hatası:
+  - Test modunda TypeORM’un glob ile entity/migration import etmesi devre dışı bırakıldı (Jest teardown ile yarışmasın diye).
+  - Değişiklik: [backend/src/app.module.ts](backend/src/app.module.ts)
+- E2E migration FK hatası (şema drift):
+  - `product_categories.parentId` kolonu e2e DB’de `varchar` oluştuğu için FK migration’ı patlıyordu; entity `uuid` ile hizalandı.
+  - Değişiklik: [backend/src/products/entities/product-category.entity.ts](backend/src/products/entities/product-category.entity.ts)
 
 ### Smoke kapsamı (regresyon yakalama)
 
 - Member-flow aktifken:
-   - Member `POST /crm/opportunities/:id/move` → **403**
-   - Owner aynı move payload’ı ile → **200/201**
+  - Member `POST /crm/opportunities/:id/move` → **403**
+  - Owner aynı move payload’ı ile → **200/201**
+  - (Opsiyonel) `MEMBER_ROLE=ADMIN` ile org-admin member `POST /crm/opportunities/:id/move` → **200/201**
 
 ### Yeni sohbette devam (kalan işler)
 

@@ -167,15 +167,11 @@ export class UsersService {
   }
 
   async update(id: string, updateData: Partial<User>): Promise<User> {
-    console.log('🔧 UsersService.update called with:', { id, updateData });
-
     if (updateData.password) {
       updateData.password = await this.securityService.hashPassword(
         updateData.password,
       );
     }
-
-    console.log('📊 Calling repository.update with:', { id, updateData });
     await this.userRepository.update(
       id,
       updateData as QueryDeepPartialEntity<User>,

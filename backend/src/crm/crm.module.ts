@@ -11,6 +11,7 @@ import { CrmTask } from './entities/crm-task.entity';
 import { CrmLead } from './entities/crm-lead.entity';
 import { CrmContact } from './entities/crm-contact.entity';
 import { Customer } from '../customers/entities/customer.entity';
+import { OrganizationMember } from '../organizations/entities/organization-member.entity';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { Customer } from '../customers/entities/customer.entity';
       CrmLead,
       CrmContact,
       Customer,
+      OrganizationMember,
     ]),
   ],
   controllers: [CrmController],

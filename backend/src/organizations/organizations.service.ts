@@ -852,9 +852,11 @@ This invitation will expire on ${expiryLabel}.
 
     // If user has no organizations, create a default one
     if (members.length === 0) {
-      console.log(
-        `📦 User ${userId} has no organizations, creating default organization...`,
-      );
+      if (process.env.NODE_ENV !== 'test') {
+        this.logger.debug(
+          `User has no organizations; creating default (userId=${userId})`,
+        );
+      }
       const defaultOrg = await this.migrateUserToOrganization(userId);
 
       // Fetch the member record for the new organization
@@ -864,9 +866,11 @@ This invitation will expire on ${expiryLabel}.
       });
 
       if (newMember) {
-        console.log(
-          `✅ Default organization created for user ${userId}: ${defaultOrg.name}`,
-        );
+        if (process.env.NODE_ENV !== 'test') {
+          this.logger.debug(
+            `Default organization created (userId=${userId}, organizationId=${defaultOrg.id})`,
+          );
+        }
         return [
           {
             organization: newMember.organization,

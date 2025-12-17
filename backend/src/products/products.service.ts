@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +12,8 @@ import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     @InjectRepository(Product)
     private productsRepository: Repository<Product>,
@@ -46,13 +49,11 @@ export class ProductsService {
     createProductDto: CreateProductDto,
     tenantId: string,
   ): Promise<Product> {
-    console.log('📦 Backend: Yeni ürün oluşturuluyor:', {
-      name: createProductDto.name,
-      category: createProductDto.category,
-      taxRate: createProductDto.taxRate,
-      categoryTaxRateOverride: createProductDto.categoryTaxRateOverride,
-      tenantId,
-    });
+    if (process.env.NODE_ENV !== 'test') {
+      this.logger.debug(
+        `Creating product (tenantId=${tenantId}, name=${createProductDto.name})`,
+      );
+    }
 
     const product = this.productsRepository.create({
       ...createProductDto,
@@ -71,12 +72,9 @@ export class ProductsService {
       throw error;
     }
 
-    console.log('✅ Backend: Ürün kaydedildi:', {
-      id: saved.id,
-      name: saved.name,
-      taxRate: saved.taxRate,
-      categoryTaxRateOverride: saved.categoryTaxRateOverride,
-    });
+    if (process.env.NODE_ENV !== 'test') {
+      this.logger.debug(`Product created (id=${saved.id}, name=${saved.name})`);
+    }
 
     return saved;
   }
@@ -86,22 +84,17 @@ export class ProductsService {
     updateProductDto: UpdateProductDto,
     tenantId: string,
   ): Promise<Product> {
-    console.log('✏️ Backend: Ürün güncelleniyor:', {
-      id,
-      taxRate: updateProductDto.taxRate,
-      categoryTaxRateOverride: updateProductDto.categoryTaxRateOverride,
-    });
+    if (process.env.NODE_ENV !== 'test') {
+      this.logger.debug(`Updating product (id=${id}, tenantId=${tenantId})`);
+    }
 
     await this.productsRepository.update({ id, tenantId }, updateProductDto);
 
     const updated = await this.findOne(id, tenantId);
 
-    console.log('✅ Backend: Ürün güncellendi:', {
-      id: updated.id,
-      name: updated.name,
-      taxRate: updated.taxRate,
-      categoryTaxRateOverride: updated.categoryTaxRateOverride,
-    });
+    if (process.env.NODE_ENV !== 'test') {
+      this.logger.debug(`Product updated (id=${updated.id}, name=${updated.name})`);
+    }
 
     return updated;
   }

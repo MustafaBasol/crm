@@ -107,6 +107,9 @@ const parseDatabaseUrl = (value?: string): PgUrlParts | null => {
         const migrations = [__dirname + '/migrations/*{.ts,.js}'];
 
         if (isTest) {
+          // In Jest, avoid directory-globbing entity/migration loaders.
+          // They use dynamic imports which can race with Jest teardown and
+          // produce "import after the Jest environment has been torn down".
           const urlParts =
             parseDatabaseUrl(process.env.TEST_DATABASE_URL) ||
             parseDatabaseUrl(process.env.DATABASE_URL);
@@ -145,8 +148,8 @@ const parseDatabaseUrl = (value?: string): PgUrlParts | null => {
             username,
             password,
             database,
-            entities,
-            migrations,
+            entities: [],
+            migrations: [],
             autoLoadEntities: true,
             synchronize: false,
             dropSchema: false,

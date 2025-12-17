@@ -14,6 +14,10 @@ dist-ssr
 .env.staging
 .env.test
 
+# Backend test env (kept next to backend e2e runner)
+backend/.env.test
+backend/.env.test.*
+
 # App-specific environment files
 apps/web/.env
 apps/web/.env.local

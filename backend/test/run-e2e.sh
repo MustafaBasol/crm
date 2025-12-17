@@ -8,14 +8,28 @@ load_env_file() {
   local file_path="${1}"
   if [ -f "${file_path}" ]; then
     set -a
+    # Some project .env files may contain shell expansions (e.g. $FOO) and are not
+    # guaranteed to be strict KEY=VALUE files. Avoid failing e2e runs under -u.
+    set +u
     # shellcheck disable=SC1090
     source "${file_path}"
+    set -u
     set +a
   fi
 }
 
-load_env_file "${PROJECT_ROOT}/.env.test"
-load_env_file "${PROJECT_ROOT}/.env"
+should_load_env_files() {
+  # If the caller explicitly provided DB settings, don't override them with local .env.test.
+  [[ -z "${TEST_DATABASE_HOST:-}" && -z "${TEST_DATABASE_PORT:-}" && -z "${TEST_DATABASE_USER:-}" && -z "${TEST_DATABASE_PASSWORD:-}" && -z "${TEST_DATABASE_NAME:-}" ]]
+}
+
+if should_load_env_files; then
+  load_env_file "${PROJECT_ROOT}/.env.test"
+fi
+
+# NOTE: Do not source .env here.
+# The project .env is treated as a human-edited dotenv file (may contain spaces, <> etc)
+# and is not guaranteed to be valid bash syntax.
 
 export NODE_ENV=test
 export TEST_DB=${TEST_DB:-postgres}
@@ -27,6 +41,9 @@ export TEST_DATABASE_USER=${TEST_DATABASE_USER:-${DATABASE_USER:-moneyflow}}
 export TEST_DATABASE_PASSWORD=${TEST_DATABASE_PASSWORD:-${DATABASE_PASSWORD:-moneyflow123}}
 export TEST_DATABASE_SSL=${TEST_DATABASE_SSL:-${DATABASE_SSL:-false}}
 export EMAIL_VERIFICATION_REQUIRED=${EMAIL_VERIFICATION_REQUIRED:-true}
+
+# AuthModule enforces JWT_SECRET != "default-secret". Provide a deterministic test secret.
+export JWT_SECRET=${JWT_SECRET:-e2e-jwt-secret-change-me}
 
 # Force safe email provider in tests to avoid hitting external services
 export MAIL_PROVIDER=log
