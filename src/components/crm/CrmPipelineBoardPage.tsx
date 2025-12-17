@@ -35,15 +35,12 @@ export default function CrmPipelineBoardPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [board, setBoard] = useState<crmApi.CrmBoardResponse | null>(null);
+  const [stages, setStages] = useState<crmApi.CrmStage[]>([]);
+  const [opportunities, setOpportunities] = useState<crmApi.CrmOpportunity[]>([]);
 
   const pipelineLabel = useMemo(() => {
-    const name = board?.pipeline?.name;
-    if (!name) return t('crm.pipeline.title') as string;
-    const normalized = String(name).trim().toLowerCase();
-    if (normalized === 'default pipeline') return t('crm.pipeline.defaultName') as string;
-    return name;
-  }, [board?.pipeline?.name, t]);
+    return (t('crm.pipeline.defaultName') as string) || (t('crm.pipeline.title') as string);
+  }, [t]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -78,8 +75,32 @@ export default function CrmPipelineBoardPage() {
       try {
         // tek pipeline şimdilik: yoksa bootstrap et
         await crmApi.bootstrapPipeline();
-        const data = await crmApi.getBoard();
-        if (!cancelled) setBoard(data);
+
+        const stageData = await crmApi.getStages();
+        const nextStages = Array.isArray(stageData) ? stageData : [];
+
+        const fetchAllOpportunities = async (): Promise<crmApi.CrmOpportunity[]> => {
+          const limit = 200;
+          let offset = 0;
+          const items: crmApi.CrmOpportunity[] = [];
+
+          for (let i = 0; i < 100; i += 1) {
+            const page = await crmApi.listOpportunities({ limit, offset });
+            const pageItems = Array.isArray(page?.items) ? page.items : [];
+            items.push(...pageItems);
+            offset += pageItems.length;
+            if (pageItems.length === 0) break;
+            if (typeof page?.total === 'number' && items.length >= page.total) break;
+          }
+
+          return items;
+        };
+
+        const opps = await fetchAllOpportunities();
+        if (!cancelled) {
+          setStages(nextStages);
+          setOpportunities(opps);
+        }
       } catch (e) {
         const msg = getErrorMessage(e);
         logger.error('crm.board.loadFailed', e);
@@ -93,13 +114,27 @@ export default function CrmPipelineBoardPage() {
     };
   }, []);
 
-  const reloadBoard = async () => {
-    const data = await crmApi.getBoard();
-    setBoard(data);
-  };
+  const reloadOpportunities = async () => {
+    try {
+      setError(null);
+      const limit = 200;
+      let offset = 0;
+      const items: crmApi.CrmOpportunity[] = [];
 
-  const stages: crmApi.CrmStage[] = board?.stages ?? [];
-  const opportunities: crmApi.CrmOpportunity[] = board?.opportunities ?? [];
+      for (let i = 0; i < 100; i += 1) {
+        const page = await crmApi.listOpportunities({ limit, offset });
+        const pageItems = Array.isArray(page?.items) ? page.items : [];
+        items.push(...pageItems);
+        offset += pageItems.length;
+        if (pageItems.length === 0) break;
+        if (typeof page?.total === 'number' && items.length >= page.total) break;
+      }
+
+      setOpportunities(items);
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
 
   useEffect(() => {
     if (!showCreateModal) return;
@@ -213,7 +248,7 @@ export default function CrmPipelineBoardPage() {
         stageId: createForm.stageId || undefined,
         teamUserIds: ensuredOwnerTeam,
       });
-      await reloadBoard();
+      await reloadOpportunities();
       closeCreate();
     } catch (e) {
       setCreateError(getErrorMessage(e));
@@ -450,7 +485,7 @@ export default function CrmPipelineBoardPage() {
                           try {
                             setMovingOppId(opp.id);
                             await crmApi.moveOpportunity(opp.id, nextStageId);
-                            await reloadBoard();
+                            await reloadOpportunities();
                           } catch (err) {
                             setError(getErrorMessage(err));
                           } finally {
