@@ -210,6 +210,55 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 
 ## Biten işler
 
+# Dev Session Notes (2025-12-17)
+
+## Handoff (Dev stabilize: backend port + Postgres ensure + CRM smoke) — 2025-12-17
+
+Bu sohbet sıfırlanırsa devam noktası burası.
+
+### Son durum (yeşil doğrulamalar)
+
+- `npm run lint` PASS
+- `npm run start:backend` ile backend kalkıyor, `GET /api/health` 200 dönüyor
+- `npm run smoke:crm` PASS
+- `npm run smoke:crm:authz` PASS
+
+### Git durumu (devam etmek için)
+
+- Çalışma branch’i: `chore/dev-stabilize-backend-smoke`
+- Bu branch’teki commit’ler:
+  - `0344427` — dev stabilizasyonu (port auto-detect, Postgres ensure, docs/handoff güncellemeleri)
+  - `a83bd09` — smoke kapsamı genişletme (CRM tasks CRUD + accountId activity)
+
+Devam etmek için:
+
+1) Branch’e geç:
+
+- `git switch chore/dev-stabilize-backend-smoke`
+
+2) Backend + smoke hızlı doğrulama:
+
+- `npm run start:backend`
+- `npm run smoke:crm`
+- `npm run smoke:crm:authz`
+
+3) PR’a gitmek istersen:
+
+- `git push -u origin chore/dev-stabilize-backend-smoke`
+- GitHub UI’dan `main`’e PR aç
+
+### Neler değişti? (özet)
+
+- Backend portu/URL sabitleme kaldırıldı: smoke script’leri `backend/.env` içindeki `PORT`’u okuyor; yoksa health probe ile `3000 → 3001` deniyor.
+- Devcontainer local Postgres `5432` cluster “down” olursa otomatik ayağa kaldırma eklendi:
+  - `backend/scripts/ensure-postgres.sh`
+  - `start-backend.sh` ve `start-dev.sh` içinden çağrılır
+  - Kapatma override: `ENSURE_POSTGRES=0 npm run start:backend`
+- Smoke kapsamı genişledi:
+  - Activity `accountId` filter/create/delete kapsandı (CustomerViewModal path)
+  - CRM tasks CRUD (create/list filter by opportunityId/patch/delete) kapsandı
+
+
 - `ExpenseList`, `SimpleSalesPage` ve `ArchivePage` paginasyon/saklanan görünüm ayarları `safeLocalStorage` helper'larına geçirildi; page-size whitelist'leri tek yerden yönetiliyor ve hatalı değerler `logger` ile raporlanıyor.
 - `SettingsPage` içindeki billing/portal bekleme bayrakları artık doğrudan `safeLocalStorage` API'sini kullanıyor; custom `window.localStorage` sarmalayıcısı kaldırıldı.
 - `ReportsPage` quote cache hidrasyonunda `listLocalStorageKeys()` helper'ı kullanılarak `window.localStorage` erişimleri merkezi hale getirildi; `src/utils/localStorageSafe.ts` bu amaçla yeni anahtar enumerator sağlıyor.
