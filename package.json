@@ -11,6 +11,10 @@
     "start:all": "bash ./start-dev.sh",
     "stop:all": "bash ./stop-dev.sh",
     "start:backend": "bash ./start-backend.sh",
+    "build:backend": "npm --prefix backend run build",
+    "lint:backend": "npm --prefix backend run lint",
+    "test:backend": "npm --prefix backend run test -- --runInBand",
+    "test:backend:e2e": "npm --prefix backend run test:e2e",
     "smoke:crm": "bash ./backend/scripts/smoke-crm.sh",
     "smoke:crm:authz": "bash ./backend/scripts/smoke-crm-authz.sh"
   },
