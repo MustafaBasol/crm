@@ -527,7 +527,7 @@ if [[ -n "$MEMBER_TOKEN" ]]; then
   MEMBER_CONTACTS_BY_ACCOUNT_JSON="$TMP_DIR/smoke.member.contacts.by-account.json"
   MEMBER_CONTACTS_BY_ACCOUNT_STATUS="$(http_status GET "$API_BASE/crm/contacts?accountId=$CUSTOMER_ID" "" "$MEMBER_TOKEN" "$MEMBER_CONTACTS_BY_ACCOUNT_JSON")"
   [[ "$MEMBER_CONTACTS_BY_ACCOUNT_STATUS" == "200" ]] || fail "Expected 200 for member contacts list by accountId, got $MEMBER_CONTACTS_BY_ACCOUNT_STATUS: $MEMBER_CONTACTS_BY_ACCOUNT_JSON"
-  MEMBER_FOUND_CONTACT_IN_FILTER="$(json_get "$MEMBER_CONTACTS_BY_ACCOUNT_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$CONTACT_ID')")"
+  MEMBER_FOUND_CONTACT_IN_FILTER="$(json_get "$MEMBER_CONTACTS_BY_ACCOUNT_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$CONTACT_ID')")"
   [[ "$MEMBER_FOUND_CONTACT_IN_FILTER" == "true" ]] || fail "Member could not see contact in accountId filtered list: $MEMBER_CONTACTS_BY_ACCOUNT_JSON"
 
   echo "== CRM: authz (member cannot update owner's contact) =="
@@ -560,7 +560,7 @@ http_json GET "$API_BASE/crm/contacts" "" "$TOKEN" | tee "$TMP_DIR/smoke.contact
 
 CONTACTS_FILTERED_BY_ACCOUNT_JSON="$TMP_DIR/smoke.contacts.filtered.by-account.json"
 http_json GET "$API_BASE/crm/contacts?accountId=$CUSTOMER_ID" "" "$TOKEN" | tee "$CONTACTS_FILTERED_BY_ACCOUNT_JSON" >/dev/null
-FOUND_CONTACT_IN_FILTER="$(json_get "$CONTACTS_FILTERED_BY_ACCOUNT_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$CONTACT_ID')")"
+FOUND_CONTACT_IN_FILTER="$(json_get "$CONTACTS_FILTERED_BY_ACCOUNT_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$CONTACT_ID')")"
 [[ "$FOUND_CONTACT_IN_FILTER" == "true" ]] || fail "Created contact not found in accountId filtered list: $CONTACTS_FILTERED_BY_ACCOUNT_JSON"
 
 # Activities: contactId filter
@@ -588,7 +588,7 @@ ACCOUNT_ACTIVITY_ID="$(json_get "$ACCOUNT_ACTIVITY_CREATED_JSON" "j.id")"
 
 ACCOUNT_ACTIVITIES_FILTERED_JSON="$TMP_DIR/smoke.activities.filtered.by-account.json"
 http_json GET "$API_BASE/crm/activities?accountId=$CUSTOMER_ID" "" "$TOKEN" | tee "$ACCOUNT_ACTIVITIES_FILTERED_JSON" >/dev/null
-FOUND_ACCOUNT_ACTIVITY_IN_FILTER="$(json_get "$ACCOUNT_ACTIVITIES_FILTERED_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$ACCOUNT_ACTIVITY_ID')")"
+FOUND_ACCOUNT_ACTIVITY_IN_FILTER="$(json_get "$ACCOUNT_ACTIVITIES_FILTERED_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$ACCOUNT_ACTIVITY_ID')")"
 [[ "$FOUND_ACCOUNT_ACTIVITY_IN_FILTER" == "true" ]] || fail "Created account activity not found in accountId filtered list: $ACCOUNT_ACTIVITIES_FILTERED_JSON"
 
 http_json DELETE "$API_BASE/crm/activities/$ACCOUNT_ACTIVITY_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.activity.account.deleted.json" >/dev/null
@@ -612,7 +612,7 @@ INVALID_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/activities/$ACTIVITY_ID
 
 ACTIVITIES_FILTERED_JSON="$TMP_DIR/smoke.activities.filtered.by-contact.json"
 http_json GET "$API_BASE/crm/activities?contactId=$CONTACT_ID" "" "$TOKEN" | tee "$ACTIVITIES_FILTERED_JSON" >/dev/null
-FOUND_IN_FILTER="$(json_get "$ACTIVITIES_FILTERED_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$ACTIVITY_ID')")"
+FOUND_IN_FILTER="$(json_get "$ACTIVITIES_FILTERED_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$ACTIVITY_ID')")"
 [[ "$FOUND_IN_FILTER" == "true" ]] || fail "Created activity not found in filtered list: $ACTIVITIES_FILTERED_JSON"
 
 http_json DELETE "$API_BASE/crm/activities/$ACTIVITY_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.activity.deleted.json" >/dev/null
@@ -630,7 +630,7 @@ TASK_ID="$(json_get "$TASK_CREATED_JSON" "j.id")"
 
 TASKS_FILTERED_JSON="$TMP_DIR/smoke.tasks.filtered.by-opportunity.json"
 http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$TASKS_FILTERED_JSON" >/dev/null
-FOUND_TASK_IN_FILTER="$(json_get "$TASKS_FILTERED_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$TASK_ID')")"
+FOUND_TASK_IN_FILTER="$(json_get "$TASKS_FILTERED_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$TASK_ID')")"
 [[ "$FOUND_TASK_IN_FILTER" == "true" ]] || fail "Created task not found in opportunityId filtered list: $TASKS_FILTERED_JSON"
 
 TASK_UPDATE="$TMP_DIR/smoke.task.update.json"
