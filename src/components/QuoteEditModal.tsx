@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, Plus, Trash2, Search } from 'lucide-react';
+import { X, Plus, Trash2, Search, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Quote, QuoteStatus } from './QuoteViewModal';
 import type { Product } from '../types';
@@ -136,9 +136,37 @@ const QuoteEditModal: React.FC<QuoteEditModalProps> = ({ isOpen, onClose, quote,
             <h2 className="text-xl font-semibold text-gray-900">{t('quotes.editModal.title')}</h2>
             <p className="text-sm text-gray-500">{t('quotes.editModal.subtitle')}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            {form.opportunityId && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    const oppId = String(form.opportunityId || '').trim();
+                    if (!oppId) return;
+                    onClose();
+                    setTimeout(() => {
+                      try {
+                        window.location.hash = `crm-deal:${oppId}`;
+                      } catch {
+                        // ignore
+                      }
+                    }, 100);
+                  } catch {
+                    // ignore
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-3 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200"
+                title={t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span className="text-xs font-medium">{t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}</span>
+              </button>
+            )}
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
 
   <div className="p-6 space-y-4 flex-1 overflow-y-auto">
@@ -147,8 +175,8 @@ const QuoteEditModal: React.FC<QuoteEditModalProps> = ({ isOpen, onClose, quote,
             <input
               type="text"
               value={form.quoteNumber}
-              onChange={(e) => setForm({ ...form, quoteNumber: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              readOnly
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-700"
             />
           </div>
           <div>

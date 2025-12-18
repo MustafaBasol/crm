@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
+import { EntityManager, Like, Repository } from 'typeorm';
 import { Quote, QuoteStatus } from './entities/quote.entity';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
@@ -277,27 +277,37 @@ export class QuotesService {
     }
   }
 
-  private async generateQuoteNumber(tenantId: string, dateStr: string) {
+  private async generateQuoteNumber(
+    manager: EntityManager,
+    tenantId: string,
+    dateStr: string,
+  ) {
     const date = new Date(dateStr);
     const year = date.getFullYear();
-    const prefix = `Q-${year}-`;
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const prefix = `Q-${year}-${month}-`;
 
-    const existing = await this.repo.find({
-      where: {
-        tenantId,
-        quoteNumber: Like(`${prefix}%`),
-      },
+    // Concurrency safety: lock per (tenantId, year-month) within this transaction.
+    // hashtext returns int4, compatible with pg_advisory_xact_lock(int).
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `quote-number:${tenantId}:${year}-${month}`,
+    ]);
+
+    const last = await manager.getRepository(Quote).findOne({
+      where: { tenantId, quoteNumber: Like(`${prefix}%`) },
       select: { quoteNumber: true },
+      order: { quoteNumber: 'DESC' },
     });
 
-    let next = 1;
-    if (existing.length > 0) {
-      const seqs = existing
-        .map((q) => Number((q.quoteNumber || '').split('-').pop() || 0))
-        .filter((n) => Number.isFinite(n));
-      if (seqs.length > 0) next = Math.max(...seqs) + 1;
-    }
-    return `${prefix}${String(next).padStart(4, '0')}`;
+    const lastSeq = (() => {
+      const raw = last?.quoteNumber ? String(last.quoteNumber) : '';
+      const tail = raw.split('-').pop() || '';
+      const n = Number(tail);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    })();
+
+    const next = lastSeq + 1;
+    return `${prefix}${String(next).padStart(3, '0')}`;
   }
 
   async create(tenantId: string, dto: CreateQuoteDto, user?: CurrentUser) {
@@ -332,8 +342,6 @@ export class QuotesService {
         ? await this.ensureCustomerExistsOrNull(oppAccountId)
         : null);
 
-    // Benzersiz teklif numarası üretimi: olası yarış koşullarına karşı birkaç kez dene
-    let attempts = 0;
     // publicId'yi her denemede yeniden üretmek yerine tek sefer üretelim
     let generatedPublicId: string | undefined;
     try {
@@ -351,12 +359,15 @@ export class QuotesService {
       // publicId üretilemezse TypeORM save sırasında DB default/trigger yoksa undefined kalır
       generatedPublicId = undefined;
     }
-    while (attempts < 5) {
-      attempts++;
-      const quoteNumber =
-        dto.quoteNumber ||
-        (await this.generateQuoteNumber(tenantId, dto.issueDate));
-      const q = this.repo.create({
+    // Teklif numarası her zaman sunucu tarafında üretilir ve değiştirilemez.
+    // Üretim + kaydetme işlemi aynı transaction içinde yapılır (advisory lock ile yarış koşulları önlenir).
+    return this.repo.manager.transaction(async (manager) => {
+      const quoteNumber = await this.generateQuoteNumber(
+        manager,
+        tenantId,
+        dto.issueDate,
+      );
+      const q = manager.getRepository(Quote).create({
         tenantId,
         publicId: generatedPublicId,
         quoteNumber,
@@ -384,26 +395,21 @@ export class QuotesService {
           : null,
       });
       try {
-        return await this.repo.save(q);
+        return await manager.getRepository(Quote).save(q);
       } catch (err: unknown) {
-        // 23505: unique_violation (PostgreSQL) — muhtemelen teklif numarası çakıştı; tekrar dene
-        const isUniqueViolation = (() => {
-          if (typeof err !== 'object' || err === null) return false;
-          const e = err as { code?: unknown; message?: unknown };
-          return (
-            e.code === '23505' ||
-            (typeof e.message === 'string' &&
-              /unique constraint/i.test(e.message))
+        // If a unique violation still happens (unexpected), surface a clear message.
+        const dbCode =
+          typeof err === 'object' && err !== null && 'code' in err
+            ? String((err as { code?: unknown }).code ?? '')
+            : '';
+        if (dbCode === '23505') {
+          throw new BadRequestException(
+            'Teklif numarası oluşturulurken çakışma oluştu. Lütfen tekrar deneyin.',
           );
-        })();
-        if (!isUniqueViolation) throw err;
-        // Döngü başına yeniden dene — bir sonraki turda yeni numara üretilecek
+        }
+        throw err;
       }
-    }
-    // Buraya düştüyse 5 deneme başarısız olmuştur
-    throw new Error(
-      'Teklif numarası üretimi tekrarlı denemelerde başarısız oldu',
-    );
+    });
   }
 
   async findAll(

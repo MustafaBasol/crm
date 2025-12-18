@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
+import { In, Like, Repository } from 'typeorm';
 import type { DeepPartial } from 'typeorm';
 import { Sale, SaleStatus } from './entities/sale.entity';
 import { CreateSaleDto, SaleItemDto } from './dto/create-sale.dto';
@@ -352,11 +352,55 @@ export class SalesService {
     );
   }
 
-  async findAll(tenantId: string): Promise<Sale[]> {
-    return this.salesRepository.find({
+  async findAll(
+    tenantId: string,
+  ): Promise<
+    Array<
+      Sale & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      }
+    >
+  > {
+    const sales = await this.salesRepository.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
     });
+
+    const sourceIds = Array.from(
+      new Set(
+        sales
+          .map((s) => (s?.sourceQuoteId ? String(s.sourceQuoteId) : ''))
+          .filter(Boolean),
+      ),
+    );
+    if (sourceIds.length === 0) {
+      return sales as any;
+    }
+
+    const quotes = await this.quotesRepository.find({
+      where: { tenantId, id: In(sourceIds) },
+      select: { id: true, quoteNumber: true, opportunityId: true },
+    });
+    const byId = new Map<string, string | null>();
+    const oppById = new Map<string, string | null>();
+    for (const q of quotes) {
+      byId.set(String(q.id), q.quoteNumber ? String(q.quoteNumber) : null);
+      oppById.set(
+        String(q.id),
+        q.opportunityId ? String(q.opportunityId) : null,
+      );
+    }
+
+    return sales.map((s) => ({
+      ...(s as any),
+      sourceQuoteNumber: s.sourceQuoteId
+        ? (byId.get(String(s.sourceQuoteId)) ?? null)
+        : null,
+      sourceOpportunityId: s.sourceQuoteId
+        ? (oppById.get(String(s.sourceQuoteId)) ?? null)
+        : null,
+    }));
   }
 
   async findOne(tenantId: string, id: string): Promise<Sale> {
@@ -366,6 +410,25 @@ export class SalesService {
     if (!sale) {
       throw new NotFoundException(`Sale with ID ${id} not found`);
     }
+
+    if (sale.sourceQuoteId) {
+      try {
+        const q = await this.quotesRepository.findOne({
+          where: { tenantId, id: String(sale.sourceQuoteId) },
+          select: { id: true, quoteNumber: true, opportunityId: true },
+        });
+        (sale as any).sourceQuoteNumber = q?.quoteNumber
+          ? String(q.quoteNumber)
+          : null;
+        (sale as any).sourceOpportunityId = q?.opportunityId
+          ? String(q.opportunityId)
+          : null;
+      } catch {
+        (sale as any).sourceQuoteNumber = null;
+        (sale as any).sourceOpportunityId = null;
+      }
+    }
+
     return sale;
   }
 

@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { Customer } from '../../customers/entities/customer.entity';
@@ -25,6 +26,9 @@ export enum QuoteStatus {
 }
 
 @Entity('quotes')
+@Index('UQ_quotes_tenant_quoteNumber', ['tenantId', 'quoteNumber'], {
+  unique: true,
+})
 export class Quote {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -33,7 +37,7 @@ export class Quote {
   @Column({ type: 'uuid', unique: true })
   publicId: string;
 
-  @Column({ type: 'varchar', length: 32, unique: true })
+  @Column({ type: 'varchar', length: 32, update: false })
   quoteNumber: string;
 
   @Column({ type: 'uuid' })

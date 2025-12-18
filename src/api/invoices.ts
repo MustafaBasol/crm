@@ -38,6 +38,10 @@ export interface Invoice {
   updatedAt: string;
   // Opsiyonel: Satış ile ilişkilendirme
   saleId?: string;
+  // Opsiyonel: Tekliften oluşturulduysa kaynak teklif
+  sourceQuoteId?: string;
+  sourceQuoteNumber?: string | null;
+  sourceOpportunityId?: string | null;
 }
 
 export interface CreateInvoiceDto {
@@ -84,6 +88,14 @@ export const getInvoice = async (id: string): Promise<Invoice> => {
  */
 export const createInvoice = async (data: CreateInvoiceDto): Promise<Invoice> => {
   const response = await apiClient.post<Invoice>('/invoices', data);
+  return response.data;
+};
+
+/**
+ * Tekliften fatura oluştur (idempotent)
+ */
+export const createInvoiceFromQuote = async (quoteId: string): Promise<Invoice> => {
+  const response = await apiClient.post<Invoice>(`/invoices/from-quote/${quoteId}`);
   return response.data;
 };
 

@@ -14,6 +14,7 @@ import { useSavedListViews } from '../hooks/useSavedListViews';
 import { normalizeStatusKey, resolveStatusLabel } from '../utils/status';
 // preset etiketleri i18n'den alınır
 import { safeLocalStorage } from '../utils/localStorageSafe';
+import { readLegacyTenantId, readTenantScopedArray } from '../utils/localStorageSafe';
 import { logger } from '../utils/logger';
 
 
@@ -148,6 +149,24 @@ const getSavedSalesPageSize = (): number => {
 export default function SimpleSalesPage({ customers = [], sales = [], invoices = [], products = [], onSalesUpdate, onUpsertSale, onCreateInvoice, onEditInvoice, onDownloadSale, onDeleteSale }: SimpleSalesPageProps) {
   const { t, i18n } = useTranslation('common');
   const { formatCurrency } = useCurrency();
+
+  const sourceQuoteNumberById = useMemo(() => {
+    try {
+      const tenantId = readLegacyTenantId() || undefined;
+      const quotes = readTenantScopedArray<any>('quotes_cache', { tenantId, fallbackToBase: true }) ?? [];
+      const map = new Map<string, string>();
+      for (const q of quotes) {
+        const id = q?.id;
+        const num = q?.quoteNumber;
+        if (id != null && num != null && String(num).trim()) {
+          map.set(String(id), String(num));
+        }
+      }
+      return map;
+    } catch {
+      return new Map<string, string>();
+    }
+  }, []);
   
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showSaleViewModal, setShowSaleViewModal] = useState(false);
@@ -997,6 +1016,9 @@ export default function SimpleSalesPage({ customers = [], sales = [], invoices =
                     <th onClick={() => toggleSort('saleNumber')} className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none w-full md:w-40">
                       {t('sales.sale')}<SortIndicator active={sortBy==='saleNumber'} />
                     </th>
+                    <th className="hidden lg:table-cell px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">
+                      {t('sales.table.sourceQuote', { defaultValue: 'Kaynak Teklif' }) as string}
+                    </th>
                     <th onClick={() => toggleSort('customer')} className="hidden md:table-cell px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none w-56">
                       {t('sales.customer')}<SortIndicator active={sortBy==='customer'} />
                     </th>
@@ -1041,6 +1063,29 @@ export default function SimpleSalesPage({ customers = [], sales = [], invoices =
                           </div>
                         </div>
                         <div className="mt-3 space-y-2 text-xs text-gray-600 md:hidden">
+                          {(sale as any)?.sourceQuoteId && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-gray-500 font-medium">{t('sales.table.sourceQuote', { defaultValue: 'Kaynak Teklif' }) as string}:</span>
+                              <button
+                                type="button"
+                                className="text-indigo-600 hover:text-indigo-800"
+                                onClick={() => {
+                                  try {
+                                    window.location.hash = `quotes-edit:${String((sale as any).sourceQuoteId)}`;
+                                  } catch {
+                                    // ignore
+                                  }
+                                }}
+                                title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                              >
+                                {(
+                                  (sale as any)?.sourceQuoteNumber ||
+                                  sourceQuoteNumberById.get(String((sale as any).sourceQuoteId)) ||
+                                  (t('common.open', { defaultValue: 'Aç' }) as string)
+                                )}
+                              </button>
+                            </div>
+                          )}
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-gray-500 font-medium">{t('sales.customer')}:</span>
                             <span className="text-gray-900">{sale.customerName}</span>
@@ -1123,6 +1168,30 @@ export default function SimpleSalesPage({ customers = [], sales = [], invoices =
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
+                      </td>
+                      <td className="hidden lg:table-cell px-4 md:px-6 py-4 whitespace-nowrap">
+                        {(sale as any)?.sourceQuoteId ? (
+                          <button
+                            type="button"
+                            className="text-indigo-600 hover:text-indigo-800"
+                            onClick={() => {
+                              try {
+                                window.location.hash = `quotes-edit:${String((sale as any).sourceQuoteId)}`;
+                              } catch {
+                                // ignore
+                              }
+                            }}
+                            title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                          >
+                            {(
+                              (sale as any)?.sourceQuoteNumber ||
+                              sourceQuoteNumberById.get(String((sale as any).sourceQuoteId)) ||
+                              (t('common.open', { defaultValue: 'Aç' }) as string)
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </td>
                       <td className="hidden md:table-cell px-4 md:px-6 py-4 whitespace-nowrap">
                         <div>

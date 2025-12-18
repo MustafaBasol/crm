@@ -30,6 +30,8 @@ export interface SaleRecord extends CreateSaleDto {
   id: string;
   saleNumber?: string;
   status?: SaleStatus;
+  sourceQuoteNumber?: string | null;
+  sourceOpportunityId?: string | null;
   amount?: number;
   total?: number;
   paymentMethod?: 'cash' | 'card' | 'transfer' | 'check';

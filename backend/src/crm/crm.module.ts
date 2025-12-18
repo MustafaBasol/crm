@@ -12,6 +12,9 @@ import { CrmLead } from './entities/crm-lead.entity';
 import { CrmContact } from './entities/crm-contact.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { OrganizationMember } from '../organizations/entities/organization-member.entity';
+import { Quote } from '../quotes/entities/quote.entity';
+import { Sale } from '../sales/entities/sale.entity';
+import { Invoice } from '../invoices/entities/invoice.entity';
 
 @Module({
   imports: [
@@ -26,6 +29,9 @@ import { OrganizationMember } from '../organizations/entities/organization-membe
       CrmContact,
       Customer,
       OrganizationMember,
+      Quote,
+      Sale,
+      Invoice,
     ]),
   ],
   controllers: [CrmController],

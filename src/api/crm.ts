@@ -1,4 +1,14 @@
 import apiClient from './client';
+import type { SaleRecord } from './sales';
+import type { Invoice } from './invoices';
+
+export type CrmOpportunityLinkedSale = SaleRecord & {
+  sourceQuoteNumber?: string | null;
+};
+
+export type CrmOpportunityLinkedInvoice = Invoice & {
+  sourceQuoteNumber?: string | null;
+};
 
 export type CrmStage = {
   id: string;
@@ -93,5 +103,19 @@ export const setOpportunityTeam = async (opportunityId: string, userIds: string[
 
 export const updateOpportunity = async (opportunityId: string, data: UpdateOpportunityRequest): Promise<CrmOpportunity> => {
   const res = await apiClient.patch<CrmOpportunity>(`/crm/opportunities/${opportunityId}`, data);
+  return res.data;
+};
+
+export const getOpportunitySales = async (opportunityId: string): Promise<CrmOpportunityLinkedSale[]> => {
+  const res = await apiClient.get<CrmOpportunityLinkedSale[]>(
+    `/crm/opportunities/${encodeURIComponent(String(opportunityId))}/sales`
+  );
+  return res.data;
+};
+
+export const getOpportunityInvoices = async (opportunityId: string): Promise<CrmOpportunityLinkedInvoice[]> => {
+  const res = await apiClient.get<CrmOpportunityLinkedInvoice[]>(
+    `/crm/opportunities/${encodeURIComponent(String(opportunityId))}/invoices`
+  );
   return res.data;
 };

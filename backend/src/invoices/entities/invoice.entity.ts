@@ -77,6 +77,10 @@ export class Invoice {
   @Column({ type: 'varchar', nullable: true })
   saleId: string | null;
 
+  // Quote -> Invoice idempotency link
+  @Column({ type: 'uuid', nullable: true })
+  sourceQuoteId: string | null;
+
   @Column({ type: 'varchar', nullable: true })
   type: string | null; // 'product', 'service', 'refund' (iade faturası)
 

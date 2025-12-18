@@ -1,4 +1,4 @@
-import { X, Edit, Calendar, User, Package, CreditCard, Download, Trash2 } from 'lucide-react';
+import { X, Edit, Calendar, User, Package, CreditCard, Download, Trash2, FileText } from 'lucide-react';
 import type { Sale } from '../types';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useTranslation } from 'react-i18next';
@@ -78,6 +78,7 @@ export default function SaleViewModal({
     saleInfo: { tr:'Satış Bilgileri', en:'Sale Information', fr:'Informations de vente', de:'Verkaufsinformationen' }[lang as 'tr'|'en'|'fr'|'de'] || 'Sale Information',
     saleDate: { tr:'Satış Tarihi', en:'Sale Date', fr:'Date de vente', de:'Verkaufsdatum' }[lang as 'tr'|'en'|'fr'|'de'] || 'Sale Date',
     paymentMethod: { tr:'Ödeme Yöntemi', en:'Payment Method', fr:"Méthode de paiement", de:'Zahlungsmethode' }[lang as 'tr'|'en'|'fr'|'de'] || 'Payment Method',
+    sourceQuote: { tr:'Kaynak Teklif', en:'Source Quote', fr:'Devis source', de:'Quellangebot' }[lang as 'tr'|'en'|'fr'|'de'] || 'Source Quote',
     customerInfo: { tr:'Müşteri Bilgileri', en:'Customer Information', fr:'Informations client', de:'Kundeninformationen' }[lang as 'tr'|'en'|'fr'|'de'] || 'Customer Information',
     customer: { tr:'Müşteri', en:'Customer', fr:'Client', de:'Kunde' }[lang as 'tr'|'en'|'fr'|'de'] || 'Customer',
     email: { tr:'E-posta', en:'Email', fr:'E-mail', de:'E-Mail' }[lang as 'tr'|'en'|'fr'|'de'] || 'Email',
@@ -257,6 +258,64 @@ export default function SaleViewModal({
                     <CreditCard className="w-4 h-4 text-gray-400 mr-2" />
                     <span className="text-gray-600">{L.paymentMethod}:</span>
                     <span className="ml-2 font-medium">{getPaymentMethodLabel(sale.paymentMethod)}</span>
+                  </div>
+                )}
+                {(sale as any)?.sourceQuoteId && (
+                  <div className="flex items-center text-sm">
+                    <FileText className="w-4 h-4 text-gray-400 mr-2" />
+                    <span className="text-gray-600">{L.sourceQuote}:</span>
+                    <button
+                      type="button"
+                      className="ml-2 font-medium text-indigo-600 hover:text-indigo-800"
+                      onClick={() => {
+                        try {
+                          const id = String((sale as any).sourceQuoteId || '').trim();
+                          if (!id) return;
+                          onClose();
+                          setTimeout(() => {
+                            try {
+                              window.location.hash = `quotes-edit:${id}`;
+                            } catch {
+                              // ignore
+                            }
+                          }, 100);
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                    >
+                      {String((sale as any)?.sourceQuoteNumber || '').trim() ||
+                        (t('common.open', { defaultValue: 'Aç' }) as string)}
+                    </button>
+                    {String((sale as any)?.sourceOpportunityId || '').trim() && (
+                      <>
+                        <span className="mx-2 text-gray-300">|</span>
+                        <button
+                          type="button"
+                          className="font-medium text-indigo-600 hover:text-indigo-800"
+                          onClick={() => {
+                            try {
+                              const oppId = String((sale as any).sourceOpportunityId || '').trim();
+                              if (!oppId) return;
+                              onClose();
+                              setTimeout(() => {
+                                try {
+                                  window.location.hash = `crm-deal:${oppId}`;
+                                } catch {
+                                  // ignore
+                                }
+                              }, 100);
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                          title={t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                        >
+                          {t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

@@ -385,6 +385,34 @@ http_json POST "$API_BASE/sales/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$SALE_F
 SALE_ID_2="$(json_get "$SALE_FROM_QUOTE_2_JSON" "j.id")"
 [[ "$SALE_ID_2" == "$SALE_ID" ]] || fail "Expected idempotent create-from-quote to return same sale id; got $SALE_ID then $SALE_ID_2"
 
+echo "== Invoices: create from accepted quote (idempotent) =="
+INVOICE_FROM_QUOTE_JSON="$TMP_DIR/smoke.invoice.from.quote.json"
+http_json POST "$API_BASE/invoices/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$INVOICE_FROM_QUOTE_JSON" >/dev/null
+INVOICE_ID="$(json_get "$INVOICE_FROM_QUOTE_JSON" "j.id")"
+[[ -n "$INVOICE_ID" ]] || fail "Invoice id missing in create-from-quote response: $INVOICE_FROM_QUOTE_JSON"
+INVOICE_SRC_MATCH="$(json_get "$INVOICE_FROM_QUOTE_JSON" "j && String(j.sourceQuoteId||'') === '$QUOTE_ID'")"
+[[ "$INVOICE_SRC_MATCH" == "true" ]] || fail "Expected invoice.sourceQuoteId to match quote id: $INVOICE_FROM_QUOTE_JSON"
+
+INVOICE_FROM_QUOTE_2_JSON="$TMP_DIR/smoke.invoice.from.quote.2.json"
+http_json POST "$API_BASE/invoices/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$INVOICE_FROM_QUOTE_2_JSON" >/dev/null
+INVOICE_ID_2="$(json_get "$INVOICE_FROM_QUOTE_2_JSON" "j.id")"
+[[ "$INVOICE_ID_2" == "$INVOICE_ID" ]] || fail "Expected idempotent invoice-from-quote to return same invoice id; got $INVOICE_ID then $INVOICE_ID_2"
+
+echo "== CRM: linked sales/invoices endpoints (by opportunity) =="
+CRM_OPP_SALES_JSON="$TMP_DIR/smoke.crm.opp.sales.json"
+http_json GET "$API_BASE/crm/opportunities/$OPP_ID/sales" "" "$TOKEN" | tee "$CRM_OPP_SALES_JSON" >/dev/null
+CRM_OPP_SALES_HAS_SALE="$(json_get "$CRM_OPP_SALES_JSON" "Array.isArray(j) && j.some(s => s && s.id === '$SALE_ID')")"
+[[ "$CRM_OPP_SALES_HAS_SALE" == "true" ]] || fail "CRM opportunity sales endpoint missing sale: $CRM_OPP_SALES_JSON"
+CRM_OPP_SALES_HAS_SRC_NO="$(json_get "$CRM_OPP_SALES_JSON" "Array.isArray(j) && j.some(s => s && s.id === '$SALE_ID' && String(s.sourceQuoteNumber||'').length > 0)")"
+[[ "$CRM_OPP_SALES_HAS_SRC_NO" == "true" ]] || fail "CRM opportunity sales endpoint missing sourceQuoteNumber: $CRM_OPP_SALES_JSON"
+
+CRM_OPP_INVOICES_JSON="$TMP_DIR/smoke.crm.opp.invoices.json"
+http_json GET "$API_BASE/crm/opportunities/$OPP_ID/invoices" "" "$TOKEN" | tee "$CRM_OPP_INVOICES_JSON" >/dev/null
+CRM_OPP_INVOICES_HAS_INV="$(json_get "$CRM_OPP_INVOICES_JSON" "Array.isArray(j) && j.some(inv => inv && inv.id === '$INVOICE_ID')")"
+[[ "$CRM_OPP_INVOICES_HAS_INV" == "true" ]] || fail "CRM opportunity invoices endpoint missing invoice: $CRM_OPP_INVOICES_JSON"
+CRM_OPP_INVOICES_HAS_SRC_NO="$(json_get "$CRM_OPP_INVOICES_JSON" "Array.isArray(j) && j.some(inv => inv && inv.id === '$INVOICE_ID' && String(inv.sourceQuoteNumber||'').length > 0)")"
+[[ "$CRM_OPP_INVOICES_HAS_SRC_NO" == "true" ]] || fail "CRM opportunity invoices endpoint missing sourceQuoteNumber: $CRM_OPP_INVOICES_JSON"
+
 OPP_DETAIL_AFTER_ACCEPT_JSON="$TMP_DIR/smoke.crm.opp.detail.after.accept.json"
 http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OPP_DETAIL_AFTER_ACCEPT_JSON" >/dev/null
 OPP_AFTER_STATUS_WON="$(json_get "$OPP_DETAIL_AFTER_ACCEPT_JSON" "j && j.status === 'won'")"

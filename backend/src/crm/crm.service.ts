@@ -34,6 +34,9 @@ import type { CurrentUser } from '../common/decorators/user.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { OrganizationMember } from '../organizations/entities/organization-member.entity';
 import { Role as OrganizationRole } from '../common/enums/organization.enum';
+import { Quote } from '../quotes/entities/quote.entity';
+import { Sale } from '../sales/entities/sale.entity';
+import { Invoice } from '../invoices/entities/invoice.entity';
 
 const DEFAULT_PIPELINE_NAME = 'Default Pipeline';
 const DEFAULT_STAGES = [
@@ -74,6 +77,15 @@ export class CrmService {
 
     @InjectRepository(OrganizationMember)
     private readonly organizationMemberRepo: Repository<OrganizationMember>,
+
+    @InjectRepository(Quote)
+    private readonly quoteRepo: Repository<Quote>,
+
+    @InjectRepository(Sale)
+    private readonly saleRepo: Repository<Sale>,
+
+    @InjectRepository(Invoice)
+    private readonly invoiceRepo: Repository<Invoice>,
   ) {}
 
   private async isCurrentOrgAdminOrOwner(user: CurrentUser): Promise<boolean> {
@@ -1577,4 +1589,101 @@ export class CrmService {
       teamUserIds: members.map((m) => m.userId),
     };
   }
+
+  async listOpportunitySales(
+    tenantId: string,
+    user: CurrentUser,
+    opportunityId: string,
+  ): Promise<Array<Sale & { sourceQuoteNumber?: string | null }>> {
+    await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
+
+    const quoteRows = await this.quoteRepo.find({
+      where: { tenantId, opportunityId },
+      select: { id: true },
+    });
+
+    const quoteIds = quoteRows
+      .map((q) => (q?.id ? String(q.id) : ''))
+      .filter(Boolean);
+
+    if (quoteIds.length === 0) {
+      return [];
+    }
+
+    const [sales, quoteNumbers] = await Promise.all([
+      this.saleRepo.find({
+        where: {
+          tenantId,
+          sourceQuoteId: In(quoteIds),
+        },
+        order: { createdAt: 'DESC' },
+      }),
+      this.quoteRepo.find({
+        where: { tenantId, id: In(quoteIds) },
+        select: { id: true, quoteNumber: true },
+      }),
+    ]);
+
+    const byId = new Map<string, string | null>();
+    for (const q of quoteNumbers) {
+      byId.set(String(q.id), q.quoteNumber ? String(q.quoteNumber) : null);
+    }
+
+    return sales.map((s) => ({
+      ...(s as any),
+      sourceQuoteNumber: s.sourceQuoteId
+        ? (byId.get(String(s.sourceQuoteId)) ?? null)
+        : null,
+    }));
+  }
+
+  async listOpportunityInvoices(
+    tenantId: string,
+    user: CurrentUser,
+    opportunityId: string,
+  ): Promise<Array<Invoice & { sourceQuoteNumber?: string | null }>> {
+    await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
+
+    const quoteRows = await this.quoteRepo.find({
+      where: { tenantId, opportunityId },
+      select: { id: true },
+    });
+
+    const quoteIds = quoteRows
+      .map((q) => (q?.id ? String(q.id) : ''))
+      .filter(Boolean);
+
+    if (quoteIds.length === 0) {
+      return [];
+    }
+
+    const [invoices, quoteNumbers] = await Promise.all([
+      this.invoiceRepo.find({
+        where: {
+          tenantId,
+          isVoided: false,
+          sourceQuoteId: In(quoteIds),
+        },
+        relations: ['customer', 'createdByUser', 'updatedByUser'],
+        order: { createdAt: 'DESC' },
+      }),
+      this.quoteRepo.find({
+        where: { tenantId, id: In(quoteIds) },
+        select: { id: true, quoteNumber: true },
+      }),
+    ]);
+
+    const byId = new Map<string, string | null>();
+    for (const q of quoteNumbers) {
+      byId.set(String(q.id), q.quoteNumber ? String(q.quoteNumber) : null);
+    }
+
+    return invoices.map((inv) => ({
+      ...(inv as any),
+      sourceQuoteNumber: inv.sourceQuoteId
+        ? (byId.get(String(inv.sourceQuoteId)) ?? null)
+        : null,
+    }));
+  }
+
 }

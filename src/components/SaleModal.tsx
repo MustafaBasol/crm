@@ -8,7 +8,8 @@ import {
   Calendar,
   CreditCard,
   Search,
-  Check
+  Check,
+  FileText
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { normalizeStatusKey, resolveStatusLabel } from '../utils/status';
@@ -411,6 +412,67 @@ export default function SaleModal({
                 <p className="text-xs text-gray-500 mt-1">{t('sales.autoNumberNote')}</p>
               )}
             </div>
+
+            {(sale as any)?.sourceQuoteId ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <FileText className="w-4 h-4 inline mr-2" />
+                  {t('sales.table.sourceQuote', { defaultValue: 'Kaynak Teklif' }) as string}
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-indigo-600 hover:text-indigo-800 text-left"
+                    onClick={() => {
+                      try {
+                        const id = String((sale as any).sourceQuoteId || '').trim();
+                        if (!id) return;
+                        onClose();
+                        setTimeout(() => {
+                          try {
+                            window.location.hash = `quotes-edit:${id}`;
+                          } catch {
+                            // ignore
+                          }
+                        }, 100);
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                  >
+                    {String((sale as any)?.sourceQuoteNumber || '').trim() ||
+                      (t('common.open', { defaultValue: 'Aç' }) as string)}
+                  </button>
+
+                  {String((sale as any)?.sourceOpportunityId || '').trim() && (
+                    <button
+                      type="button"
+                      className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
+                      onClick={() => {
+                        try {
+                          const oppId = String((sale as any).sourceOpportunityId || '').trim();
+                          if (!oppId) return;
+                          onClose();
+                          setTimeout(() => {
+                            try {
+                              window.location.hash = `crm-deal:${oppId}`;
+                            } catch {
+                              // ignore
+                            }
+                          }, 100);
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      title={t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                    >
+                      {t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Calendar className="w-4 h-4 inline mr-2" />
@@ -425,6 +487,7 @@ export default function SaleModal({
               />
               {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
             </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

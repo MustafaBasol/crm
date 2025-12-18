@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository, FindOptionsWhere } from 'typeorm';
+import { Between, In, Repository, FindOptionsWhere } from 'typeorm';
 import type { DeepPartial } from 'typeorm';
 import { Invoice, InvoiceStatus } from './entities/invoice.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -13,6 +13,7 @@ import { TenantPlanLimitService } from '../common/tenant-plan-limits.service';
 import { Sale, SaleStatus } from '../sales/entities/sale.entity';
 import { Product } from '../products/entities/product.entity';
 import { ProductCategory } from '../products/entities/product-category.entity';
+import { Quote, QuoteStatus } from '../quotes/entities/quote.entity';
 import {
   CreateInvoiceDto,
   UpdateInvoiceDto,
@@ -35,7 +36,124 @@ export class InvoicesService {
     private productsRepository: Repository<Product>,
     @InjectRepository(ProductCategory)
     private categoriesRepository: Repository<ProductCategory>,
+
+    @InjectRepository(Quote)
+    private readonly quotesRepository: Repository<Quote>,
   ) {}
+
+  private isUuid(val?: string | null) {
+    if (!val) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      val,
+    );
+  }
+
+  async createFromQuote(tenantId: string, quoteId: string): Promise<Invoice> {
+    const qid = String(quoteId || '').trim();
+    if (!this.isUuid(qid)) {
+      throw new BadRequestException('Invalid quoteId');
+    }
+
+    const quote = await this.quotesRepository.findOne({
+      where: { tenantId, id: qid },
+    });
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    if (quote.status !== QuoteStatus.ACCEPTED) {
+      throw new BadRequestException('Only accepted quotes can be converted');
+    }
+
+    // Idempotency: if an invoice already exists for this quote, return it.
+    const existing = await this.invoicesRepository.findOne({
+      where: { tenantId, sourceQuoteId: quote.id },
+      relations: ['customer', 'createdByUser', 'updatedByUser'],
+    });
+    if (existing) {
+      return existing;
+    }
+
+    const issueDate = quote.issueDate
+      ? new Date(quote.issueDate).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+
+    const dueDate = (() => {
+      if (quote.validUntil) {
+        try {
+          return new Date(quote.validUntil).toISOString().slice(0, 10);
+        } catch {
+          // ignore
+        }
+      }
+      const d = new Date(issueDate);
+      d.setDate(d.getDate() + 30);
+      return d.toISOString().slice(0, 10);
+    })();
+
+    const rawItems = Array.isArray(quote.items) ? quote.items : [];
+    const lineItems: InvoiceLineItemInput[] = rawItems
+      .filter(Boolean)
+      .map((it: any) => {
+        const quantity = Math.max(0, Number(it.quantity ?? it.qty ?? 0) || 0);
+        const unitPrice = Math.max(
+          0,
+          Number(it.unitPrice ?? it.price ?? it.unit_price ?? 0) || 0,
+        );
+        const productId =
+          typeof it.productId === 'string' && this.isUuid(it.productId)
+            ? it.productId
+            : undefined;
+        const description =
+          (typeof it.description === 'string' && it.description.trim()) ||
+          (typeof it.productName === 'string' && it.productName.trim()) ||
+          '';
+
+        const taxRate =
+          it.taxRate !== undefined &&
+          it.taxRate !== null &&
+          `${it.taxRate}`.trim() !== ''
+            ? Number(it.taxRate)
+            : undefined;
+
+        return {
+          productId,
+          productName: description || undefined,
+          description,
+          quantity,
+          unitPrice,
+          taxRate: Number.isFinite(taxRate as number)
+            ? (taxRate as number)
+            : undefined,
+        } as InvoiceLineItemInput;
+      });
+
+    const dto: CreateInvoiceDto = {
+      customerId: quote.customerId || null,
+      issueDate,
+      dueDate,
+      status: InvoiceStatus.DRAFT,
+      notes: quote.quoteNumber
+        ? `From quote ${quote.quoteNumber}`
+        : 'From quote',
+      lineItems,
+      sourceQuoteId: quote.id,
+    };
+
+    try {
+      return await this.create(tenantId, dto);
+    } catch (error) {
+      // In case of a race with the unique constraint, return the existing invoice.
+      const existingAfter = await this.invoicesRepository.findOne({
+        where: { tenantId, sourceQuoteId: quote.id },
+        relations: ['customer', 'createdByUser', 'updatedByUser'],
+      });
+      if (existingAfter) {
+        return existingAfter;
+      }
+      throw error;
+    }
+  }
 
   private normalizeTaxRate(value: unknown): number | null {
     if (value === null || value === undefined) {
@@ -368,12 +486,59 @@ export class InvoicesService {
     return result;
   }
 
-  async findAll(tenantId: string): Promise<Invoice[]> {
-    return this.invoicesRepository.find({
+  async findAll(
+    tenantId: string,
+  ): Promise<
+    Array<
+      Invoice & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      }
+    >
+  > {
+    const invoices = await this.invoicesRepository.find({
       where: { tenantId, isVoided: false },
       relations: ['customer', 'createdByUser', 'updatedByUser'],
       order: { createdAt: 'DESC' },
     });
+
+    const sourceIds = Array.from(
+      new Set(
+        invoices
+          .map((inv) =>
+            inv?.sourceQuoteId ? String(inv.sourceQuoteId) : '',
+          )
+          .filter(Boolean),
+      ),
+    );
+    if (sourceIds.length === 0) {
+      return invoices as any;
+    }
+
+    const quotes = await this.quotesRepository.find({
+      where: { tenantId, id: In(sourceIds) },
+      select: { id: true, quoteNumber: true, opportunityId: true },
+    });
+
+    const byId = new Map<string, string | null>();
+    const oppById = new Map<string, string | null>();
+    for (const q of quotes) {
+      byId.set(String(q.id), q.quoteNumber ? String(q.quoteNumber) : null);
+      oppById.set(
+        String(q.id),
+        q.opportunityId ? String(q.opportunityId) : null,
+      );
+    }
+
+    return invoices.map((inv) => ({
+      ...(inv as any),
+      sourceQuoteNumber: inv.sourceQuoteId
+        ? (byId.get(String(inv.sourceQuoteId)) ?? null)
+        : null,
+      sourceOpportunityId: inv.sourceQuoteId
+        ? (oppById.get(String(inv.sourceQuoteId)) ?? null)
+        : null,
+    }));
   }
 
   async findOne(
@@ -393,6 +558,24 @@ export class InvoicesService {
 
     if (!invoice) {
       throw new NotFoundException(`Invoice #${id} not found`);
+    }
+
+    if (invoice.sourceQuoteId) {
+      try {
+        const q = await this.quotesRepository.findOne({
+          where: { tenantId, id: String(invoice.sourceQuoteId) },
+          select: { id: true, quoteNumber: true, opportunityId: true },
+        });
+        (invoice as any).sourceQuoteNumber = q?.quoteNumber
+          ? String(q.quoteNumber)
+          : null;
+        (invoice as any).sourceOpportunityId = q?.opportunityId
+          ? String(q.opportunityId)
+          : null;
+      } catch {
+        (invoice as any).sourceQuoteNumber = null;
+        (invoice as any).sourceOpportunityId = null;
+      }
     }
 
     return invoice;

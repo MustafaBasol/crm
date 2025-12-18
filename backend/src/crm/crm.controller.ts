@@ -164,6 +164,27 @@ export class CrmController {
     return this.crmService.getOpportunity(user.tenantId, user, id);
   }
 
+  @Get('opportunities/:id/sales')
+  @ApiOperation({
+    summary:
+      'List sales linked to an opportunity (via quotes.sourceQuoteId; scoped by visibility)',
+  })
+  async getOpportunitySales(@User() user: CurrentUser, @Param('id') id: string) {
+    return this.crmService.listOpportunitySales(user.tenantId, user, id);
+  }
+
+  @Get('opportunities/:id/invoices')
+  @ApiOperation({
+    summary:
+      'List invoices linked to an opportunity (via quotes.sourceQuoteId; scoped by visibility)',
+  })
+  async getOpportunityInvoices(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+  ) {
+    return this.crmService.listOpportunityInvoices(user.tenantId, user, id);
+  }
+
   @Post('opportunities/:id/move')
   @ApiOperation({ summary: 'Move opportunity to another stage' })
   async move(

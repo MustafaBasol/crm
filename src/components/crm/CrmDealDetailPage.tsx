@@ -4,6 +4,8 @@ import { getErrorMessage } from '../../utils/errorHandler';
 import { logger } from '../../utils/logger';
 import * as crmApi from '../../api/crm';
 import * as quotesApi from '../../api/quotes';
+import type { SaleRecord } from '../../api/sales';
+import type { Invoice } from '../../api/invoices';
 import { Currency, useCurrency } from '../../contexts/CurrencyContext';
 import { getCustomers, Customer } from '../../api/customers';
 import { organizationsApi, OrganizationMember } from '../../api/organizations';
@@ -46,11 +48,32 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [linkedQuotes, setLinkedQuotes] = useState<quotesApi.Quote[]>([]);
+  const [linkedSales, setLinkedSales] = useState<SaleRecord[]>([]);
+  const [linkedInvoices, setLinkedInvoices] = useState<Invoice[]>([]);
+  const [loadingLinkedDocs, setLoadingLinkedDocs] = useState(false);
   const [creatingQuote, setCreatingQuote] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [savingTeam, setSavingTeam] = useState(false);
   const [movingStage, setMovingStage] = useState(false);
+
+  const loadLinkedDocs = async () => {
+    setLoadingLinkedDocs(true);
+    try {
+      const [sales, invoices] = await Promise.all([
+        crmApi.getOpportunitySales(opportunityId),
+        crmApi.getOpportunityInvoices(opportunityId),
+      ]);
+      setLinkedSales(Array.isArray(sales) ? sales : []);
+      setLinkedInvoices(Array.isArray(invoices) ? invoices : []);
+    } catch (e) {
+      logger.warn('crm.dealDetail.linkedDocs.loadFailed', e);
+      setLinkedSales([]);
+      setLinkedInvoices([]);
+    } finally {
+      setLoadingLinkedDocs(false);
+    }
+  };
 
   const taskAssignees = useMemo(() => {
     if (!opportunity) return [] as Array<{ id: string; label: string }>;
@@ -109,11 +132,15 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
 
       try {
         const quotes = await quotesApi.getQuotes({ opportunityId });
-        setLinkedQuotes(Array.isArray(quotes) ? quotes : []);
+        const list = Array.isArray(quotes) ? quotes : [];
+        setLinkedQuotes(list);
+        void loadLinkedDocs();
       } catch (e) {
         // Quotes list should not block deal page
         logger.warn('crm.dealDetail.quotes.loadFailed', e);
         setLinkedQuotes([]);
+        setLinkedSales([]);
+        setLinkedInvoices([]);
       }
 
       const org = (orgs ?? [])[0];
@@ -152,7 +179,9 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
       setOpportunity(oppData);
       try {
         const quotes = await quotesApi.getQuotes({ opportunityId });
-        setLinkedQuotes(Array.isArray(quotes) ? quotes : []);
+        const list = Array.isArray(quotes) ? quotes : [];
+        setLinkedQuotes(list);
+        void loadLinkedDocs();
       } catch {
         // ignore
       }
@@ -499,6 +528,189 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
         </div>
 
         {error && <div className="mt-4 text-sm text-red-600">{error}</div>}
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm font-semibold text-gray-900">
+            {t('crm.dealDetail.linkedDocs', {
+              defaultValue: 'Bağlı satışlar ve faturalar',
+            })}{' '}
+            <span className="text-xs font-normal text-gray-500">
+              ({linkedSales.length + linkedInvoices.length})
+            </span>
+          </div>
+        </div>
+
+        {loadingLinkedDocs ? (
+          <div className="mt-3 text-sm text-gray-600">
+            {t('common.loading', { defaultValue: 'Yükleniyor...' }) as string}
+          </div>
+        ) : linkedSales.length === 0 && linkedInvoices.length === 0 ? (
+          <div className="mt-3 text-sm text-gray-600">
+            {t('crm.dealDetail.noLinkedDocs', {
+              defaultValue: 'Bu anlaşmaya bağlı satış veya fatura yok.',
+            })}
+          </div>
+        ) : (
+          <div className="mt-3 space-y-6">
+            <div>
+              <div className="text-sm font-medium text-gray-900">
+                {t('sales.title', { defaultValue: 'Satışlar' }) as string}{' '}
+                <span className="text-xs font-normal text-gray-500">({linkedSales.length})</span>
+              </div>
+              {linkedSales.length === 0 ? (
+                <div className="mt-2 text-sm text-gray-600">
+                  {t('crm.dealDetail.noLinkedSales', { defaultValue: 'Bağlı satış yok.' })}
+                </div>
+              ) : (
+                <div className="mt-2 overflow-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-500">
+                        <th className="py-2 pr-4">{t('sales.table.sale', { defaultValue: 'Satış' }) as string}</th>
+                        <th className="py-2 pr-4">{t('sales.table.sourceQuote', { defaultValue: 'Kaynak Teklif' }) as string}</th>
+                        <th className="py-2 pr-4">{t('sales.table.status', { defaultValue: 'Durum' }) as string}</th>
+                        <th className="py-2 pr-4">{t('sales.table.date', { defaultValue: 'Tarih' }) as string}</th>
+                        <th className="py-2">{t('sales.table.amount', { defaultValue: 'Tutar' }) as string}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {linkedSales.map((s) => {
+                        const date = s.saleDate ? String(s.saleDate).slice(0, 10) : (s.date ? String(s.date).slice(0, 10) : '');
+                        const total = Number(s.total ?? s.amount ?? 0) || 0;
+                        const cur = (opportunity.currency as any) || defaultCurrency;
+                        const sourceQuoteNumber = (s as any)?.sourceQuoteNumber ? String((s as any).sourceQuoteNumber) : '';
+                        const sourceQuoteId = s?.sourceQuoteId ? String(s.sourceQuoteId) : '';
+                        return (
+                          <tr key={s.id} className="text-gray-800">
+                            <td className="py-2 pr-4 font-medium">
+                              <button
+                                type="button"
+                                className="text-indigo-600 hover:text-indigo-800"
+                                onClick={() => {
+                                  try {
+                                    window.location.hash = `sales-edit:${s.id}`;
+                                  } catch {
+                                    // ignore
+                                  }
+                                }}
+                                title={t('sales.edit', { defaultValue: 'Satışı Düzenle' }) as string}
+                              >
+                                {s.saleNumber || s.id}
+                              </button>
+                            </td>
+                            <td className="py-2 pr-4">
+                              {sourceQuoteId ? (
+                                <button
+                                  type="button"
+                                  className="text-indigo-600 hover:text-indigo-800"
+                                  onClick={() => {
+                                    try {
+                                      window.location.hash = `quotes-edit:${sourceQuoteId}`;
+                                    } catch {
+                                      // ignore
+                                    }
+                                  }}
+                                  title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                                >
+                                  {sourceQuoteNumber || '-'}
+                                </button>
+                              ) : (
+                                <span>{sourceQuoteNumber || '-'}</span>
+                              )}
+                            </td>
+                            <td className="py-2 pr-4">{String(s.status || '').toUpperCase()}</td>
+                            <td className="py-2 pr-4">{date}</td>
+                            <td className="py-2">{formatCurrency(total, cur)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="text-sm font-medium text-gray-900">
+                {t('invoices.title', { defaultValue: 'Faturalar' }) as string}{' '}
+                <span className="text-xs font-normal text-gray-500">({linkedInvoices.length})</span>
+              </div>
+              {linkedInvoices.length === 0 ? (
+                <div className="mt-2 text-sm text-gray-600">
+                  {t('crm.dealDetail.noLinkedInvoices', { defaultValue: 'Bağlı fatura yok.' })}
+                </div>
+              ) : (
+                <div className="mt-2 overflow-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-500">
+                        <th className="py-2 pr-4">{t('invoices.table.invoice', { defaultValue: 'Fatura' }) as string}</th>
+                        <th className="py-2 pr-4">{t('invoices.table.sourceQuote', { defaultValue: 'Kaynak Teklif' }) as string}</th>
+                        <th className="py-2 pr-4">{t('invoices.table.status', { defaultValue: 'Durum' }) as string}</th>
+                        <th className="py-2 pr-4">{t('invoices.table.date', { defaultValue: 'Tarih' }) as string}</th>
+                        <th className="py-2">{t('invoices.table.total', { defaultValue: 'Tutar' }) as string}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {linkedInvoices.map((inv) => {
+                        const issue = inv.issueDate ? String(inv.issueDate).slice(0, 10) : '';
+                        const total = Number(inv.total ?? 0) || 0;
+                        const cur = (opportunity.currency as any) || defaultCurrency;
+                        const sourceQuoteNumber = (inv as any)?.sourceQuoteNumber ? String((inv as any).sourceQuoteNumber) : '';
+                        const sourceQuoteId = (inv as any)?.sourceQuoteId ? String((inv as any).sourceQuoteId) : '';
+                        return (
+                          <tr key={inv.id} className="text-gray-800">
+                            <td className="py-2 pr-4 font-medium">
+                              <button
+                                type="button"
+                                className="text-indigo-600 hover:text-indigo-800"
+                                onClick={() => {
+                                  try {
+                                    window.location.hash = `invoices-edit:${inv.id}`;
+                                  } catch {
+                                    // ignore
+                                  }
+                                }}
+                                title={t('invoices.edit', { defaultValue: 'Faturayı Düzenle' }) as string}
+                              >
+                                {inv.invoiceNumber || inv.id}
+                              </button>
+                            </td>
+                            <td className="py-2 pr-4">
+                              {sourceQuoteId ? (
+                                <button
+                                  type="button"
+                                  className="text-indigo-600 hover:text-indigo-800"
+                                  onClick={() => {
+                                    try {
+                                      window.location.hash = `quotes-edit:${sourceQuoteId}`;
+                                    } catch {
+                                      // ignore
+                                    }
+                                  }}
+                                  title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                                >
+                                  {sourceQuoteNumber || '-'}
+                                </button>
+                              ) : (
+                                <span>{sourceQuoteNumber || '-'}</span>
+                              )}
+                            </td>
+                            <td className="py-2 pr-4">{String(inv.status || '').toUpperCase()}</td>
+                            <td className="py-2 pr-4">{issue}</td>
+                            <td className="py-2">{formatCurrency(total, cur)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">

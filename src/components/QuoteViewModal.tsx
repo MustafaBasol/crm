@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { X, Edit, Calendar, User, BadgeDollarSign, Send, Check, XCircle, FileDown, RefreshCw, Lock, Link as LinkIcon, TrendingUp } from 'lucide-react';
+import { X, Edit, Calendar, User, BadgeDollarSign, Send, Check, XCircle, FileDown, RefreshCw, Lock, Link as LinkIcon, TrendingUp, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { sanitizeRteHtml } from '../utils/security';
@@ -7,6 +7,7 @@ import ConfirmModal from './ConfirmModal';
 import { logger } from '../utils/logger';
 import { safeLocalStorage } from '../utils/localStorageSafe';
 import * as salesApi from '../api/sales';
+import * as invoicesApi from '../api/invoices';
 import type {
   Quote as QuoteApiModel,
   QuoteStatus as QuoteApiStatus,
@@ -71,6 +72,7 @@ const QuoteViewModal: React.FC<QuoteViewModalProps> = ({ isOpen, onClose, quote,
   const { formatCurrency } = useCurrency();
   const [confirmAccept, setConfirmAccept] = React.useState(false);
   const [convertingToSale, setConvertingToSale] = React.useState(false);
+  const [convertingToInvoice, setConvertingToInvoice] = React.useState(false);
 
   // Yalnızca işaretlenen alanlar için dil yardımcıları ve etiketler
   const getActiveLang = () => {
@@ -160,6 +162,32 @@ const QuoteViewModal: React.FC<QuoteViewModalProps> = ({ isOpen, onClose, quote,
           </div>
           <div className="flex items-center gap-2">
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusMap[quote.status].className}`}>{statusMap[quote.status].label}</span>
+            {quote.opportunityId && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    const oppId = String(quote.opportunityId || '').trim();
+                    if (!oppId) return;
+                    onClose();
+                    setTimeout(() => {
+                      try {
+                        window.location.hash = `crm-deal:${oppId}`;
+                      } catch {
+                        // ignore
+                      }
+                    }, 100);
+                  } catch {
+                    // ignore
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-3 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200"
+                title={t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span className="text-xs font-medium">{t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}</span>
+              </button>
+            )}
             {isLocked && (
               <span className="ml-1 inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700" title={t('quotes.lockedHint') || 'Kabul edildi. Bu teklif kilitli.'}>
                 <Lock className="w-3 h-3" />
@@ -497,6 +525,65 @@ const QuoteViewModal: React.FC<QuoteViewModalProps> = ({ isOpen, onClose, quote,
                   {convertingToSale
                     ? (t('common.loading', { defaultValue: 'Yükleniyor…' }) as string)
                     : (t('quotes.actions.convertToSale', { defaultValue: 'Satışa Dönüştür' }) as string)}
+                </span>
+              </button>
+            )}
+
+            {/* Accepted quote -> Invoice conversion */}
+            {quote.status === 'accepted' && (
+              <button
+                onClick={async () => {
+                  if (convertingToInvoice) return;
+                  setConvertingToInvoice(true);
+                  try {
+                    const invoice = await invoicesApi.createInvoiceFromQuote(quote.id);
+                    try {
+                      window.dispatchEvent(
+                        new CustomEvent('showToast', {
+                          detail: {
+                            message: t('quotes.actions.convertToInvoiceSuccess', { defaultValue: 'Fatura oluşturuldu.' }) as string,
+                            tone: 'success',
+                          },
+                        }),
+                      );
+                    } catch (toastError) {
+                      logger.debug('QuoteViewModal: invoice toast dispatch failed', toastError);
+                    }
+                    onClose();
+                    setTimeout(() => {
+                      try {
+                        window.dispatchEvent(new CustomEvent('open-invoice-edit', { detail: { invoice } }));
+                      } catch (evtError) {
+                        logger.debug('QuoteViewModal: open-invoice-edit dispatch failed', evtError);
+                      }
+                    }, 50);
+                  } catch (err) {
+                    logger.warn('QuoteViewModal: convertToInvoice failed', err);
+                    try {
+                      window.dispatchEvent(
+                        new CustomEvent('showToast', {
+                          detail: {
+                            message: t('quotes.actions.convertToInvoiceFailed', { defaultValue: 'Fatura oluşturulamadı.' }) as string,
+                            tone: 'error',
+                          },
+                        }),
+                      );
+                    } catch (toastError) {
+                      logger.debug('QuoteViewModal: invoice error toast dispatch failed', toastError);
+                    }
+                  } finally {
+                    setConvertingToInvoice(false);
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200"
+                title={t('quotes.actions.convertToInvoice', { defaultValue: 'Faturaya Dönüştür' })}
+                disabled={convertingToInvoice}
+              >
+                <FileText className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {convertingToInvoice
+                    ? (t('common.loading', { defaultValue: 'Yükleniyor…' }) as string)
+                    : (t('quotes.actions.convertToInvoice', { defaultValue: 'Faturaya Dönüştür' }) as string)}
                 </span>
               </button>
             )}
