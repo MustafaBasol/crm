@@ -42,15 +42,15 @@ const resolveRequestOrigin = (
   if (!req?.headers) {
     return undefined;
   }
-  const directOrigin = extractHeaderValue(req.headers.origin as any);
+  const directOrigin = extractHeaderValue(req.headers.origin);
   if (directOrigin) {
     return directOrigin;
   }
   const proto =
-    extractHeaderValue(req.headers['x-forwarded-proto'] as any) || req.protocol;
+    extractHeaderValue(req.headers['x-forwarded-proto']) || req.protocol;
   const host =
-    extractHeaderValue(req.headers['x-forwarded-host'] as any) ||
-    extractHeaderValue(req.headers.host as any);
+    extractHeaderValue(req.headers['x-forwarded-host']) ||
+    extractHeaderValue(req.headers.host);
   if (proto && host) {
     return `${proto}://${host}`;
   }

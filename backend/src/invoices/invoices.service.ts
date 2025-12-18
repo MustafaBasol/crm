@@ -65,14 +65,20 @@ export class InvoicesService {
       throw new BadRequestException('Only accepted quotes can be converted');
     }
 
-    const attachSourceQuoteFields = (invoice: Invoice) => {
-      (invoice as any).sourceQuoteNumber = quote.quoteNumber
+    type InvoiceWithSource = Invoice & {
+      sourceQuoteNumber?: string | null;
+      sourceOpportunityId?: string | null;
+    };
+
+    const attachSourceQuoteFields = (invoice: Invoice): InvoiceWithSource => {
+      const enriched = invoice as InvoiceWithSource;
+      enriched.sourceQuoteNumber = quote.quoteNumber
         ? String(quote.quoteNumber)
         : null;
-      (invoice as any).sourceOpportunityId = quote.opportunityId
+      enriched.sourceOpportunityId = quote.opportunityId
         ? String(quote.opportunityId)
         : null;
-      return invoice;
+      return enriched;
     };
 
     // Idempotency: if an invoice already exists for this quote, return it.
@@ -101,42 +107,74 @@ export class InvoicesService {
       return d.toISOString().slice(0, 10);
     })();
 
+    type UnknownRecord = Record<string, unknown>;
+    const isRecord = (value: unknown): value is UnknownRecord =>
+      typeof value === 'object' && value !== null;
+
+    const toLineItem = (value: unknown): InvoiceLineItemInput | null => {
+      if (!isRecord(value)) {
+        return null;
+      }
+
+      const quantityRaw = value['quantity'] ?? value['qty'] ?? 0;
+      const unitPriceRaw =
+        value['unitPrice'] ?? value['price'] ?? value['unit_price'] ?? 0;
+
+      const quantity = Math.max(0, Number(quantityRaw) || 0);
+      const unitPrice = Math.max(0, Number(unitPriceRaw) || 0);
+
+      const productIdRaw = value['productId'];
+      const productId =
+        typeof productIdRaw === 'string' && this.isUuid(productIdRaw)
+          ? productIdRaw
+          : undefined;
+
+      const description = (() => {
+        const desc = value['description'];
+        if (typeof desc === 'string' && desc.trim()) {
+          return desc.trim();
+        }
+        const productName = value['productName'];
+        if (typeof productName === 'string' && productName.trim()) {
+          return productName.trim();
+        }
+        return '';
+      })();
+
+      const taxRateRaw = value['taxRate'];
+      const parsedTaxRate = (() => {
+        if (taxRateRaw === undefined || taxRateRaw === null) {
+          return undefined;
+        }
+        if (typeof taxRateRaw === 'number') {
+          return taxRateRaw;
+        }
+        if (typeof taxRateRaw === 'string') {
+          if (!taxRateRaw.trim()) {
+            return undefined;
+          }
+          return Number(taxRateRaw);
+        }
+        return undefined;
+      })();
+
+      return {
+        productId,
+        productName: description || undefined,
+        description,
+        quantity,
+        unitPrice,
+        taxRate:
+          parsedTaxRate !== undefined && Number.isFinite(parsedTaxRate)
+            ? parsedTaxRate
+            : undefined,
+      };
+    };
+
     const rawItems = Array.isArray(quote.items) ? quote.items : [];
     const lineItems: InvoiceLineItemInput[] = rawItems
-      .filter(Boolean)
-      .map((it: any) => {
-        const quantity = Math.max(0, Number(it.quantity ?? it.qty ?? 0) || 0);
-        const unitPrice = Math.max(
-          0,
-          Number(it.unitPrice ?? it.price ?? it.unit_price ?? 0) || 0,
-        );
-        const productId =
-          typeof it.productId === 'string' && this.isUuid(it.productId)
-            ? it.productId
-            : undefined;
-        const description =
-          (typeof it.description === 'string' && it.description.trim()) ||
-          (typeof it.productName === 'string' && it.productName.trim()) ||
-          '';
-
-        const taxRate =
-          it.taxRate !== undefined &&
-          it.taxRate !== null &&
-          `${it.taxRate}`.trim() !== ''
-            ? Number(it.taxRate)
-            : undefined;
-
-        return {
-          productId,
-          productName: description || undefined,
-          description,
-          quantity,
-          unitPrice,
-          taxRate: Number.isFinite(taxRate as number)
-            ? (taxRate as number)
-            : undefined,
-        } as InvoiceLineItemInput;
-      });
+      .map(toLineItem)
+      .filter((it): it is InvoiceLineItemInput => Boolean(it));
 
     const dto: CreateInvoiceDto = {
       customerId: quote.customerId || null,
@@ -519,7 +557,7 @@ export class InvoicesService {
       ),
     );
     if (sourceIds.length === 0) {
-      return invoices as any;
+      return invoices;
     }
 
     const quotes = await this.quotesRepository.find({
@@ -537,15 +575,19 @@ export class InvoicesService {
       );
     }
 
-    return invoices.map((inv) => ({
-      ...(inv as any),
-      sourceQuoteNumber: inv.sourceQuoteId
+    return invoices.map((inv) => {
+      const enriched = inv as Invoice & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      };
+      enriched.sourceQuoteNumber = inv.sourceQuoteId
         ? (byId.get(String(inv.sourceQuoteId)) ?? null)
-        : null,
-      sourceOpportunityId: inv.sourceQuoteId
+        : null;
+      enriched.sourceOpportunityId = inv.sourceQuoteId
         ? (oppById.get(String(inv.sourceQuoteId)) ?? null)
-        : null,
-    }));
+        : null;
+      return enriched;
+    });
   }
 
   async findOne(
@@ -573,15 +615,23 @@ export class InvoicesService {
           where: { tenantId, id: String(invoice.sourceQuoteId) },
           select: { id: true, quoteNumber: true, opportunityId: true },
         });
-        (invoice as any).sourceQuoteNumber = q?.quoteNumber
+        const enriched = invoice as Invoice & {
+          sourceQuoteNumber?: string | null;
+          sourceOpportunityId?: string | null;
+        };
+        enriched.sourceQuoteNumber = q?.quoteNumber
           ? String(q.quoteNumber)
           : null;
-        (invoice as any).sourceOpportunityId = q?.opportunityId
+        enriched.sourceOpportunityId = q?.opportunityId
           ? String(q.opportunityId)
           : null;
       } catch {
-        (invoice as any).sourceQuoteNumber = null;
-        (invoice as any).sourceOpportunityId = null;
+        const enriched = invoice as Invoice & {
+          sourceQuoteNumber?: string | null;
+          sourceOpportunityId?: string | null;
+        };
+        enriched.sourceQuoteNumber = null;
+        enriched.sourceOpportunityId = null;
       }
     }
 

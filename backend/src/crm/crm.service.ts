@@ -39,6 +39,13 @@ import { Sale } from '../sales/entities/sale.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 
 const DEFAULT_PIPELINE_NAME = 'Default Pipeline';
+type DefaultStageSeed = {
+  name: string;
+  order: number;
+  isClosedWon?: boolean;
+  isClosedLost?: boolean;
+};
+
 const DEFAULT_STAGES = [
   { name: 'Lead', order: 10 },
   { name: 'Qualified', order: 20 },
@@ -46,7 +53,7 @@ const DEFAULT_STAGES = [
   { name: 'Negotiation', order: 40 },
   { name: 'Won', order: 90, isClosedWon: true },
   { name: 'Lost', order: 100, isClosedLost: true },
-] as const;
+] satisfies ReadonlyArray<DefaultStageSeed>;
 
 @Injectable()
 export class CrmService {
@@ -726,8 +733,8 @@ export class CrmService {
         pipelineId: created.id,
         name: s.name,
         order: s.order,
-        isClosedWon: Boolean((s as any).isClosedWon),
-        isClosedLost: Boolean((s as any).isClosedLost),
+        isClosedWon: Boolean(s.isClosedWon),
+        isClosedLost: Boolean(s.isClosedLost),
       }),
     );
 
@@ -1684,15 +1691,19 @@ export class CrmService {
       );
     }
 
-    return sales.map((s) => ({
-      ...(s as any),
-      sourceQuoteNumber: s.sourceQuoteId
+    return sales.map((s) => {
+      const enriched = s as Sale & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      };
+      enriched.sourceQuoteNumber = s.sourceQuoteId
         ? (byId.get(String(s.sourceQuoteId)) ?? null)
-        : null,
-      sourceOpportunityId: s.sourceQuoteId
+        : null;
+      enriched.sourceOpportunityId = s.sourceQuoteId
         ? (oppById.get(String(s.sourceQuoteId)) ?? null)
-        : null,
-    }));
+        : null;
+      return enriched;
+    });
   }
 
   async listOpportunityInvoices(
@@ -1748,14 +1759,18 @@ export class CrmService {
       );
     }
 
-    return invoices.map((inv) => ({
-      ...(inv as any),
-      sourceQuoteNumber: inv.sourceQuoteId
+    return invoices.map((inv) => {
+      const enriched = inv as Invoice & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      };
+      enriched.sourceQuoteNumber = inv.sourceQuoteId
         ? (byId.get(String(inv.sourceQuoteId)) ?? null)
-        : null,
-      sourceOpportunityId: inv.sourceQuoteId
+        : null;
+      enriched.sourceOpportunityId = inv.sourceQuoteId
         ? (oppById.get(String(inv.sourceQuoteId)) ?? null)
-        : null,
-    }));
+        : null;
+      return enriched;
+    });
   }
 }

@@ -60,39 +60,72 @@ export class SalesService {
       throw new BadRequestException('Only accepted quotes can be converted');
     }
 
-    const rawItems = Array.isArray(quote.items) ? quote.items : [];
-    const items: SaleItemDto[] = rawItems.filter(Boolean).map((it: any) => {
-      const quantity = Math.max(0, Number(it.quantity ?? it.qty ?? 0) || 0);
-      const unitPrice = Math.max(
-        0,
-        Number(it.unitPrice ?? it.price ?? it.unit_price ?? 0) || 0,
-      );
-      const productId =
-        typeof it.productId === 'string' && this.isUuid(it.productId)
-          ? it.productId
-          : undefined;
-      const productName =
-        (typeof it.productName === 'string' && it.productName.trim()) ||
-        (typeof it.description === 'string' && it.description.trim()) ||
-        undefined;
+    type UnknownRecord = Record<string, unknown>;
+    const isRecord = (value: unknown): value is UnknownRecord =>
+      typeof value === 'object' && value !== null;
 
-      const taxRate =
-        it.taxRate !== undefined &&
-        it.taxRate !== null &&
-        `${it.taxRate}`.trim() !== ''
-          ? Number(it.taxRate)
+    const toSaleItem = (value: unknown): SaleItemDto | null => {
+      if (!isRecord(value)) {
+        return null;
+      }
+
+      const quantityRaw = value['quantity'] ?? value['qty'] ?? 0;
+      const unitPriceRaw =
+        value['unitPrice'] ?? value['price'] ?? value['unit_price'] ?? 0;
+      const quantity = Math.max(0, Number(quantityRaw) || 0);
+      const unitPrice = Math.max(0, Number(unitPriceRaw) || 0);
+
+      const productIdRaw = value['productId'];
+      const productId =
+        typeof productIdRaw === 'string' && this.isUuid(productIdRaw)
+          ? productIdRaw
           : undefined;
+
+      const productName = (() => {
+        const pn = value['productName'];
+        if (typeof pn === 'string' && pn.trim()) {
+          return pn.trim();
+        }
+        const desc = value['description'];
+        if (typeof desc === 'string' && desc.trim()) {
+          return desc.trim();
+        }
+        return undefined;
+      })();
+
+      const taxRateRaw = value['taxRate'];
+      const parsedTaxRate = (() => {
+        if (taxRateRaw === undefined || taxRateRaw === null) {
+          return undefined;
+        }
+        if (typeof taxRateRaw === 'number') {
+          return taxRateRaw;
+        }
+        if (typeof taxRateRaw === 'string') {
+          if (!taxRateRaw.trim()) {
+            return undefined;
+          }
+          return Number(taxRateRaw);
+        }
+        return undefined;
+      })();
 
       return {
         productId,
         productName,
         quantity,
         unitPrice,
-        taxRate: Number.isFinite(taxRate as number)
-          ? (taxRate as number)
-          : undefined,
+        taxRate:
+          parsedTaxRate !== undefined && Number.isFinite(parsedTaxRate)
+            ? parsedTaxRate
+            : undefined,
       };
-    });
+    };
+
+    const rawItems = Array.isArray(quote.items) ? quote.items : [];
+    const items: SaleItemDto[] = rawItems
+      .map(toSaleItem)
+      .filter((it): it is SaleItemDto => Boolean(it));
 
     const dto: CreateSaleDto = {
       customerId: quote.customerId || undefined,
@@ -107,13 +140,17 @@ export class SalesService {
     };
 
     const sale = await this.create(tenantId, dto);
-    (sale as any).sourceQuoteNumber = quote.quoteNumber
+    const enriched = sale as Sale & {
+      sourceQuoteNumber?: string | null;
+      sourceOpportunityId?: string | null;
+    };
+    enriched.sourceQuoteNumber = quote.quoteNumber
       ? String(quote.quoteNumber)
       : null;
-    (sale as any).sourceOpportunityId = quote.opportunityId
+    enriched.sourceOpportunityId = quote.opportunityId
       ? String(quote.opportunityId)
       : null;
-    return sale;
+    return enriched;
   }
 
   private logStockOrCustomerFailure(
@@ -385,7 +422,7 @@ export class SalesService {
       ),
     );
     if (sourceIds.length === 0) {
-      return sales as any;
+      return sales;
     }
 
     const quotes = await this.quotesRepository.find({
@@ -402,15 +439,19 @@ export class SalesService {
       );
     }
 
-    return sales.map((s) => ({
-      ...(s as any),
-      sourceQuoteNumber: s.sourceQuoteId
+    return sales.map((s) => {
+      const enriched = s as Sale & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      };
+      enriched.sourceQuoteNumber = s.sourceQuoteId
         ? (byId.get(String(s.sourceQuoteId)) ?? null)
-        : null,
-      sourceOpportunityId: s.sourceQuoteId
+        : null;
+      enriched.sourceOpportunityId = s.sourceQuoteId
         ? (oppById.get(String(s.sourceQuoteId)) ?? null)
-        : null,
-    }));
+        : null;
+      return enriched;
+    });
   }
 
   async findOne(tenantId: string, id: string): Promise<Sale> {
@@ -427,15 +468,23 @@ export class SalesService {
           where: { tenantId, id: String(sale.sourceQuoteId) },
           select: { id: true, quoteNumber: true, opportunityId: true },
         });
-        (sale as any).sourceQuoteNumber = q?.quoteNumber
+        const enriched = sale as Sale & {
+          sourceQuoteNumber?: string | null;
+          sourceOpportunityId?: string | null;
+        };
+        enriched.sourceQuoteNumber = q?.quoteNumber
           ? String(q.quoteNumber)
           : null;
-        (sale as any).sourceOpportunityId = q?.opportunityId
+        enriched.sourceOpportunityId = q?.opportunityId
           ? String(q.opportunityId)
           : null;
       } catch {
-        (sale as any).sourceQuoteNumber = null;
-        (sale as any).sourceOpportunityId = null;
+        const enriched = sale as Sale & {
+          sourceQuoteNumber?: string | null;
+          sourceOpportunityId?: string | null;
+        };
+        enriched.sourceQuoteNumber = null;
+        enriched.sourceOpportunityId = null;
       }
     }
 
