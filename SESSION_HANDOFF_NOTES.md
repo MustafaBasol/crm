@@ -1,5 +1,27 @@
 # Dev Session Notes (2025-11-24)
 
+# Dev Session Notes (2025-12-18)
+
+## Handoff (CRM: create-from-quote response enrichment) — 2025-12-18
+
+Amaç: Quote → Sale/Invoice dönüşümünde (idempotent create-from-quote) response’ların list/detail ile tutarlı olması.
+
+### Yapılan değişiklik
+
+- `POST /api/sales/from-quote/:quoteId` dönüşüne `sourceQuoteNumber` + `sourceOpportunityId` eklendi.
+- `POST /api/invoices/from-quote/:quoteId` dönüşüne aynı alanlar eklendi (idempotent existing + race fallback path’leri dahil).
+- CRM smoke test kapsamı genişletildi:
+  - Quote create response’undan `quoteNumber` alınıp create-from-quote response’larında doğrulanıyor.
+
+### Doğrulama
+
+- Backend unit test: `cd backend && npm test` → PASS
+- CRM smoke: `cd backend && ./scripts/smoke-crm.sh` → `== OK ==`
+
+İlgili commit:
+
+- 5f6467f — fix(crm): enrich from-quote responses
+
 # Dev Session Notes (2025-12-15)
 
 ## Handoff (CRM authz: opportunity stage move) — 2025-12-16

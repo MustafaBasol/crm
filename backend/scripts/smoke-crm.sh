@@ -419,12 +419,18 @@ CRM_OPP_SALES_HAS_SALE="$(json_get "$CRM_OPP_SALES_JSON" "Array.isArray(j) && j.
 CRM_OPP_SALES_HAS_SRC_NO="$(json_get "$CRM_OPP_SALES_JSON" "Array.isArray(j) && j.some(s => s && s.id === '$SALE_ID' && String(s.sourceQuoteNumber||'').length > 0)")"
 [[ "$CRM_OPP_SALES_HAS_SRC_NO" == "true" ]] || fail "CRM opportunity sales endpoint missing sourceQuoteNumber: $CRM_OPP_SALES_JSON"
 
+CRM_OPP_SALES_HAS_SRC_OPP="$(json_get "$CRM_OPP_SALES_JSON" "Array.isArray(j) && j.some(s => s && s.id === '$SALE_ID' && String(s.sourceOpportunityId||'') === '$OPP_ID')")"
+[[ "$CRM_OPP_SALES_HAS_SRC_OPP" == "true" ]] || fail "CRM opportunity sales endpoint missing sourceOpportunityId: $CRM_OPP_SALES_JSON"
+
 CRM_OPP_INVOICES_JSON="$TMP_DIR/smoke.crm.opp.invoices.json"
 http_json GET "$API_BASE/crm/opportunities/$OPP_ID/invoices" "" "$TOKEN" | tee "$CRM_OPP_INVOICES_JSON" >/dev/null
 CRM_OPP_INVOICES_HAS_INV="$(json_get "$CRM_OPP_INVOICES_JSON" "Array.isArray(j) && j.some(inv => inv && inv.id === '$INVOICE_ID')")"
 [[ "$CRM_OPP_INVOICES_HAS_INV" == "true" ]] || fail "CRM opportunity invoices endpoint missing invoice: $CRM_OPP_INVOICES_JSON"
 CRM_OPP_INVOICES_HAS_SRC_NO="$(json_get "$CRM_OPP_INVOICES_JSON" "Array.isArray(j) && j.some(inv => inv && inv.id === '$INVOICE_ID' && String(inv.sourceQuoteNumber||'').length > 0)")"
 [[ "$CRM_OPP_INVOICES_HAS_SRC_NO" == "true" ]] || fail "CRM opportunity invoices endpoint missing sourceQuoteNumber: $CRM_OPP_INVOICES_JSON"
+
+CRM_OPP_INVOICES_HAS_SRC_OPP="$(json_get "$CRM_OPP_INVOICES_JSON" "Array.isArray(j) && j.some(inv => inv && inv.id === '$INVOICE_ID' && String(inv.sourceOpportunityId||'') === '$OPP_ID')")"
+[[ "$CRM_OPP_INVOICES_HAS_SRC_OPP" == "true" ]] || fail "CRM opportunity invoices endpoint missing sourceOpportunityId: $CRM_OPP_INVOICES_JSON"
 
 OPP_DETAIL_AFTER_ACCEPT_JSON="$TMP_DIR/smoke.crm.opp.detail.after.accept.json"
 http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OPP_DETAIL_AFTER_ACCEPT_JSON" >/dev/null

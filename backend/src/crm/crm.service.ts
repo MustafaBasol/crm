@@ -1594,7 +1594,14 @@ export class CrmService {
     tenantId: string,
     user: CurrentUser,
     opportunityId: string,
-  ): Promise<Array<Sale & { sourceQuoteNumber?: string | null }>> {
+  ): Promise<
+    Array<
+      Sale & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      }
+    >
+  > {
     await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
 
     const quoteRows = await this.quoteRepo.find({
@@ -1620,19 +1627,27 @@ export class CrmService {
       }),
       this.quoteRepo.find({
         where: { tenantId, id: In(quoteIds) },
-        select: { id: true, quoteNumber: true },
+        select: { id: true, quoteNumber: true, opportunityId: true },
       }),
     ]);
 
     const byId = new Map<string, string | null>();
+    const oppById = new Map<string, string | null>();
     for (const q of quoteNumbers) {
       byId.set(String(q.id), q.quoteNumber ? String(q.quoteNumber) : null);
+      oppById.set(
+        String(q.id),
+        q.opportunityId ? String(q.opportunityId) : null,
+      );
     }
 
     return sales.map((s) => ({
       ...(s as any),
       sourceQuoteNumber: s.sourceQuoteId
         ? (byId.get(String(s.sourceQuoteId)) ?? null)
+        : null,
+      sourceOpportunityId: s.sourceQuoteId
+        ? (oppById.get(String(s.sourceQuoteId)) ?? null)
         : null,
     }));
   }
@@ -1641,7 +1656,14 @@ export class CrmService {
     tenantId: string,
     user: CurrentUser,
     opportunityId: string,
-  ): Promise<Array<Invoice & { sourceQuoteNumber?: string | null }>> {
+  ): Promise<
+    Array<
+      Invoice & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      }
+    >
+  > {
     await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
 
     const quoteRows = await this.quoteRepo.find({
@@ -1669,19 +1691,27 @@ export class CrmService {
       }),
       this.quoteRepo.find({
         where: { tenantId, id: In(quoteIds) },
-        select: { id: true, quoteNumber: true },
+        select: { id: true, quoteNumber: true, opportunityId: true },
       }),
     ]);
 
     const byId = new Map<string, string | null>();
+    const oppById = new Map<string, string | null>();
     for (const q of quoteNumbers) {
       byId.set(String(q.id), q.quoteNumber ? String(q.quoteNumber) : null);
+      oppById.set(
+        String(q.id),
+        q.opportunityId ? String(q.opportunityId) : null,
+      );
     }
 
     return invoices.map((inv) => ({
       ...(inv as any),
       sourceQuoteNumber: inv.sourceQuoteId
         ? (byId.get(String(inv.sourceQuoteId)) ?? null)
+        : null,
+      sourceOpportunityId: inv.sourceQuoteId
+        ? (oppById.get(String(inv.sourceQuoteId)) ?? null)
         : null,
     }));
   }
