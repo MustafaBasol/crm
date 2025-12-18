@@ -65,13 +65,23 @@ export class InvoicesService {
       throw new BadRequestException('Only accepted quotes can be converted');
     }
 
+    const attachSourceQuoteFields = (invoice: Invoice) => {
+      (invoice as any).sourceQuoteNumber = quote.quoteNumber
+        ? String(quote.quoteNumber)
+        : null;
+      (invoice as any).sourceOpportunityId = quote.opportunityId
+        ? String(quote.opportunityId)
+        : null;
+      return invoice;
+    };
+
     // Idempotency: if an invoice already exists for this quote, return it.
     const existing = await this.invoicesRepository.findOne({
       where: { tenantId, sourceQuoteId: quote.id },
       relations: ['customer', 'createdByUser', 'updatedByUser'],
     });
     if (existing) {
-      return existing;
+      return attachSourceQuoteFields(existing);
     }
 
     const issueDate = quote.issueDate
@@ -141,7 +151,8 @@ export class InvoicesService {
     };
 
     try {
-      return await this.create(tenantId, dto);
+      const created = await this.create(tenantId, dto);
+      return attachSourceQuoteFields(created);
     } catch (error) {
       // In case of a race with the unique constraint, return the existing invoice.
       const existingAfter = await this.invoicesRepository.findOne({
@@ -149,7 +160,7 @@ export class InvoicesService {
         relations: ['customer', 'createdByUser', 'updatedByUser'],
       });
       if (existingAfter) {
-        return existingAfter;
+        return attachSourceQuoteFields(existingAfter);
       }
       throw error;
     }

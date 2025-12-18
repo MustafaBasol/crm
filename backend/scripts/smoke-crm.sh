@@ -363,6 +363,9 @@ http_json POST "$API_BASE/quotes" "$QUOTE_CREATE_JSON" "$TOKEN" | tee "$QUOTE_CR
 QUOTE_ID="$(json_get "$QUOTE_CREATED_JSON" "j.id")"
 [[ -n "$QUOTE_ID" ]] || fail "Quote id missing in create response: $QUOTE_CREATED_JSON"
 
+QUOTE_NUMBER="$(json_get "$QUOTE_CREATED_JSON" "j.quoteNumber")"
+[[ -n "$QUOTE_NUMBER" ]] || fail "Quote quoteNumber missing in create response: $QUOTE_CREATED_JSON"
+
 QUOTE_PUBLIC_ID="$(json_get "$QUOTE_CREATED_JSON" "j.publicId")"
 [[ -n "$QUOTE_PUBLIC_ID" ]] || fail "Quote publicId missing in create response: $QUOTE_CREATED_JSON"
 
@@ -380,6 +383,11 @@ SALE_ID="$(json_get "$SALE_FROM_QUOTE_JSON" "j.id")"
 SALE_SRC_MATCH="$(json_get "$SALE_FROM_QUOTE_JSON" "j && String(j.sourceQuoteId||'') === '$QUOTE_ID'")"
 [[ "$SALE_SRC_MATCH" == "true" ]] || fail "Expected sale.sourceQuoteId to match quote id: $SALE_FROM_QUOTE_JSON"
 
+SALE_SRC_NO_MATCH="$(json_get "$SALE_FROM_QUOTE_JSON" "j && String(j.sourceQuoteNumber||'') === '$QUOTE_NUMBER'")"
+[[ "$SALE_SRC_NO_MATCH" == "true" ]] || fail "Expected sale.sourceQuoteNumber to match quoteNumber: $SALE_FROM_QUOTE_JSON"
+SALE_SRC_OPP_MATCH="$(json_get "$SALE_FROM_QUOTE_JSON" "j && String(j.sourceOpportunityId||'') === '$OPP_ID'")"
+[[ "$SALE_SRC_OPP_MATCH" == "true" ]] || fail "Expected sale.sourceOpportunityId to match opportunityId: $SALE_FROM_QUOTE_JSON"
+
 SALE_FROM_QUOTE_2_JSON="$TMP_DIR/smoke.sale.from.quote.2.json"
 http_json POST "$API_BASE/sales/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$SALE_FROM_QUOTE_2_JSON" >/dev/null
 SALE_ID_2="$(json_get "$SALE_FROM_QUOTE_2_JSON" "j.id")"
@@ -392,6 +400,11 @@ INVOICE_ID="$(json_get "$INVOICE_FROM_QUOTE_JSON" "j.id")"
 [[ -n "$INVOICE_ID" ]] || fail "Invoice id missing in create-from-quote response: $INVOICE_FROM_QUOTE_JSON"
 INVOICE_SRC_MATCH="$(json_get "$INVOICE_FROM_QUOTE_JSON" "j && String(j.sourceQuoteId||'') === '$QUOTE_ID'")"
 [[ "$INVOICE_SRC_MATCH" == "true" ]] || fail "Expected invoice.sourceQuoteId to match quote id: $INVOICE_FROM_QUOTE_JSON"
+
+INVOICE_SRC_NO_MATCH="$(json_get "$INVOICE_FROM_QUOTE_JSON" "j && String(j.sourceQuoteNumber||'') === '$QUOTE_NUMBER'")"
+[[ "$INVOICE_SRC_NO_MATCH" == "true" ]] || fail "Expected invoice.sourceQuoteNumber to match quoteNumber: $INVOICE_FROM_QUOTE_JSON"
+INVOICE_SRC_OPP_MATCH="$(json_get "$INVOICE_FROM_QUOTE_JSON" "j && String(j.sourceOpportunityId||'') === '$OPP_ID'")"
+[[ "$INVOICE_SRC_OPP_MATCH" == "true" ]] || fail "Expected invoice.sourceOpportunityId to match opportunityId: $INVOICE_FROM_QUOTE_JSON"
 
 INVOICE_FROM_QUOTE_2_JSON="$TMP_DIR/smoke.invoice.from.quote.2.json"
 http_json POST "$API_BASE/invoices/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$INVOICE_FROM_QUOTE_2_JSON" >/dev/null

@@ -101,7 +101,14 @@ export class SalesService {
       sourceQuoteId: quote.id,
     };
 
-    return this.create(tenantId, dto);
+    const sale = await this.create(tenantId, dto);
+    (sale as any).sourceQuoteNumber = quote.quoteNumber
+      ? String(quote.quoteNumber)
+      : null;
+    (sale as any).sourceOpportunityId = quote.opportunityId
+      ? String(quote.opportunityId)
+      : null;
+    return sale;
   }
 
   private logStockOrCustomerFailure(
