@@ -129,6 +129,9 @@ const Header: React.FC<HeaderProps> = ({
     if (page.startsWith('crm-activities:')) {
       return t('sidebar.crmActivities');
     }
+    if (page.startsWith('crm-activities-opp:')) {
+      return t('sidebar.crmActivities');
+    }
     if (page.startsWith('crm-tasks:')) {
       return tOrFirst(['sidebar.crmTasks', 'crm.tasks.title'], 'Tasks');
     }

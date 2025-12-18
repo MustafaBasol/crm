@@ -538,6 +538,7 @@ const AppContent: React.FC = () => {
       currentPage.startsWith('crm-opportunities:') ||
       currentPage.startsWith('crm-contacts:') ||
       currentPage.startsWith('crm-activities:') ||
+      currentPage.startsWith('crm-activities-opp:') ||
       currentPage.startsWith('crm-activities-contact:') ||
       currentPage.startsWith('crm-tasks:') ||
       currentPage.startsWith('crm-tasks-opp:') ||
@@ -2392,6 +2393,8 @@ const AppContent: React.FC = () => {
       } else if (hash.startsWith('crm-contacts:')) {
         navigate(hash);
       } else if (hash.startsWith('crm-activities:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-activities-opp:')) {
         navigate(hash);
       } else if (hash.startsWith('crm-activities-contact:')) {
         navigate(hash);
@@ -5512,6 +5515,13 @@ const AppContent: React.FC = () => {
       const accountId = currentPage.replace('crm-activities:', '');
       const account = customers.find((c) => String(c.id) === accountId);
       return <CrmActivitiesPage accountId={accountId} accountName={account?.name ?? ''} />;
+    }
+
+    // Dinamik rota: crm-activities-opp:<opportunityId>
+    if (currentPage.startsWith('crm-activities-opp:')) {
+      const opportunityId = currentPage.replace('crm-activities-opp:', '');
+      const opp = opportunities.find((o) => String(o.id) === opportunityId);
+      return <CrmActivitiesPage opportunityId={opportunityId} dealName={opp?.name ?? ''} />;
     }
 
     // Dinamik rota: crm-activities-contact:<contactId>

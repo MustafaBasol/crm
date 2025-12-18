@@ -228,6 +228,22 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
     }
   };
 
+  const openOppTasks = (id: string) => {
+    try {
+      window.location.hash = `crm-tasks-opp:${id}`;
+    } catch {
+      // ignore
+    }
+  };
+
+  const openOppActivities = (id: string) => {
+    try {
+      window.location.hash = `crm-activities-opp:${id}`;
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -365,13 +381,29 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
                   <td className="py-2 pr-4 text-gray-700">{toDateLabel(opp.expectedCloseDate, i18n.language)}</td>
                   <td className="py-2 pr-4 text-gray-700">{statusLabel(opp.status)}</td>
                   <td className="py-2">
-                    <button
-                      type="button"
-                      onClick={() => openDeal(opp.id)}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {t('crm.opportunities.actions.open')}
-                    </button>
+                    <div className="flex flex-col items-start gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openDeal(opp.id)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {t('crm.opportunities.actions.open')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openOppActivities(opp.id)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {t('sidebar.crmActivities')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openOppTasks(opp.id)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {t('sidebar.crmTasks')}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
