@@ -13,6 +13,30 @@ export default function CrmPipelineBoardPage() {
   const { formatCurrency, currency: defaultCurrency } = useCurrency();
   const { user } = useAuth();
 
+  const openDeal = (id: string) => {
+    try {
+      window.location.hash = `crm-deal:${id}`;
+    } catch {
+      // ignore
+    }
+  };
+
+  const openOppActivities = (id: string) => {
+    try {
+      window.location.hash = `crm-activities-opp:${id}`;
+    } catch {
+      // ignore
+    }
+  };
+
+  const openOppTasks = (id: string) => {
+    try {
+      window.location.hash = `crm-tasks-opp:${id}`;
+    } catch {
+      // ignore
+    }
+  };
+
   const stageLabel = (stage: crmApi.CrmStage): string => {
     const normalizedName = String(stage?.name || '').trim().toLowerCase();
     const defaultStageKey =
@@ -458,11 +482,7 @@ export default function CrmPipelineBoardPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        try {
-                          window.location.hash = `crm-deal:${opp.id}`;
-                        } catch {
-                          // ignore
-                        }
+                        openDeal(opp.id);
                       }}
                       className="text-sm font-medium truncate text-left w-full text-blue-600 hover:underline"
                     >
@@ -472,6 +492,23 @@ export default function CrmPipelineBoardPage() {
                       {formatCurrency(Number(opp.amount ?? 0), (opp.currency as any) ?? 'TRY')}
                     </div>
                     <div className="text-[11px] text-gray-500">Takım: {opp.teamUserIds?.length ?? 0}</div>
+
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => openOppActivities(opp.id)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {t('sidebar.crmActivities')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openOppTasks(opp.id)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {t('sidebar.crmTasks')}
+                      </button>
+                    </div>
 
                     <div className="mt-2">
                       <label className="block text-[11px] text-gray-500 mb-1">{t('crm.pipeline.fields.stage')}</label>
