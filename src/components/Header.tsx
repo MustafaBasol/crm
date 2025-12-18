@@ -123,6 +123,9 @@ const Header: React.FC<HeaderProps> = ({
     if (page.startsWith('crm-deal:')) {
       return t('crm.dealDetail.title');
     }
+    if (page.startsWith('crm-activities:')) {
+      return t('sidebar.crmActivities');
+    }
     const pageMap: Record<string, string> = {
       'summary': 'sidebar.summary',
       'dashboard': 'sidebar.dashboard',

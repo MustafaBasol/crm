@@ -169,7 +169,10 @@ export class CrmController {
     summary:
       'List sales linked to an opportunity (via quotes.sourceQuoteId; scoped by visibility)',
   })
-  async getOpportunitySales(@User() user: CurrentUser, @Param('id') id: string) {
+  async getOpportunitySales(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+  ) {
     return this.crmService.listOpportunitySales(user.tenantId, user, id);
   }
 

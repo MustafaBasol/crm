@@ -22,6 +22,25 @@ Amaç: Quote → Sale/Invoice dönüşümünde (idempotent create-from-quote) re
 
 - 5f6467f — fix(crm): enrich from-quote responses
 
+## Handoff (CRM: Activities deep-link + filtre standardizasyonu) — 2025-12-18
+
+Amaç: Müşteri detayından Activities’e hızlı geçiş (customer scope) + Activities listesinin filtre/boş durum davranışını standartlaştırmak.
+
+### Yapılan değişiklik
+
+- Customer → Activities deep-link eklendi: `#crm-activities:<customerId>`
+  - Hash routing + render desteği: `AppImpl`
+  - Customer modal Quick Actions: “Activities” butonu
+- Activities filtre UX’i standardize edildi:
+  - Status filtresi (all/open/completed) hem global listede hem scoped timeline’da çalışıyor.
+  - Filtre uygulanmışken sonuç yoksa `common.noResults` gösteriliyor; hiç kayıt yoksa `crm.activities.empty`.
+
+### Doğrulama
+
+- Frontend eslint (hedefli):
+  - `npx eslint src/AppImpl.tsx src/components/Header.tsx src/components/CustomerViewModal.tsx src/components/crm/CrmActivitiesPage.tsx`
+- Frontend build: `npm run build` → PASS
+
 # Dev Session Notes (2025-12-15)
 
 ## Handoff (CRM authz: opportunity stage move) — 2025-12-16
@@ -174,9 +193,69 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 
 ## Yeni sohbette devam (net yapılacaklar)
 
-1. Deal detay ekranındaki aktiviteleri “timeline” gibi göstermek (en basit: tarih alanına göre sıralama + tamamlandı filtresi/etiketi).
-2. `CrmActivity` modelini ileride Account/Contact’a da bağlayabilmek için ilişki tasarımını netleştirmek (şimdilik sadece deal/opportunity).
-3. Bu MVP akışını mock backend’den NestJS backend’e taşıma planı (Faz 1): entity/service/controller setleri.
+1. ✅ Deal detay ekranındaki aktiviteleri “timeline” gibi göstermek (tarih alanına göre sıralama + open/completed filtresi/etiketi).
+
+- Uygulama: [src/components/crm/CrmActivitiesPage.tsx](src/components/crm/CrmActivitiesPage.tsx)
+- Deal detail entegrasyonu: [src/components/crm/CrmDealDetailPage.tsx](src/components/crm/CrmDealDetailPage.tsx)
+
+2. ✅ `CrmActivity` ilişki tasarımı netleştirildi (single relation rule): activity **yalnızca bir** hedefe bağlanır: `opportunityId` **veya** `accountId` **veya** `contactId`.
+
+- Kural (list/create/update): [backend/src/crm/crm.service.ts](backend/src/crm/crm.service.ts)
+- API yüzeyi: [backend/src/crm/crm.controller.ts](backend/src/crm/crm.controller.ts)
+- DB kolon + index: [backend/src/migrations/1770300000000-EnsureCrmActivitiesAndAddContactId.ts](backend/src/migrations/1770300000000-EnsureCrmActivitiesAndAddContactId.ts)
+- Smoke doğrulama: [backend/scripts/smoke-crm.sh](backend/scripts/smoke-crm.sh)
+
+3. Bu MVP akışını mock backend’den NestJS backend’e taşıma planı (Faz 1): **bugün bitirilecek** (backend parity + smoke yeşil).
+
+### Faz 1 hedefi (MVP parity)
+
+- Frontend CRM ekranlarının ihtiyaç duyduğu endpoint seti NestJS backend’de mevcut ve smoke ile doğrulanmış olacak.
+- Minimum doğrulamalar (hepsi PASS):
+  - `npm run build:backend`
+  - `npm run lint:backend`
+  - `npm run start:backend` + `npm run smoke:crm`
+  - `npm run smoke:crm:authz`
+
+### Faz 1 kapsam (API yüzeyi)
+
+- Pipeline/Staging
+  - `POST /api/crm/pipeline/bootstrap`
+  - `GET /api/crm/stages`
+  - (opsiyonel) `GET /api/crm/board` (var; board UI için)
+- Opportunities
+  - `POST /api/crm/opportunities`
+  - `GET /api/crm/opportunities` (pagination + filter)
+  - `GET /api/crm/opportunities/:id`
+  - `PATCH /api/crm/opportunities/:id`
+  - `POST /api/crm/opportunities/:id/team`
+  - `POST /api/crm/opportunities/:id/move` (authz: tenant admin / org ADMIN|OWNER / opp owner)
+  - `GET /api/crm/opportunities/:id/sales`
+  - `GET /api/crm/opportunities/:id/invoices`
+- Leads
+  - `GET/POST/PATCH/DELETE /api/crm/leads`
+- Contacts
+  - `GET/POST/PATCH/DELETE /api/crm/contacts` (+ `accountId` filter)
+- Activities
+  - `GET/POST/PATCH/DELETE /api/crm/activities` (+ `opportunityId|accountId|contactId` filter)
+  - Kural: **single relation** (yalnızca bir filter/id alanı)
+- Tasks
+  - `GET/POST/PATCH/DELETE /api/crm/tasks` (+ `opportunityId|accountId` filter)
+
+### Faz 1 done checklist (sıra)
+
+1. Backend build/lint yeşil: `npm run build:backend` + `npm run lint:backend`
+2. Backend ayakta ve health OK: `npm run start:backend` + `GET /api/health`
+3. CRM smoke yeşil: `npm run smoke:crm`
+4. Authz smoke yeşil: `npm run smoke:crm:authz`
+5. Çıktılar/komutlar bu dokümana eklenir (bugün: timestamp + kısa özet)
+
+### Faz 1 doğrulama (2025-12-18)
+
+- Backend: `npm run start:backend` (PORT: 3000)
+- Health: `curl -sS http://127.0.0.1:3000/api/health` → 200 OK
+- CRM smoke: `npm run smoke:crm` → `== OK ==`
+  - Not: Login `EMAIL_NOT_VERIFIED` nedeniyle register token fallback ile ilerliyor (beklenen).
+- Authz smoke: `npm run smoke:crm:authz` → `== OK ==`
 
 ## Biten işler
 
@@ -254,17 +333,17 @@ Bu sohbet sıfırlanırsa devam noktası burası.
 
 Devam etmek için:
 
-1) Branch’e geç:
+1. Branch’e geç:
 
 - `git switch chore/dev-stabilize-backend-smoke`
 
-2) Backend + smoke hızlı doğrulama:
+2. Backend + smoke hızlı doğrulama:
 
 - `npm run start:backend`
 - `npm run smoke:crm`
 - `npm run smoke:crm:authz`
 
-3) PR’a gitmek istersen:
+3. PR’a gitmek istersen:
 
 - `git push -u origin chore/dev-stabilize-backend-smoke`
 - GitHub UI’dan `main`’e PR aç
@@ -277,9 +356,9 @@ Devam etmek için:
   - `start-backend.sh` ve `start-dev.sh` içinden çağrılır
   - Kapatma override: `ENSURE_POSTGRES=0 npm run start:backend`
 - Smoke kapsamı genişledi:
+
   - Activity `accountId` filter/create/delete kapsandı (CustomerViewModal path)
   - CRM tasks CRUD (create/list filter by opportunityId/patch/delete) kapsandı
-
 
 - `ExpenseList`, `SimpleSalesPage` ve `ArchivePage` paginasyon/saklanan görünüm ayarları `safeLocalStorage` helper'larına geçirildi; page-size whitelist'leri tek yerden yönetiliyor ve hatalı değerler `logger` ile raporlanıyor.
 - `SettingsPage` içindeki billing/portal bekleme bayrakları artık doğrudan `safeLocalStorage` API'sini kullanıyor; custom `window.localStorage` sarmalayıcısı kaldırıldı.
@@ -400,6 +479,39 @@ Not: `backend npm run test:e2e` yerel DB port/şifre ayarına duyarlı. CI taraf
 
 ### Sıradaki geliştirme (CRM)
 
-- Frontend’de Opportunity/Deal ekranına “Linked Docs” paneli ekle:
-  - Opportunity’ye bağlı sales/invoices listesini backend CRM endpoint’lerinden çek.
-  - Satıra tıklayınca ilgili modal deep-link/hash ile açılsın (sales-edit / invoices-edit).
+- ✅ Frontend’de Opportunity/Deal ekranına “Linked Docs” paneli eklendi:
+  - Opportunity’ye bağlı sales/invoices listeleri backend CRM endpoint’lerinden çekiliyor.
+  - Satıra tıklayınca ilgili modal deep-link/hash ile açılıyor (`sales-edit` / `invoices-edit`).
+- ✅ Opportunities list pagination/search eklendi (UI’da `GET /api/crm/opportunities` ile server-side sayfalama + arama).
+
+  - Doğrulama (2025-12-18): `npm run lint` PASS, `npm run build` PASS
+
+- ✅ Opportunities listesinde müşteri (account) filtresi eklendi (UI select + `accountId` parametresi).
+
+  - i18n: TR/EN/FR/DE `crm.opportunities.filters.account` + `crm.opportunities.filters.allAccounts`
+  - Doğrulama (2025-12-18): `npm run lint` PASS, `npm run build` PASS (Vite chunk uyarıları mevcut)
+
+- ✅ Leads ve Contacts listelerine arama eklendi; Contacts sayfasına müşteri filtresi eklendi.
+
+  - Leads/Contacts: client-side arama (`common.search`)
+  - Contacts: server-side `accountId` filtresi (`listCrmContacts({ accountId })`)
+  - i18n: TR/EN/FR/DE `common.noResults` + Lead/Contact subtitle metinleri güncellendi
+  - Doğrulama (2025-12-18): `npx eslint src/components/crm/CrmLeadsPage.tsx src/components/crm/CrmContactsPage.tsx` PASS, `npm run build` PASS
+
+- ✅ CRM liste UX iyileştirmeleri (kalite):
+
+  - Leads/Contacts/Opportunities: arama/filtre state'i sayfadan çıkıp dönünce korunuyor (sessionStorage).
+  - Contacts: müşteri adı tıklanınca `customer-history:<accountId>` ile hızlı geçiş.
+  - Opportunities: filtre aktifken boş sonuçta `common.noResults`, filtre yokken `empty` mesajı.
+  - Doğrulama (2025-12-18): `npx eslint src/components/crm/CrmLeadsPage.tsx src/components/crm/CrmContactsPage.tsx src/components/crm/CrmOpportunitiesPage.tsx` PASS, `npm run build` PASS
+
+- ✅ Customers → CRM Contacts deep-link eklendi.
+
+  - Hash rota: `#crm-contacts:<customerId>` (App routing + hash sync)
+  - Customer modal Quick Action ile tek tıkla geçiş
+  - Contacts sayfası `initialAccountId` ile otomatik müşteri filtresi
+
+- ✅ Customers → CRM Opportunities deep-link eklendi.
+  - Hash rota: `#crm-opportunities:<customerId>` (App routing + hash sync)
+  - Customer modal Quick Action ile tek tıkla geçiş
+  - Opportunities sayfası `initialAccountId` ile otomatik müşteri filtresi

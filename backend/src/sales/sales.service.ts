@@ -61,35 +61,38 @@ export class SalesService {
     }
 
     const rawItems = Array.isArray(quote.items) ? quote.items : [];
-    const items: SaleItemDto[] = rawItems
-      .filter(Boolean)
-      .map((it: any) => {
-        const quantity = Math.max(0, Number(it.quantity ?? it.qty ?? 0) || 0);
-        const unitPrice = Math.max(
-          0,
-          Number(it.unitPrice ?? it.price ?? it.unit_price ?? 0) || 0,
-        );
-        const productId = typeof it.productId === 'string' && this.isUuid(it.productId)
+    const items: SaleItemDto[] = rawItems.filter(Boolean).map((it: any) => {
+      const quantity = Math.max(0, Number(it.quantity ?? it.qty ?? 0) || 0);
+      const unitPrice = Math.max(
+        0,
+        Number(it.unitPrice ?? it.price ?? it.unit_price ?? 0) || 0,
+      );
+      const productId =
+        typeof it.productId === 'string' && this.isUuid(it.productId)
           ? it.productId
           : undefined;
-        const productName =
-          (typeof it.productName === 'string' && it.productName.trim()) ||
-          (typeof it.description === 'string' && it.description.trim()) ||
-          undefined;
+      const productName =
+        (typeof it.productName === 'string' && it.productName.trim()) ||
+        (typeof it.description === 'string' && it.description.trim()) ||
+        undefined;
 
-        const taxRate =
-          it.taxRate !== undefined && it.taxRate !== null && `${it.taxRate}`.trim() !== ''
-            ? Number(it.taxRate)
-            : undefined;
+      const taxRate =
+        it.taxRate !== undefined &&
+        it.taxRate !== null &&
+        `${it.taxRate}`.trim() !== ''
+          ? Number(it.taxRate)
+          : undefined;
 
-        return {
-          productId,
-          productName,
-          quantity,
-          unitPrice,
-          taxRate: Number.isFinite(taxRate as number) ? (taxRate as number) : undefined,
-        };
-      });
+      return {
+        productId,
+        productName,
+        quantity,
+        unitPrice,
+        taxRate: Number.isFinite(taxRate as number)
+          ? (taxRate as number)
+          : undefined,
+      };
+    });
 
     const dto: CreateSaleDto = {
       customerId: quote.customerId || undefined,
@@ -97,7 +100,9 @@ export class SalesService {
       saleDate: this.formatDateISO(quote.issueDate || new Date()),
       items,
       discountAmount: 0,
-      notes: quote.quoteNumber ? `From quote ${quote.quoteNumber}` : 'From quote',
+      notes: quote.quoteNumber
+        ? `From quote ${quote.quoteNumber}`
+        : 'From quote',
       sourceQuoteId: quote.id,
     };
 
@@ -359,9 +364,7 @@ export class SalesService {
     );
   }
 
-  async findAll(
-    tenantId: string,
-  ): Promise<
+  async findAll(tenantId: string): Promise<
     Array<
       Sale & {
         sourceQuoteNumber?: string | null;

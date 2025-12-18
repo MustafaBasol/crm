@@ -15,6 +15,7 @@
       "email": "E-mail",
       "phone": "Téléphone",
       "company": "Société",
+      "account": "Client (Compte)",
       "status": "Statut",
       "contact": "Contact",
       "title": "Titre",
@@ -71,9 +72,32 @@
         "lost": "Perdu"
       }
     },
+    "opportunities": {
+      "title": "Opportunités",
+      "subtitle": "Recherchez et filtrez vos opportunités.",
+      "searchPlaceholder": "Rechercher des opportunités...",
+      "empty": "Aucune opportunité pour l’instant.",
+      "filters": {
+        "search": "Recherche",
+        "account": "Client",
+        "status": "Statut",
+        "stage": "Étape",
+        "allAccounts": "Tous les clients",
+        "allStages": "Toutes les étapes"
+      },
+      "status": {
+        "all": "Toutes",
+        "open": "Ouvertes",
+        "won": "Gagnées",
+        "lost": "Perdues"
+      },
+      "actions": {
+        "open": "Ouvrir"
+      }
+    },
     "leads": {
       "title": "Prospects",
-      "subtitle": "L’intégration MVP de cette page arrive ensuite.",
+      "subtitle": "Listez et gérez vos prospects.",
       "empty": "Aucun prospect pour l’instant.",
       "modal": {
         "createTitle": "Ajouter un prospect",
@@ -82,7 +106,7 @@
     },
     "contacts": {
       "title": "Contacts",
-      "subtitle": "L’intégration MVP de cette page arrive ensuite.",
+      "subtitle": "Listez et gérez vos contacts.",
       "empty": "Aucun contact pour l’instant.",
       "modal": {
         "createTitle": "Ajouter un contact",
@@ -102,7 +126,6 @@
         "open": "Ouvert",
         "completed": "Terminé"
       },
-        "account": "Client (Account)",
       "modal": {
         "createTitle": "Ajouter une activité",
         "editTitle": "Modifier l’activité"
@@ -1044,6 +1067,7 @@
     "update": "Mettre à jour",
     "add": "Ajouter",
     "search": "Rechercher",
+    "noResults": "Aucun résultat.",
     "close": "Fermer",
     "back": "Retour",
     "backToHome": "Retour à l'accueil",
@@ -1283,6 +1307,7 @@
     "crm": "CRM",
     "crmDashboard": "Tableau de bord CRM",
     "crmPipeline": "Pipeline commercial",
+    "crmOpportunities": "Opportunités",
     "crmLeads": "Prospects",
     "crmContacts": "Contacts",
     "crmActivities": "Activités",

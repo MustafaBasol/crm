@@ -11,7 +11,10 @@ import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
-import { CrmOpportunity, CrmOpportunityStatus } from '../crm/entities/crm-opportunity.entity';
+import {
+  CrmOpportunity,
+  CrmOpportunityStatus,
+} from '../crm/entities/crm-opportunity.entity';
 import { CrmOpportunityMember } from '../crm/entities/crm-opportunity-member.entity';
 import { CrmStage } from '../crm/entities/crm-stage.entity';
 import type { CurrentUser } from '../common/decorators/user.decorator';
@@ -133,7 +136,10 @@ export class QuotesService {
           wonStageId = stages[0].id;
         }
       } catch (error) {
-        this.logWarning('quotes.syncLinkedOpportunityWon.stageLookupFailed', error);
+        this.logWarning(
+          'quotes.syncLinkedOpportunityWon.stageLookupFailed',
+          error,
+        );
         wonStageId = null;
       }
 
@@ -398,10 +404,16 @@ export class QuotesService {
         return await manager.getRepository(Quote).save(q);
       } catch (err: unknown) {
         // If a unique violation still happens (unexpected), surface a clear message.
-        const dbCode =
+        const dbCodeRaw: unknown =
           typeof err === 'object' && err !== null && 'code' in err
-            ? String((err as { code?: unknown }).code ?? '')
-            : '';
+            ? (err as { code?: unknown }).code
+            : undefined;
+        const dbCode =
+          typeof dbCodeRaw === 'string'
+            ? dbCodeRaw
+            : typeof dbCodeRaw === 'number'
+              ? String(dbCodeRaw)
+              : '';
         if (dbCode === '23505') {
           throw new BadRequestException(
             'Teklif numarası oluşturulurken çakışma oluştu. Lütfen tekrar deneyin.',

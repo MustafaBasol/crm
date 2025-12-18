@@ -269,15 +269,13 @@ export default function CrmActivitiesPage(
 
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
 
-  const timelineRows = useMemo(() => {
+  const filteredRows = useMemo(() => {
     const base = Array.isArray(rows) ? [...rows] : [];
-    const filtered = isScopedTimeline
-      ? base.filter((a) => {
-          if (statusFilter === 'completed') return !!a.completed;
-          if (statusFilter === 'open') return !a.completed;
-          return true;
-        })
-      : base;
+    const filtered = base.filter((a) => {
+      if (statusFilter === 'completed') return !!a.completed;
+      if (statusFilter === 'open') return !a.completed;
+      return true;
+    });
 
     const sortKey = (a: activitiesApi.CrmActivity): number => {
       return parseDateMs(a.dueAt) ?? parseDateMs(a.createdAt) ?? 0;
@@ -285,12 +283,12 @@ export default function CrmActivitiesPage(
 
     filtered.sort((a, b) => sortKey(b) - sortKey(a));
     return filtered;
-  }, [isScopedTimeline, rows, statusFilter]);
+  }, [rows, statusFilter]);
 
   const timelineGroups = useMemo(() => {
     const groups = new Map<string, { header: string; ms: number; items: activitiesApi.CrmActivity[] }>();
 
-    for (const activity of timelineRows) {
+    for (const activity of filteredRows) {
       const ms = parseDateMs(activity.dueAt) ?? parseDateMs(activity.createdAt) ?? 0;
       const header = formatDateLabel(activity.dueAt, activity.createdAt) || '-';
       const key = `${ms}:${header}`;
@@ -305,7 +303,9 @@ export default function CrmActivitiesPage(
     const arr = Array.from(groups.values());
     arr.sort((a, b) => b.ms - a.ms);
     return arr;
-  }, [timelineRows]);
+  }, [filteredRows]);
+
+  const hasNoResults = rows.length > 0 && filteredRows.length === 0;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -323,17 +323,15 @@ export default function CrmActivitiesPage(
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isScopedTimeline && (
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as ActivityStatusFilter)}
-              className="border rounded-lg px-3 py-2 text-sm border-gray-300 text-gray-700"
-            >
-              <option value="all">{t('crm.activities.filters.all')}</option>
-              <option value="open">{t('crm.activities.filters.open')}</option>
-              <option value="completed">{t('crm.activities.filters.completed')}</option>
-            </select>
-          )}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as ActivityStatusFilter)}
+            className="border rounded-lg px-3 py-2 text-sm border-gray-300 text-gray-700"
+          >
+            <option value="all">{t('crm.activities.filters.all')}</option>
+            <option value="open">{t('crm.activities.filters.open')}</option>
+            <option value="completed">{t('crm.activities.filters.completed')}</option>
+          </select>
           <button
             type="button"
             onClick={openCreate}
@@ -355,7 +353,11 @@ export default function CrmActivitiesPage(
         <div className="mt-6 text-sm text-gray-600">{t('crm.activities.empty')}</div>
       )}
 
-      {!loading && !error && rows.length > 0 && isScopedTimeline && (
+      {!loading && !error && hasNoResults && (
+        <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
+      )}
+
+      {!loading && !error && rows.length > 0 && !hasNoResults && isScopedTimeline && (
         <div className="mt-6 space-y-6">
           {timelineGroups.map((group) => (
             <div key={`${group.ms}:${group.header}`} className="space-y-3">
@@ -399,7 +401,7 @@ export default function CrmActivitiesPage(
         </div>
       )}
 
-      {!loading && !error && rows.length > 0 && !isScopedTimeline && (
+      {!loading && !error && rows.length > 0 && !hasNoResults && !isScopedTimeline && (
         <div className="mt-6 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -412,7 +414,7 @@ export default function CrmActivitiesPage(
               </tr>
             </thead>
             <tbody>
-              {timelineRows.map((activity) => (
+              {filteredRows.map((activity) => (
                 <tr key={activity.id} className="border-b last:border-b-0">
                   <td className="py-2 pr-4 text-gray-900">{activity.title}</td>
                   <td className="py-2 pr-4 text-gray-700">{activity.type || '-'}</td>

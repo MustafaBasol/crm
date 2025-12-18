@@ -3,6 +3,25 @@ import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import * as contactsApi from '../../api/crm-contacts';
 import * as customersApi from '../../api/customers';
+import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSafe';
+
+type Props = {
+  initialAccountId?: string;
+};
+
+type StoredPageState = {
+  query?: string;
+  accountFilterId?: string;
+};
+
+const PAGE_STATE_KEY = 'crm.contacts.pageState.v1';
+
+const readPageState = (): StoredPageState | null => {
+  const raw = safeSessionStorage.getItem(PAGE_STATE_KEY);
+  const parsed = parseLocalObject<StoredPageState>(raw, PAGE_STATE_KEY);
+  if (!parsed) return null;
+  return parsed;
+};
 
 type ContactFormState = {
   name: string;
@@ -20,8 +39,10 @@ const emptyForm: ContactFormState = {
   accountId: '',
 };
 
-export default function CrmContactsPage() {
+export default function CrmContactsPage({ initialAccountId }: Props) {
   const { t } = useTranslation('common');
+
+  const restored = useMemo(() => readPageState(), []);
 
   const [items, setItems] = useState<contactsApi.CrmContact[]>([]);
   const [customers, setCustomers] = useState<customersApi.Customer[]>([]);
@@ -34,6 +55,12 @@ export default function CrmContactsPage() {
   const [editing, setEditing] = useState<contactsApi.CrmContact | null>(null);
   const [form, setForm] = useState<ContactFormState>(emptyForm);
 
+  const [query, setQuery] = useState(() => (typeof restored?.query === 'string' ? restored.query : ''));
+  const [accountFilterId, setAccountFilterId] = useState(() => {
+    if (initialAccountId) return initialAccountId;
+    return typeof restored?.accountFilterId === 'string' ? restored.accountFilterId : '';
+  });
+
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<contactsApi.CrmContact | null>(null);
 
@@ -41,7 +68,9 @@ export default function CrmContactsPage() {
     setError(null);
     setLoading(true);
     try {
-      const data = await contactsApi.listCrmContacts();
+      const data = await contactsApi.listCrmContacts({
+        accountId: accountFilterId.trim() ? accountFilterId.trim() : undefined,
+      });
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(getErrorMessage(e));
@@ -61,9 +90,24 @@ export default function CrmContactsPage() {
   };
 
   useEffect(() => {
+    if (!initialAccountId) return;
+    setAccountFilterId((prev) => (prev === initialAccountId ? prev : initialAccountId));
+  }, [initialAccountId]);
+
+  useEffect(() => {
+    safeSessionStorage.setItem(
+      PAGE_STATE_KEY,
+      JSON.stringify({
+        query,
+        accountFilterId,
+      } satisfies StoredPageState),
+    );
+  }, [query, accountFilterId]);
+
+  useEffect(() => {
     void reload();
     void loadCustomers();
-  }, []);
+  }, [accountFilterId]);
 
   const openCreate = () => {
     setModalError(null);
@@ -161,6 +205,25 @@ export default function CrmContactsPage() {
     return map;
   }, [customers]);
 
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((contact) => {
+      const accountName = contact.accountId ? customerNameById.get(contact.accountId) || '' : '';
+      const haystack = [
+        contact.name,
+        contact.email,
+        contact.phone,
+        contact.company,
+        accountName,
+      ]
+        .filter((v) => typeof v === 'string')
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [rows, query, customerNameById]);
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -177,6 +240,29 @@ export default function CrmContactsPage() {
         </button>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`${t('common.search')}...`}
+          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+        />
+
+        <select
+          value={accountFilterId}
+          onChange={(e) => setAccountFilterId(e.target.value)}
+          className="w-full sm:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+        >
+          <option value="">{t('crm.opportunities.filters.allAccounts')}</option>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {loading && (
         <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>
       )}
@@ -188,7 +274,11 @@ export default function CrmContactsPage() {
         <div className="mt-6 text-sm text-gray-600">{t('crm.contacts.empty')}</div>
       )}
 
-      {!loading && !error && rows.length > 0 && (
+      {!loading && !error && rows.length > 0 && filteredRows.length === 0 && (
+        <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
+      )}
+
+      {!loading && !error && filteredRows.length > 0 && (
         <div className="mt-6 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -202,13 +292,25 @@ export default function CrmContactsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((contact) => (
+              {filteredRows.map((contact) => (
                 <tr key={contact.id} className="border-b last:border-b-0">
                   <td className="py-2 pr-4 text-gray-900">{contact.name}</td>
                   <td className="py-2 pr-4 text-gray-700">{contact.email || '-'}</td>
                   <td className="py-2 pr-4 text-gray-700">{contact.phone || '-'}</td>
                   <td className="py-2 pr-4 text-gray-700">
-                    {contact.accountId ? customerNameById.get(contact.accountId) || '-' : '-'}
+                    {contact.accountId ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `customer-history:${contact.accountId}`;
+                        }}
+                        className="text-blue-600 hover:underline text-left"
+                      >
+                        {customerNameById.get(contact.accountId) || contact.accountId}
+                      </button>
+                    ) : (
+                      '-'
+                    )}
                   </td>
                   <td className="py-2 pr-4 text-gray-700">{contact.company || '-'}</td>
                   <td className="py-2">

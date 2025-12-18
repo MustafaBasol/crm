@@ -497,9 +497,7 @@ export class InvoicesService {
     return result;
   }
 
-  async findAll(
-    tenantId: string,
-  ): Promise<
+  async findAll(tenantId: string): Promise<
     Array<
       Invoice & {
         sourceQuoteNumber?: string | null;
@@ -516,9 +514,7 @@ export class InvoicesService {
     const sourceIds = Array.from(
       new Set(
         invoices
-          .map((inv) =>
-            inv?.sourceQuoteId ? String(inv.sourceQuoteId) : '',
-          )
+          .map((inv) => (inv?.sourceQuoteId ? String(inv.sourceQuoteId) : ''))
           .filter(Boolean),
       ),
     );

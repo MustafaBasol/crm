@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
-export class AddSourceQuoteIdToInvoices1770600000000 implements MigrationInterface {
+export class AddSourceQuoteIdToInvoices1770600000000
+  implements MigrationInterface
+{
   public async up(queryRunner: QueryRunner): Promise<void> {
     const table = await queryRunner.getTable('invoices');
     const hasColumn = table?.findColumnByName('sourceQuoteId');

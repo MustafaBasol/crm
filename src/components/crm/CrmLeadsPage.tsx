@@ -2,6 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import * as leadsApi from '../../api/crm-leads';
+import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSafe';
+
+type StoredPageState = {
+  query?: string;
+};
+
+const PAGE_STATE_KEY = 'crm.leads.pageState.v1';
+
+const readPageState = (): StoredPageState | null => {
+  const raw = safeSessionStorage.getItem(PAGE_STATE_KEY);
+  const parsed = parseLocalObject<StoredPageState>(raw, PAGE_STATE_KEY);
+  if (!parsed) return null;
+  return parsed;
+};
 
 type LeadFormState = {
   name: string;
@@ -25,6 +39,13 @@ export default function CrmLeadsPage() {
   const [items, setItems] = useState<leadsApi.CrmLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const restored = useMemo(() => readPageState(), []);
+  const [query, setQuery] = useState(() => (typeof restored?.query === 'string' ? restored.query : ''));
+
+  useEffect(() => {
+    safeSessionStorage.setItem(PAGE_STATE_KEY, JSON.stringify({ query } satisfies StoredPageState));
+  }, [query]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -138,6 +159,18 @@ export default function CrmLeadsPage() {
 
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
 
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((lead) => {
+      const haystack = [lead.name, lead.email, lead.phone, lead.company, lead.status]
+        .filter((v) => typeof v === 'string')
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [rows, query]);
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -154,6 +187,16 @@ export default function CrmLeadsPage() {
         </button>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`${t('common.search')}...`}
+          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+        />
+      </div>
+
       {loading && (
         <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>
       )}
@@ -165,7 +208,11 @@ export default function CrmLeadsPage() {
         <div className="mt-6 text-sm text-gray-600">{t('crm.leads.empty')}</div>
       )}
 
-      {!loading && !error && rows.length > 0 && (
+      {!loading && !error && rows.length > 0 && filteredRows.length === 0 && (
+        <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
+      )}
+
+      {!loading && !error && filteredRows.length > 0 && (
         <div className="mt-6 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -179,7 +226,7 @@ export default function CrmLeadsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((lead) => (
+              {filteredRows.map((lead) => (
                 <tr key={lead.id} className="border-b last:border-b-0">
                   <td className="py-2 pr-4 text-gray-900">{lead.name}</td>
                   <td className="py-2 pr-4 text-gray-700">{lead.email || '-'}</td>

@@ -252,6 +252,33 @@ export default function CustomerViewModal({
                 <span>{te('customer.createInvoice', 'Create Invoice')}</span>
               </button>
               <button 
+                onClick={() => {
+                  window.location.hash = `crm-contacts:${customer.id}`;
+                  onClose();
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+              >
+                <span>{te('sidebar.crmContacts', 'CRM Contacts')}</span>
+              </button>
+              <button 
+                onClick={() => {
+                  window.location.hash = `crm-opportunities:${customer.id}`;
+                  onClose();
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+              >
+                <span>{te('sidebar.crmOpportunities', 'Opportunities')}</span>
+              </button>
+              <button 
+                onClick={() => {
+                  window.location.hash = `crm-activities:${customer.id}`;
+                  onClose();
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+              >
+                <span>{te('sidebar.crmActivities', 'Activities')}</span>
+              </button>
+              <button 
                 onClick={() => onViewHistory?.(customer)}
                 className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
               >

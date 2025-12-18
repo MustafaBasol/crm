@@ -60,6 +60,7 @@ export default function Sidebar({
       return [
         { icon: LayoutDashboard, label: t('sidebar.crmDashboard'), page: 'crm-dashboard' },
         { icon: KanbanSquare, label: t('sidebar.crmPipeline'), page: 'crm-pipeline' },
+        { icon: TrendingUp, label: t('sidebar.crmOpportunities'), page: 'crm-opportunities' },
         { icon: UserCircle, label: t('sidebar.crmLeads'), page: 'crm-leads' },
         { icon: Building2, label: t('sidebar.customers'), page: 'customers' },
         { icon: UserCircle, label: t('sidebar.crmContacts'), page: 'crm-contacts' },
