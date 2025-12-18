@@ -313,7 +313,7 @@ export class QuotesService {
     })();
 
     const next = lastSeq + 1;
-    return `${prefix}${String(next).padStart(3, '0')}`;
+    return `${prefix}${String(next).padStart(4, '0')}`;
   }
 
   async create(tenantId: string, dto: CreateQuoteDto, user?: CurrentUser) {
