@@ -322,6 +322,15 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
                       >
                         {t('common.edit')}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `crm-activities-contact:${contact.id}`;
+                        }}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {t('sidebar.crmActivities')}
+                      </button>
                       {contact.accountId ? (
                         <button
                           type="button"

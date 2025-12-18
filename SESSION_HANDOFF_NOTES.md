@@ -31,6 +31,8 @@ Amaç: Müşteri detayından Activities’e hızlı geçiş (customer scope) + A
 - Customer → Activities deep-link eklendi: `#crm-activities:<customerId>`
   - Hash routing + render desteği: `AppImpl`
   - Customer modal Quick Actions: “Activities” butonu
+- Contact → Activities deep-link eklendi: `#crm-activities-contact:<contactId>`
+  - Contacts listesinden “Activities” aksiyonu ile geçiş
 - Activities filtre UX’i standardize edildi:
   - Status filtresi (all/open/completed) hem global listede hem scoped timeline’da çalışıyor.
   - Filtre uygulanmışken sonuç yoksa `common.noResults` gösteriliyor; hiç kayıt yoksa `crm.activities.empty`.

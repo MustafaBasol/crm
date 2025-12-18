@@ -58,6 +58,8 @@ export default function CrmActivitiesPage(
   const [contacts, setContacts] = useState<contactsApi.CrmContact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
 
+  const [resolvedContactName, setResolvedContactName] = useState<string>('');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -120,6 +122,37 @@ export default function CrmActivitiesPage(
       cancelled = true;
     };
   }, [scope]);
+
+  useEffect(() => {
+    if (scope !== 'contact') {
+      setResolvedContactName('');
+      return;
+    }
+    const id = String(contactId ?? '').trim();
+    if (!id) {
+      setResolvedContactName('');
+      return;
+    }
+    if (String(contactName ?? '').trim()) {
+      setResolvedContactName('');
+      return;
+    }
+    let cancelled = false;
+    const loadContactLabel = async () => {
+      try {
+        const data = await contactsApi.listCrmContacts();
+        const list = Array.isArray(data) ? data : [];
+        const found = list.find((c) => String(c.id) === id);
+        if (!cancelled) setResolvedContactName(found?.name ?? '');
+      } catch {
+        if (!cancelled) setResolvedContactName('');
+      }
+    };
+    void loadContactLabel();
+    return () => {
+      cancelled = true;
+    };
+  }, [scope, contactId, contactName]);
 
   const parseDateMs = (value: string | null | undefined): number | null => {
     const raw = String(value ?? '').trim();
@@ -316,7 +349,7 @@ export default function CrmActivitiesPage(
             {scope === 'opportunity'
               ? t('crm.activities.subtitleForDeal', { dealName: dealName || '' })
               : scope === 'contact'
-                ? t('crm.activities.subtitleForContact', { contactName: contactName || '' })
+                ? t('crm.activities.subtitleForContact', { contactName: (contactName || resolvedContactName) || '' })
                 : scope === 'account'
                   ? t('crm.activities.subtitleForAccount', { accountName: accountName || '' })
                   : t('crm.activities.subtitle')}
