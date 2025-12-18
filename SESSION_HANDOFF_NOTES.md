@@ -368,3 +368,38 @@ Devam etmek için:
 5. **Dokümantasyon güncellemesi**
    - Bu dosyayı yeni oturumda açıp checklist olarak kullan.
    - İşler bittiğinde ilgili `README_CLEAN.md` veya spesifik özellik dokümanlarını (ör. `NOTIFICATION_PREFS.md` yoksa oluştur) güncelle.
+
+# Dev Session Notes (2025-12-18)
+
+## Handoff (CRM: quote→sale/invoice izlenebilirliği + linked docs + CI E2E fix) — 2025-12-18
+
+Bu sohbet sıfırlanırsa devam noktası burası.
+
+### Son durum
+
+- Branch: `chore/dev-stabilize-backend-smoke`
+- Son commit’ler:
+  - `5f6467f` — `fix(crm): enrich from-quote responses`
+    - Sale/Invoice `createFromQuote` response’larına `sourceQuoteNumber` + `sourceOpportunityId` eklendi.
+  - `9dd41c1` — `fix(crm): include sourceOpportunityId in linked docs`
+    - CRM opportunity linked sales/invoices endpoint’leri `sourceOpportunityId` döndürüyor (smoke assert’leri eklendi).
+  - `45aec19` — `test(e2e): assert health endpoint JSON`
+    - Backend E2E’de `/health` artık JSON döndüğü için test güncellendi (CI fail mailini kesmesi gereken fix).
+
+### Hızlı doğrulama
+
+- Backend: `npm run start:backend`
+- CRM smoke: `npm run smoke:crm`
+
+Not: `backend npm run test:e2e` yerel DB port/şifre ayarına duyarlı. CI tarafında workflow Postgres’ı `localhost:5432` ile ayağa kaldırıyor.
+
+### CI / Mail
+
+- Push sonrası gelen mail “push bildirimi” değil; GitHub Actions `Backend E2E` workflow’u fail olursa mail geliyor.
+- `45aec19` sonrası `Backend E2E / e2e` job’ı yeşil olmalı.
+
+### Sıradaki geliştirme (CRM)
+
+- Frontend’de Opportunity/Deal ekranına “Linked Docs” paneli ekle:
+  - Opportunity’ye bağlı sales/invoices listesini backend CRM endpoint’lerinden çek.
+  - Satıra tıklayınca ilgili modal deep-link/hash ile açılsın (sales-edit / invoices-edit).
