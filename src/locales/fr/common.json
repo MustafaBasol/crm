@@ -205,7 +205,23 @@
     "cta.watchDemo": "Regarder la démo",
     "hero.title": "Gérez factures, dépenses et devis depuis un seul endroit.",
     "hero.sub": "Gérez vos factures, dépenses et devis dans un espace de travail simple et unique. Gardez votre pré‑comptabilité organisée grâce au support multi‑devises (EUR, USD, TRY), au suivi des taxes par catégorie et à la génération de factures/devis PDF. Avec des liens de devis partageables, vos clients peuvent consulter les devis en ligne et les accepter ou les refuser en un clic.",
-    "hero.features.pdf": "Factures et devis PDF",
+      "tasks": {
+        "title": "Tâches",
+        "subtitleForDeal": "Tâches pour \"{{dealName}}\"",
+        "subtitleForAccount": "Tâches pour \"{{accountName}}\"",
+        "empty": "Aucune tâche pour l’instant.",
+        "dueAtPlaceholder": "ex. 2025-12-15",
+        "unassigned": "Non assigné",
+        "filters": {
+          "all": "Toutes",
+          "open": "Ouvertes",
+          "completed": "Terminées"
+        },
+        "modal": {
+          "createTitle": "Ajouter une tâche",
+          "editTitle": "Modifier la tâche"
+        }
+      },
     "hero.features.currency": "Multi‑devises (EUR / USD / TRY)",
     "hero.features.vat": "Gestion TVA / Taxes",
     "features.title": "Tout ce dont vous avez besoin pour maîtriser la pré-comptabilité",
@@ -1311,6 +1327,7 @@
     "crmLeads": "Prospects",
     "crmContacts": "Contacts",
     "crmActivities": "Activités",
+    "crmTasks": "Tâches",
     "quotes": "Devis",
     "reports": "Rapports",
     "accounting": "Comptabilité",

@@ -440,7 +440,50 @@ export class CrmService {
       });
     }
 
-    throw new BadRequestException('Provide opportunityId or accountId');
+    // Global list (no filters)
+    if (this.isAdmin(user)) {
+      return this.taskRepo.find({
+        where: { tenantId },
+        order: { updatedAt: 'DESC' },
+      });
+    }
+
+    const accessibleAccountIds = await this.getAccessibleAccountIdsForUser(
+      tenantId,
+      user,
+    );
+
+    const qb = this.taskRepo
+      .createQueryBuilder('t')
+      .distinct(true)
+      .where('t.tenantId = :tenantId', { tenantId })
+      .leftJoin(
+        CrmOpportunity,
+        'opp',
+        'opp.id = t.opportunityId AND opp.tenantId = t.tenantId',
+      )
+      .leftJoin(
+        CrmOpportunityMember,
+        'm',
+        'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+      )
+      .andWhere(
+        new Brackets((q) => {
+          q.where(
+            't.opportunityId IS NOT NULL AND (opp.ownerUserId = :userId OR m.userId = :userId)',
+            { userId: user.id },
+          );
+
+          if (accessibleAccountIds.length > 0) {
+            q.orWhere('t.accountId IN (:...accountIds)', {
+              accountIds: accessibleAccountIds,
+            });
+          }
+        }),
+      )
+      .orderBy('t.updatedAt', 'DESC');
+
+    return qb.getMany();
   }
 
   async createTask(tenantId: string, user: CurrentUser, dto: CreateTaskDto) {

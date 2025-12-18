@@ -33,6 +33,8 @@ export default function CrmTasksPage(props: {
   const dealName = props.dealName;
   const accountName = props.accountName;
 
+  const globalMode = !opportunityId && !accountId;
+
   const [items, setItems] = useState<tasksApi.CrmTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,10 +54,13 @@ export default function CrmTasksPage(props: {
     setError(null);
     setLoading(true);
     try {
-      const data = await tasksApi.listCrmTasks({
-        opportunityId: opportunityId || undefined,
-        accountId: accountId || undefined,
-      });
+      const data = await tasksApi.listCrmTasks(
+        opportunityId
+          ? { opportunityId }
+          : accountId
+            ? { accountId }
+            : undefined,
+      );
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(getErrorMessage(e));
@@ -65,12 +70,6 @@ export default function CrmTasksPage(props: {
   };
 
   useEffect(() => {
-    if (!opportunityId && !accountId) {
-      setLoading(false);
-      setItems([]);
-      setError(t('common.error') as string);
-      return;
-    }
     void reload();
   }, [opportunityId, accountId]);
 
@@ -135,7 +134,10 @@ export default function CrmTasksPage(props: {
     return base.filter((t) => !!t.completed === wantCompleted);
   }, [items, statusFilter]);
 
+  const hasNoResults = (Array.isArray(items) ? items.length : 0) > 0 && rows.length === 0;
+
   const openCreate = () => {
+    if (globalMode) return;
     setModalError(null);
     setEditing(null);
     setForm(emptyForm);
@@ -227,13 +229,15 @@ export default function CrmTasksPage(props: {
             <div className="mt-2 text-sm text-gray-500">{t('crm.tasks.subtitleForAccount', { accountName: accountName || '' })}</div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
-        >
-          {t('common.add')}
-        </button>
+        {!globalMode && (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
+          >
+            {t('common.add')}
+          </button>
+        )}
       </div>
 
       {loading && <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>}
@@ -267,7 +271,11 @@ export default function CrmTasksPage(props: {
         </div>
       )}
 
-      {!loading && !error && rows.length === 0 && (
+      {!loading && !error && hasNoResults && (
+        <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
+      )}
+
+      {!loading && !error && !hasNoResults && rows.length === 0 && (
         <div className="mt-6 text-sm text-gray-600">{t('crm.tasks.empty')}</div>
       )}
 

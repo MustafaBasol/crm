@@ -41,6 +41,30 @@ Amaç: Müşteri detayından Activities’e hızlı geçiş (customer scope) + A
   - `npx eslint src/AppImpl.tsx src/components/Header.tsx src/components/CustomerViewModal.tsx src/components/crm/CrmActivitiesPage.tsx`
 - Frontend build: `npm run build` → PASS
 
+## Handoff (CRM: Tasks deep-link + noResults standardizasyonu) — 2025-12-18
+
+Amaç: Müşteri detayından Tasks sayfasına hızlı geçiş (customer scope) + status filtre uygulandığında boş sonuç durumunu standardize etmek.
+
+### Yapılan değişiklik
+
+- Customer → Tasks deep-link eklendi: `#crm-tasks:<customerId>`
+  - Hash routing + render desteği: `AppImpl`
+  - Customer modal Quick Actions: “Tasks” butonu
+- Deal → Tasks deep-link eklendi: `#crm-tasks-opp:<opportunityId>`
+  - Hash routing + render desteği: `AppImpl`
+- Global CRM Tasks sayfası eklendi: `#crm-tasks`
+  - Sidebar menüsüne eklendi (CRM alanı)
+  - Backend `GET /api/crm/tasks` artık filter olmadan da list dönebiliyor (admin: tüm tenant; non-admin: görünür opp/account kapsamı)
+- Tasks filtre UX’i standardize edildi:
+  - Filtre uygulanmışken sonuç yoksa `common.noResults` gösteriliyor; hiç kayıt yoksa `crm.tasks.empty`.
+
+### Doğrulama
+
+- Frontend eslint (hedefli):
+  - `npx eslint src/AppImpl.tsx src/components/Header.tsx src/components/CustomerViewModal.tsx src/components/crm/CrmTasksPage.tsx`
+- Backend build: `cd backend && npm run build`
+- Frontend build: `npm run build`
+
 # Dev Session Notes (2025-12-15)
 
 ## Handoff (CRM authz: opportunity stage move) — 2025-12-16

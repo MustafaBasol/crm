@@ -265,7 +265,7 @@ export class CrmController {
 
   @Get('tasks')
   @ApiOperation({
-    summary: 'List CRM tasks (filtered by opportunityId or accountId)',
+    summary: 'List CRM tasks (optionally filtered by opportunityId or accountId)',
   })
   async listTasks(
     @User() user: CurrentUser,

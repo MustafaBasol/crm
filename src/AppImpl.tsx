@@ -100,6 +100,7 @@ import CrmOpportunitiesPage from "./components/crm/CrmOpportunitiesPage";
 import CrmLeadsPage from "./components/crm/CrmLeadsPage";
 import CrmContactsPage from "./components/crm/CrmContactsPage";
 import CrmActivitiesPage from "./components/crm/CrmActivitiesPage";
+import CrmTasksPage from "./components/crm/CrmTasksPage";
 import CrmDashboardPage from "./components/crm/CrmDashboardPage";
 import SummaryPage from "./components/summary/SummaryPage";
 import QuoteCreateModal, { type QuoteCreatePayload } from "./components/QuoteCreateModal";
@@ -333,6 +334,7 @@ const HASH_SYNC_PAGES = [
   'crm-leads',
   'crm-contacts',
   'crm-activities',
+  'crm-tasks',
   'crm-pipeline',
   'quotes',
   'reports',
@@ -535,7 +537,9 @@ const AppContent: React.FC = () => {
       currentPage.startsWith('crm-deal:') ||
       currentPage.startsWith('crm-opportunities:') ||
       currentPage.startsWith('crm-contacts:') ||
-    currentPage.startsWith('crm-activities:') ||
+      currentPage.startsWith('crm-activities:') ||
+      currentPage.startsWith('crm-tasks:') ||
+      currentPage.startsWith('crm-tasks-opp:') ||
       currentPage.startsWith('quotes-open:') ||
       currentPage.startsWith('quotes-edit:') ||
       currentPage.startsWith('sales-edit:') ||
@@ -2387,6 +2391,10 @@ const AppContent: React.FC = () => {
       } else if (hash.startsWith('crm-contacts:')) {
         navigate(hash);
       } else if (hash.startsWith('crm-activities:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-tasks:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-tasks-opp:')) {
         navigate(hash);
       } else if (hash.startsWith('quotes-open:')) {
         navigate(hash);
@@ -5503,6 +5511,20 @@ const AppContent: React.FC = () => {
       return <CrmActivitiesPage accountId={accountId} accountName={account?.name ?? ''} />;
     }
 
+    // Dinamik rota: crm-tasks:<accountId>
+    if (currentPage.startsWith('crm-tasks:')) {
+      const accountId = currentPage.replace('crm-tasks:', '');
+      const account = customers.find((c) => String(c.id) === accountId);
+      return <CrmTasksPage accountId={accountId} accountName={account?.name ?? ''} />;
+    }
+
+    // Dinamik rota: crm-tasks-opp:<opportunityId>
+    if (currentPage.startsWith('crm-tasks-opp:')) {
+      const opportunityId = currentPage.replace('crm-tasks-opp:', '');
+      const opp = opportunities.find((o) => String(o.id) === opportunityId);
+      return <CrmTasksPage opportunityId={opportunityId} dealName={opp?.name ?? ''} />;
+    }
+
     // Dinamik rota: quotes-open:<quoteId>
     if (currentPage.startsWith('quotes-open:')) {
       const quoteId = currentPage.replace('quotes-open:', '');
@@ -5584,6 +5606,8 @@ const AppContent: React.FC = () => {
         return <CrmContactsPage />;
       case "crm-activities":
         return <CrmActivitiesPage />;
+      case "crm-tasks":
+        return <CrmTasksPage />;
       case "customers":
         return (
           <CustomerList

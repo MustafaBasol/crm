@@ -126,6 +126,12 @@ const Header: React.FC<HeaderProps> = ({
     if (page.startsWith('crm-activities:')) {
       return t('sidebar.crmActivities');
     }
+    if (page.startsWith('crm-tasks:')) {
+      return tOrFirst(['sidebar.crmTasks', 'crm.tasks.title'], 'Tasks');
+    }
+    if (page.startsWith('crm-tasks-opp:')) {
+      return tOrFirst(['sidebar.crmTasks', 'crm.tasks.title'], 'Tasks');
+    }
     const pageMap: Record<string, string> = {
       'summary': 'sidebar.summary',
       'dashboard': 'sidebar.dashboard',
@@ -141,6 +147,7 @@ const Header: React.FC<HeaderProps> = ({
       'crm-leads': 'sidebar.crmLeads',
       'crm-contacts': 'sidebar.crmContacts',
       'crm-activities': 'sidebar.crmActivities',
+      'crm-tasks': 'sidebar.crmTasks',
       'quotes': 'sidebar.quotes',
       'reports': 'sidebar.reports',
       'general-ledger': 'sidebar.accounting',

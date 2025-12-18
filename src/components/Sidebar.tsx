@@ -5,6 +5,7 @@
   Package,
   TrendingUp,
   KanbanSquare,
+  CheckSquare,
   Settings,
   PieChart,
   Calculator,
@@ -65,6 +66,7 @@ export default function Sidebar({
         { icon: Building2, label: t('sidebar.customers'), page: 'customers' },
         { icon: UserCircle, label: t('sidebar.crmContacts'), page: 'crm-contacts' },
         { icon: Receipt, label: t('sidebar.crmActivities'), page: 'crm-activities' },
+        { icon: CheckSquare, label: t('sidebar.crmTasks'), page: 'crm-tasks' },
         { icon: FileText, label: t('sidebar.quotes'), page: 'quotes' },
         { icon: PieChart, label: t('sidebar.reports'), page: 'reports' },
       ];
