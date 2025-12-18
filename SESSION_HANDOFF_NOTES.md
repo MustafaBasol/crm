@@ -55,6 +55,7 @@ Amaç: Müşteri detayından Tasks sayfasına hızlı geçiş (customer scope) +
 - Global CRM Tasks sayfası eklendi: `#crm-tasks`
   - Sidebar menüsüne eklendi (CRM alanı)
   - Backend `GET /api/crm/tasks` artık filter olmadan da list dönebiliyor (admin: tüm tenant; non-admin: görünür opp/account kapsamı)
+- Contacts → Tasks quick-link eklendi (account scope): Contacts listesinden ilgili müşterinin task’larına geçiş.
 - Tasks filtre UX’i standardize edildi:
   - Filtre uygulanmışken sonuç yoksa `common.noResults` gösteriliyor; hiç kayıt yoksa `crm.tasks.empty`.
 

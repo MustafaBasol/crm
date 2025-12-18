@@ -322,6 +322,17 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
                       >
                         {t('common.edit')}
                       </button>
+                      {contact.accountId ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.location.hash = `crm-tasks:${contact.accountId}`;
+                          }}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {t('sidebar.crmTasks')}
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => startDelete(contact)}
