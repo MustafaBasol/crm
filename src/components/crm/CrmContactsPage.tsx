@@ -12,6 +12,8 @@ type Props = {
 type StoredPageState = {
   query?: string;
   accountFilterId?: string;
+  limit?: number;
+  offset?: number;
 };
 
 const PAGE_STATE_KEY = 'crm.contacts.pageState.v1';
@@ -45,6 +47,7 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
   const restored = useMemo(() => readPageState(), []);
 
   const [items, setItems] = useState<contactsApi.CrmContact[]>([]);
+  const [total, setTotal] = useState(0);
   const [customers, setCustomers] = useState<customersApi.Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +63,14 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
     if (initialAccountId) return initialAccountId;
     return typeof restored?.accountFilterId === 'string' ? restored.accountFilterId : '';
   });
+  const [limit] = useState(() => {
+    const v = restored?.limit;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 25;
+  });
+  const [offset, setOffset] = useState(() => {
+    const v = restored?.offset;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  });
 
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<contactsApi.CrmContact | null>(null);
@@ -70,8 +81,14 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
     try {
       const data = await contactsApi.listCrmContacts({
         accountId: accountFilterId.trim() ? accountFilterId.trim() : undefined,
+        q: query.trim() ? query.trim() : undefined,
+        limit,
+        offset,
       });
-      setItems(Array.isArray(data) ? data : []);
+
+      const nextItems = Array.isArray(data?.items) ? data.items : [];
+      setItems(nextItems);
+      setTotal(typeof data?.total === 'number' ? data.total : nextItems.length);
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -100,14 +117,20 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
       JSON.stringify({
         query,
         accountFilterId,
+        limit,
+        offset,
       } satisfies StoredPageState),
     );
-  }, [query, accountFilterId]);
+  }, [query, accountFilterId, limit, offset]);
 
   useEffect(() => {
     void reload();
     void loadCustomers();
-  }, [accountFilterId]);
+  }, [accountFilterId, query, limit, offset]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [accountFilterId, query, limit]);
 
   const openCreate = () => {
     setModalError(null);
@@ -194,35 +217,9 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
   };
 
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
-
-  const customerNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of customers) {
-      if (c?.id) {
-        map.set(c.id, c.name);
-      }
-    }
-    return map;
-  }, [customers]);
-
-  const filteredRows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((contact) => {
-      const accountName = contact.accountId ? customerNameById.get(contact.accountId) || '' : '';
-      const haystack = [
-        contact.name,
-        contact.email,
-        contact.phone,
-        contact.company,
-        accountName,
-      ]
-        .filter((v) => typeof v === 'string')
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [rows, query, customerNameById]);
+  const hasNoResults = !loading && !error && total > 0 && rows.length === 0;
+  const canPrev = offset > 0;
+  const canNext = offset + rows.length < total;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -263,6 +260,35 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
         </select>
       </div>
 
+      {!loading && !error && total > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!canPrev}
+            onClick={() => setOffset((v) => Math.max(0, v - limit))}
+            className={
+              canPrev
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.previous')}
+          </button>
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setOffset((v) => v + limit)}
+            className={
+              canNext
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.next')}
+          </button>
+        </div>
+      )}
+
       {loading && (
         <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>
       )}
@@ -270,15 +296,15 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
         <div className="mt-4 text-sm text-red-600">{error}</div>
       )}
 
-      {!loading && !error && rows.length === 0 && (
+      {!loading && !error && total === 0 && (
         <div className="mt-6 text-sm text-gray-600">{t('crm.contacts.empty')}</div>
       )}
 
-      {!loading && !error && rows.length > 0 && filteredRows.length === 0 && (
+      {!loading && !error && hasNoResults && (
         <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
       )}
 
-      {!loading && !error && filteredRows.length > 0 && (
+      {!loading && !error && rows.length > 0 && (
         <div className="mt-6 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -292,7 +318,7 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((contact) => (
+              {rows.map((contact) => (
                 <tr key={contact.id} className="border-b last:border-b-0">
                   <td className="py-2 pr-4 text-gray-900">{contact.name}</td>
                   <td className="py-2 pr-4 text-gray-700">{contact.email || '-'}</td>

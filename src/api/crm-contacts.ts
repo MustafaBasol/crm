@@ -23,14 +23,21 @@ export type UpdateCrmContactDto = Partial<CreateCrmContactDto>;
 
 export const listCrmContacts = async (options?: {
   accountId?: string;
-}): Promise<CrmContact[]> => {
-  const params = new URLSearchParams();
-  if (options?.accountId) {
-    params.set('accountId', options.accountId);
-  }
-
-  const suffix = params.toString() ? `?${params.toString()}` : '';
-  const res = await apiClient.get<CrmContact[]>(`/crm/contacts${suffix}`);
+  q?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<import('./crm-leads').CrmPagedResponse<CrmContact>> => {
+  const res = await apiClient.get<import('./crm-leads').CrmPagedResponse<CrmContact>>(
+    '/crm/contacts',
+    {
+      params: {
+        accountId: options?.accountId,
+        q: options?.q,
+        limit: options?.limit,
+        offset: options?.offset,
+      },
+    },
+  );
   return res.data;
 };
 

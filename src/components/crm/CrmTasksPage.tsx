@@ -36,6 +36,7 @@ export default function CrmTasksPage(props: {
   const globalMode = !opportunityId && !accountId;
 
   const [items, setItems] = useState<tasksApi.CrmTask[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,18 +51,31 @@ export default function CrmTasksPage(props: {
 
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
 
+  const [limit] = useState(25);
+  const [offset, setOffset] = useState(0);
+
   const reload = async () => {
     setError(null);
     setLoading(true);
     try {
+      const statusParam =
+        statusFilter === 'completed'
+          ? ('completed' as const)
+          : statusFilter === 'open'
+            ? ('open' as const)
+            : undefined;
+
       const data = await tasksApi.listCrmTasks(
         opportunityId
-          ? { opportunityId }
+          ? { opportunityId, status: statusParam, limit, offset }
           : accountId
-            ? { accountId }
-            : undefined,
+            ? { accountId, status: statusParam, limit, offset }
+            : { status: statusParam, limit, offset },
       );
-      setItems(Array.isArray(data) ? data : []);
+
+      const nextItems = Array.isArray(data?.items) ? data.items : [];
+      setItems(nextItems);
+      setTotal(typeof data?.total === 'number' ? data.total : nextItems.length);
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -71,11 +85,15 @@ export default function CrmTasksPage(props: {
 
   useEffect(() => {
     void reload();
-  }, [opportunityId, accountId]);
+  }, [opportunityId, accountId, statusFilter, limit, offset]);
 
   useEffect(() => {
     setStatusFilter('all');
   }, [opportunityId, accountId]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [opportunityId, accountId, statusFilter, limit]);
 
   const parseDateMs = (value: string | null | undefined): number | null => {
     const raw = String(value ?? '').trim();
@@ -127,14 +145,10 @@ export default function CrmTasksPage(props: {
     return '';
   };
 
-  const rows = useMemo(() => {
-    const base = Array.isArray(items) ? items : [];
-    if (statusFilter === 'all') return base;
-    const wantCompleted = statusFilter === 'completed';
-    return base.filter((t) => !!t.completed === wantCompleted);
-  }, [items, statusFilter]);
-
-  const hasNoResults = (Array.isArray(items) ? items.length : 0) > 0 && rows.length === 0;
+  const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
+  const hasNoResults = !loading && !error && total > 0 && rows.length === 0;
+  const canPrev = offset > 0;
+  const canNext = offset + rows.length < total;
 
   const openCreate = () => {
     if (globalMode) return;
@@ -243,6 +257,35 @@ export default function CrmTasksPage(props: {
       {loading && <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>}
       {error && <div className="mt-4 text-sm text-red-600">{error}</div>}
 
+      {!loading && !error && total > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!canPrev}
+            onClick={() => setOffset((v) => Math.max(0, v - limit))}
+            className={
+              canPrev
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.previous')}
+          </button>
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setOffset((v) => v + limit)}
+            className={
+              canNext
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.next')}
+          </button>
+        </div>
+      )}
+
       {!loading && !error && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {(
@@ -275,7 +318,7 @@ export default function CrmTasksPage(props: {
         <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
       )}
 
-      {!loading && !error && !hasNoResults && rows.length === 0 && (
+      {!loading && !error && !hasNoResults && total === 0 && (
         <div className="mt-6 text-sm text-gray-600">{t('crm.tasks.empty')}</div>
       )}
 

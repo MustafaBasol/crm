@@ -6,6 +6,8 @@ import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSa
 
 type StoredPageState = {
   query?: string;
+  limit?: number;
+  offset?: number;
 };
 
 const PAGE_STATE_KEY = 'crm.leads.pageState.v1';
@@ -37,15 +39,27 @@ export default function CrmLeadsPage() {
   const { t } = useTranslation('common');
 
   const [items, setItems] = useState<leadsApi.CrmLead[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const restored = useMemo(() => readPageState(), []);
   const [query, setQuery] = useState(() => (typeof restored?.query === 'string' ? restored.query : ''));
+  const [limit] = useState(() => {
+    const v = restored?.limit;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 25;
+  });
+  const [offset, setOffset] = useState(() => {
+    const v = restored?.offset;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  });
 
   useEffect(() => {
-    safeSessionStorage.setItem(PAGE_STATE_KEY, JSON.stringify({ query } satisfies StoredPageState));
-  }, [query]);
+    safeSessionStorage.setItem(
+      PAGE_STATE_KEY,
+      JSON.stringify({ query, limit, offset } satisfies StoredPageState),
+    );
+  }, [query, limit, offset]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -60,8 +74,14 @@ export default function CrmLeadsPage() {
     setError(null);
     setLoading(true);
     try {
-      const data = await leadsApi.listCrmLeads();
-      setItems(Array.isArray(data) ? data : []);
+      const data = await leadsApi.listCrmLeads({
+        q: query.trim() ? query.trim() : undefined,
+        limit,
+        offset,
+      });
+      const nextItems = Array.isArray(data?.items) ? data.items : [];
+      setItems(nextItems);
+      setTotal(typeof data?.total === 'number' ? data.total : nextItems.length);
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -71,7 +91,11 @@ export default function CrmLeadsPage() {
 
   useEffect(() => {
     void reload();
-  }, []);
+  }, [query, limit, offset]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [query, limit]);
 
   const openCreate = () => {
     setModalError(null);
@@ -158,18 +182,10 @@ export default function CrmLeadsPage() {
   };
 
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
-
-  const filteredRows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((lead) => {
-      const haystack = [lead.name, lead.email, lead.phone, lead.company, lead.status]
-        .filter((v) => typeof v === 'string')
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [rows, query]);
+  const hasActiveQuery = Boolean(query.trim());
+  const hasNoResults = !loading && !error && total > 0 && rows.length === 0;
+  const canPrev = offset > 0;
+  const canNext = offset + rows.length < total;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -197,6 +213,35 @@ export default function CrmLeadsPage() {
         />
       </div>
 
+      {!loading && !error && total > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!canPrev}
+            onClick={() => setOffset((v) => Math.max(0, v - limit))}
+            className={
+              canPrev
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.previous')}
+          </button>
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setOffset((v) => v + limit)}
+            className={
+              canNext
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.next')}
+          </button>
+        </div>
+      )}
+
       {loading && (
         <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>
       )}
@@ -204,15 +249,15 @@ export default function CrmLeadsPage() {
         <div className="mt-4 text-sm text-red-600">{error}</div>
       )}
 
-      {!loading && !error && rows.length === 0 && (
+      {!loading && !error && total === 0 && (
         <div className="mt-6 text-sm text-gray-600">{t('crm.leads.empty')}</div>
       )}
 
-      {!loading && !error && rows.length > 0 && filteredRows.length === 0 && (
+      {!loading && !error && hasNoResults && (
         <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
       )}
 
-      {!loading && !error && filteredRows.length > 0 && (
+      {!loading && !error && rows.length > 0 && (
         <div className="mt-6 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -226,7 +271,7 @@ export default function CrmLeadsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((lead) => (
+              {rows.map((lead) => (
                 <tr key={lead.id} className="border-b last:border-b-0">
                   <td className="py-2 pr-4 text-gray-900">{lead.name}</td>
                   <td className="py-2 pr-4 text-gray-700">{lead.email || '-'}</td>

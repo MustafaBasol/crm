@@ -37,8 +37,17 @@ export class CrmController {
 
   @Get('leads')
   @ApiOperation({ summary: 'List CRM leads' })
-  async listLeads(@User() user: CurrentUser) {
-    return this.crmService.listLeads(user.tenantId);
+  async listLeads(
+    @User() user: CurrentUser,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.crmService.listLeads(user.tenantId, {
+      q,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
   }
 
   @Post('leads')
@@ -68,8 +77,16 @@ export class CrmController {
   async listContacts(
     @User() user: CurrentUser,
     @Query('accountId') accountId?: string,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.crmService.listContacts(user.tenantId, user, { accountId });
+    return this.crmService.listContacts(user.tenantId, user, {
+      accountId,
+      q,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
   }
 
   @Post('contacts')
@@ -230,11 +247,17 @@ export class CrmController {
     @Query('opportunityId') opportunityId?: string,
     @Query('accountId') accountId?: string,
     @Query('contactId') contactId?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
     return this.crmService.listActivities(user.tenantId, user, {
       opportunityId,
       accountId,
       contactId,
+      status,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
     });
   }
 
@@ -272,10 +295,16 @@ export class CrmController {
     @User() user: CurrentUser,
     @Query('opportunityId') opportunityId?: string,
     @Query('accountId') accountId?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
     return this.crmService.listTasks(user.tenantId, user, {
       opportunityId,
       accountId,
+      status,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
     });
   }
 

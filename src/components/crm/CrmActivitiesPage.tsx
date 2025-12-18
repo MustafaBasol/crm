@@ -52,6 +52,7 @@ export default function CrmActivitiesPage(
   const isScopedTimeline = scope !== 'global';
 
   const [items, setItems] = useState<activitiesApi.CrmActivity[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +72,9 @@ export default function CrmActivitiesPage(
 
   const [statusFilter, setStatusFilter] = useState<ActivityStatusFilter>('all');
 
+  const [limit] = useState(25);
+  const [offset, setOffset] = useState(0);
+
   const canPickContactInModal =
     scope === 'global' && !(editing?.opportunityId || editing?.accountId);
 
@@ -78,16 +82,26 @@ export default function CrmActivitiesPage(
     setError(null);
     setLoading(true);
     try {
+      const statusParam =
+        statusFilter === 'completed'
+          ? ('completed' as const)
+          : statusFilter === 'open'
+            ? ('open' as const)
+            : undefined;
+
       const data = await activitiesApi.listCrmActivities(
         scope === 'opportunity'
-          ? { opportunityId: opportunityId as string }
+          ? { opportunityId: opportunityId as string, status: statusParam, limit, offset }
           : scope === 'contact'
-            ? { contactId: contactId as string }
+            ? { contactId: contactId as string, status: statusParam, limit, offset }
             : scope === 'account'
-              ? { accountId: accountId as string }
-              : undefined,
+              ? { accountId: accountId as string, status: statusParam, limit, offset }
+              : { status: statusParam, limit, offset },
       );
-      setItems(Array.isArray(data) ? data : []);
+
+      const nextItems = Array.isArray(data?.items) ? data.items : [];
+      setItems(nextItems);
+      setTotal(typeof data?.total === 'number' ? data.total : nextItems.length);
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -97,11 +111,15 @@ export default function CrmActivitiesPage(
 
   useEffect(() => {
     void reload();
-  }, [opportunityId, contactId, accountId]);
+  }, [opportunityId, contactId, accountId, statusFilter, limit, offset]);
 
   useEffect(() => {
     setStatusFilter('all');
   }, [opportunityId, contactId, accountId]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [opportunityId, contactId, accountId, statusFilter, limit]);
 
   useEffect(() => {
     if (scope !== 'global') return;
@@ -109,8 +127,9 @@ export default function CrmActivitiesPage(
     const loadContacts = async () => {
       try {
         setContactsLoading(true);
-        const data = await contactsApi.listCrmContacts();
-        if (!cancelled) setContacts(Array.isArray(data) ? data : []);
+        const data = await contactsApi.listCrmContacts({ limit: 200, offset: 0 });
+        const list = Array.isArray(data?.items) ? data.items : [];
+        if (!cancelled) setContacts(list);
       } catch {
         if (!cancelled) setContacts([]);
       } finally {
@@ -140,8 +159,8 @@ export default function CrmActivitiesPage(
     let cancelled = false;
     const loadContactLabel = async () => {
       try {
-        const data = await contactsApi.listCrmContacts();
-        const list = Array.isArray(data) ? data : [];
+        const data = await contactsApi.listCrmContacts({ limit: 200, offset: 0 });
+        const list = Array.isArray(data?.items) ? data.items : [];
         const found = list.find((c) => String(c.id) === id);
         if (!cancelled) setResolvedContactName(found?.name ?? '');
       } catch {
@@ -304,19 +323,13 @@ export default function CrmActivitiesPage(
 
   const filteredRows = useMemo(() => {
     const base = Array.isArray(rows) ? [...rows] : [];
-    const filtered = base.filter((a) => {
-      if (statusFilter === 'completed') return !!a.completed;
-      if (statusFilter === 'open') return !a.completed;
-      return true;
-    });
-
     const sortKey = (a: activitiesApi.CrmActivity): number => {
       return parseDateMs(a.dueAt) ?? parseDateMs(a.createdAt) ?? 0;
     };
 
-    filtered.sort((a, b) => sortKey(b) - sortKey(a));
-    return filtered;
-  }, [rows, statusFilter]);
+    base.sort((a, b) => sortKey(b) - sortKey(a));
+    return base;
+  }, [rows]);
 
   const timelineGroups = useMemo(() => {
     const groups = new Map<string, { header: string; ms: number; items: activitiesApi.CrmActivity[] }>();
@@ -338,7 +351,10 @@ export default function CrmActivitiesPage(
     return arr;
   }, [filteredRows]);
 
-  const hasNoResults = rows.length > 0 && filteredRows.length === 0;
+  const hasNoResults = !loading && !error && total > 0 && filteredRows.length === 0;
+
+  const canPrev = offset > 0;
+  const canNext = offset + rows.length < total;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -382,7 +398,36 @@ export default function CrmActivitiesPage(
         <div className="mt-4 text-sm text-red-600">{error}</div>
       )}
 
-      {!loading && !error && rows.length === 0 && (
+      {!loading && !error && total > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!canPrev}
+            onClick={() => setOffset((v) => Math.max(0, v - limit))}
+            className={
+              canPrev
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.previous')}
+          </button>
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setOffset((v) => v + limit)}
+            className={
+              canNext
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.next')}
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && total === 0 && (
         <div className="mt-6 text-sm text-gray-600">{t('crm.activities.empty')}</div>
       )}
 
