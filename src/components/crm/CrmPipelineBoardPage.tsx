@@ -207,6 +207,20 @@ export default function CrmPipelineBoardPage() {
       list.push(o);
       map.set(o.stageId, list);
     }
+
+    const ms = (iso: string | null | undefined) => {
+      if (!iso) return 0;
+      const t = new Date(iso).getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
+
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        const diff = ms(b.updatedAt) - ms(a.updatedAt);
+        if (diff !== 0) return diff;
+        return String(a.name ?? '').localeCompare(String(b.name ?? ''));
+      });
+    }
     return map;
   }, [stages, opportunities]);
 

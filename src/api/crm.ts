@@ -26,6 +26,8 @@ export type CrmOpportunity = {
   stageId: string;
   accountId: string;
   ownerUserId: string;
+  createdAt: string;
+  updatedAt: string;
   expectedCloseDate: string | null;
   status: 'open' | 'won' | 'lost';
   teamUserIds: string[];
