@@ -494,6 +494,9 @@ http_json GET "$API_BASE/crm/opportunities?limit=50&offset=0" "" "$TOKEN" | tee 
 OPPS_LIST_HAS_OPP="$(json_get "$OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID')")"
 [[ "$OPPS_LIST_HAS_OPP" == "true" ]] || fail "Owner opportunities list missing created opportunity: $OPPS_LIST_JSON"
 
+OPPS_LIST_HAS_TS_FIELDS="$(json_get "$OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID' && String(o.createdAt||'').length > 0 && String(o.updatedAt||'').length > 0)")"
+[[ "$OPPS_LIST_HAS_TS_FIELDS" == "true" ]] || fail "Owner opportunities list missing createdAt/updatedAt fields: $OPPS_LIST_JSON"
+
 echo "== CRM: opportunities list sorting (name ASC) =="
 OPP_SORT_Q="OppSort$TS"
 OPP_SORT_A_CREATE="$TMP_DIR/smoke.opportunity.sort.a.create.json"
