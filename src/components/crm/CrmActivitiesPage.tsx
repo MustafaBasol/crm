@@ -3,6 +3,24 @@ import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import * as activitiesApi from '../../api/crm-activities';
 import * as contactsApi from '../../api/crm-contacts';
+import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSafe';
+
+type StoredPageState = {
+  query?: string;
+  statusFilter?: string;
+  sortKey?: string;
+  limit?: number;
+  offset?: number;
+};
+
+const PAGE_STATE_KEY = 'crm.activities.pageState.v1';
+
+const readPageState = (): StoredPageState | null => {
+  const raw = safeSessionStorage.getItem(PAGE_STATE_KEY);
+  const parsed = parseLocalObject<StoredPageState>(raw, PAGE_STATE_KEY);
+  if (!parsed) return null;
+  return parsed;
+};
 
 type ActivityStatusFilter = 'all' | 'open' | 'completed';
 
@@ -72,14 +90,42 @@ export default function CrmActivitiesPage(
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<activitiesApi.CrmActivity | null>(null);
 
-  const [statusFilter, setStatusFilter] = useState<ActivityStatusFilter>('all');
+  const restored = useMemo(() => (scope === 'global' ? readPageState() : null), []);
 
-  const [sortKey, setSortKey] = useState<ActivitySortKey>('updatedDesc');
+  const [statusFilter, setStatusFilter] = useState<ActivityStatusFilter>(() => {
+    const v = restored?.statusFilter;
+    const allowed: ActivityStatusFilter[] = ['all', 'open', 'completed'];
+    return typeof v === 'string' && (allowed as string[]).includes(v)
+      ? (v as ActivityStatusFilter)
+      : 'all';
+  });
 
-  const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<ActivitySortKey>(() => {
+    const v = restored?.sortKey;
+    const allowed: ActivitySortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'titleAsc', 'titleDesc'];
+    return typeof v === 'string' && (allowed as string[]).includes(v)
+      ? (v as ActivitySortKey)
+      : 'updatedDesc';
+  });
 
-  const [limit] = useState(25);
-  const [offset, setOffset] = useState(0);
+  const [query, setQuery] = useState(() => (typeof restored?.query === 'string' ? restored.query : ''));
+
+  const [limit] = useState(() => {
+    const v = restored?.limit;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 25;
+  });
+  const [offset, setOffset] = useState(() => {
+    const v = restored?.offset;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  });
+
+  useEffect(() => {
+    if (scope !== 'global') return;
+    safeSessionStorage.setItem(
+      PAGE_STATE_KEY,
+      JSON.stringify({ query, statusFilter, sortKey, limit, offset } satisfies StoredPageState),
+    );
+  }, [scope, query, statusFilter, sortKey, limit, offset]);
 
   const canPickContactInModal =
     scope === 'global' && !(editing?.opportunityId || editing?.accountId);
