@@ -268,8 +268,8 @@ async function bootstrap() {
 
     console.log('✅ Kullanıcılar oluşturuldu');
 
-    // 3. Demo Müşteriler
-    console.log('👥 Müşteriler oluşturuluyor...');
+    // 3. Demo Hesaplar
+    console.log('👥 Hesaplar oluşturuluyor...');
 
     await dataSource.query(
       `
@@ -308,7 +308,7 @@ async function bootstrap() {
       ],
     );
 
-    console.log('✅ Müşteriler oluşturuldu');
+    console.log('✅ Hesaplar oluşturuldu');
 
     // 4. Demo Tedarikçiler
     console.log('🏢 Tedarikçiler oluşturuluyor...');

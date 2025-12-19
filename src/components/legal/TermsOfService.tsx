@@ -26,7 +26,7 @@ const TermsOfService: React.FC = () => {
             invoicing: "Fatura oluşturma ve yönetimi",
             expenses: "Gider takibi ve kategorilendirme",
             reporting: "Finansal raporlama ve analiz",
-            multiTenant: "Çoklu müşteri yönetimi"
+            multiTenant: "Çoklu hesap yönetimi"
           }
         },
         serviceEmails: {
@@ -94,7 +94,7 @@ const TermsOfService: React.FC = () => {
             invoicing: "Invoice creation and management",
             expenses: "Expense tracking and categorization",
             reporting: "Financial reporting and analysis",
-            multiTenant: "Multi-client management"
+            multiTenant: "Multi-account management"
           }
         },
         serviceEmails: {
@@ -162,7 +162,7 @@ const TermsOfService: React.FC = () => {
             invoicing: "Rechnungserstellung und -verwaltung",
             expenses: "Ausgabenverfolgung und -kategorisierung",
             reporting: "Finanzberichterstattung und -analyse",
-            multiTenant: "Multi-Kunden-Management"
+            multiTenant: "Multi-Account-Management"
           }
         },
         serviceEmails: {
@@ -230,7 +230,7 @@ const TermsOfService: React.FC = () => {
             invoicing: "Création et gestion de factures",
             expenses: "Suivi et catégorisation des dépenses",
             reporting: "Rapports financiers et analyse",
-            multiTenant: "Gestion multi-clients"
+            multiTenant: "Gestion multi-comptes"
           }
         },
         serviceEmails: {

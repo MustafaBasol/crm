@@ -190,7 +190,7 @@ export default function CustomerList({
       }
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', 'customer_import_template.csv');
+      link.setAttribute('download', 'account_import_template.csv');
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -206,7 +206,7 @@ export default function CustomerList({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
         <div className="flex-1 min-w-0">
           <h2 className="text-xl font-semibold text-gray-900">
-            {selectionMode ? 'Müşteri Seç' : t('customers.title')}
+            {selectionMode ? 'Hesap Seç' : t('customers.title')}
           </h2>
           <p className="text-sm text-gray-500">
             {safeCustomers.length} {t('customers.customersRegistered')}
@@ -385,7 +385,7 @@ export default function CustomerList({
 
   const renderCustomerRow = (customer: Customer, index: number) => {
     const customerId = customer?.id != null ? String(customer.id) : `customer-${index}`;
-    const displayName = customer?.name?.trim() || 'İsimsiz Müşteri';
+    const displayName = customer?.name?.trim() || 'İsimsiz Hesap';
     const displayEmail = customer?.email || 'E-posta bilgisi yok';
     const displayPhone = customer?.phone;
     const initials = displayName.charAt(0).toUpperCase() || '?';

@@ -403,7 +403,7 @@ export class BillingService {
     if (!tenant.stripeSubscriptionId)
       throw new BadRequestException('No active subscription to update');
     if (!tenant.stripeCustomerId)
-      throw new BadRequestException('No Stripe customer');
+      throw new BadRequestException('No Stripe account');
 
     const desiredEnum = this.toPlanEnum(String(params.plan));
     const desiredPlanKey = this.fromPlanEnum(desiredEnum);
@@ -790,7 +790,7 @@ export class BillingService {
     if (!tenant.stripeSubscriptionId)
       throw new BadRequestException('No active subscription');
     if (!tenant.stripeCustomerId)
-      throw new BadRequestException('No Stripe customer');
+      throw new BadRequestException('No Stripe account');
     if (additional <= 0)
       throw new BadRequestException('Additional users must be > 0');
 
@@ -1144,7 +1144,7 @@ export class BillingService {
     const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });
     if (!tenant) throw new NotFoundException('Tenant not found');
     if (!tenant.stripeCustomerId) {
-      return { success: false, message: 'Stripe müşteri bulunamadı' };
+      return { success: false, message: 'Stripe hesap bulunamadı' };
     }
 
     // Throttle: son 5 sn içinde sync yapıldıysa hızlı exit

@@ -745,7 +745,7 @@ const AdminPage: React.FC = () => {
           </div>
           <div className="bg-green-50 rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-green-600">{stats.customers}</div>
-            <div className="text-sm text-green-800">Müşteri</div>
+            <div className="text-sm text-green-800">Hesap</div>
           </div>
           <div className="bg-purple-50 rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-purple-600">{stats.suppliers}</div>
@@ -1350,7 +1350,7 @@ const AdminPage: React.FC = () => {
                                 <div className="text-sm text-gray-500">
                                   Fatura bulunamadı.
                                   {showStripeHint && (
-                                    <span className="ml-1 text-xs text-gray-400">(Stripe müşteri ID yok – ilk abonelik/fatura işlemi sonrası oluşur)</span>
+                                    <span className="ml-1 text-xs text-gray-400">(Stripe hesap ID yok – ilk abonelik/fatura işlemi sonrası oluşur)</span>
                                   )}
                                 </div>
                               )}

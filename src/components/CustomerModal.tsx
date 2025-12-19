@@ -102,9 +102,9 @@ export default function CustomerModal({ isOpen, onClose, onSave, customer }: Cus
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                {customer ? tx('customers.editCustomer', 'Edit Customer') : tx('customers.newCustomer', 'Add New Customer')}
+                {customer ? tx('customers.editCustomer', 'Edit Account') : tx('customers.newCustomer', 'Add New Account')}
               </h2>
-              <p className="text-sm text-gray-500">{tx('customers.enterCustomerInfo', 'Enter customer information')}</p>
+              <p className="text-sm text-gray-500">{tx('customers.enterCustomerInfo', 'Enter account information')}</p>
             </div>
           </div>
           <button

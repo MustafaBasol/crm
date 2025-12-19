@@ -20,7 +20,7 @@
       "email": "E-posta",
       "phone": "Telefon",
       "company": "Şirket",
-      "account": "Müşteri (Account)",
+      "account": "Hesap",
       "status": "Durum",
       "contact": "Kişi",
       "title": "Başlık",
@@ -56,7 +56,7 @@
       "ownerAutoInTeam": "Not: Owner otomatik olarak takımdadır.",
       "fields": {
         "opportunityName": "Fırsat Adı",
-        "account": "Müşteri (Account)",
+        "account": "Hesap",
         "amount": "Tutar",
         "currency": "Para Birimi",
         "expectedCloseDate": "Tahmini Kapanış",
@@ -65,7 +65,7 @@
       },
       "validation": {
         "nameRequired": "Fırsat adı zorunlu",
-        "accountRequired": "Müşteri (Account) seçmelisiniz",
+        "accountRequired": "Hesap seçmelisiniz",
         "amountInvalid": "Tutar geçersiz"
       },
       "stages": {
@@ -84,10 +84,10 @@
       "empty": "Henüz fırsat yok.",
       "filters": {
         "search": "Arama",
-        "account": "Müşteri",
+        "account": "Hesap",
         "status": "Durum",
         "stage": "Aşama",
-        "allAccounts": "Tüm müşteriler",
+        "allAccounts": "Tüm hesaplar",
         "allStages": "Tüm aşamalar"
       },
       "status": {
@@ -209,10 +209,10 @@
     "cta.signin": "Giriş Yapın",
     "cta.watchDemo": "Demo İzleyin",
     "hero.title": "Fatura, gider ve tekliflerinizi tek yerden yönetin.",
-    "hero.sub": "Fatura, gider ve tekliflerinizi tek ve basit bir çalışma alanında yönetin. Çoklu para birimi (EUR, USD, TRY) desteği, kategori bazlı vergi takibi ve PDF fatura/teklif oluşturma ile ön muhasebenizi düzenli tutun. Paylaşılabilir teklif linkleri sayesinde müşterileriniz teklifleri çevrimiçi inceleyip tek tıkla kabul veya reddedebilir.",
+    "hero.sub": "Fatura, gider ve tekliflerinizi tek ve basit bir çalışma alanında yönetin. Çoklu para birimi (EUR, USD, TRY) desteği, kategori bazlı vergi takibi ve PDF fatura/teklif oluşturma ile ön muhasebenizi düzenli tutun. Paylaşılabilir teklif linkleri sayesinde hesaplarınız teklifleri çevrimiçi inceleyip tek tıkla kabul veya reddedebilir.",
     "features.title": "Ön muhasebe için ihtiyacınız olan her şey",
     "features.inv.title": "Faturalandırma",
-    "features.inv.desc": "Numaralandırma, müşteriler ve PDF dışa aktarma.",
+    "features.inv.desc": "Numaralandırma, hesaplar ve PDF dışa aktarma.",
     "features.exp.title": "Giderler",
     "features.exp.desc": "Dosya yükleme ve kategori bazlı KDV (ör. %20 FR, %18 TR).",
     "features.vat.title": "KDV ve Vergi Özetleri",
@@ -280,7 +280,7 @@
     "value.small.title": "Küçük İşletmeler İçin",
     "value.small.desc": "İşinizle birlikte büyüyen kapsamlı ön muhasebe araçları",
     "value.small.currency": "Çoklu para birimi desteği",
-    "value.small.customer": "Müşteri yönetimi",
+    "value.small.customer": "Hesap yönetimi",
     "value.small.reporting": "Gelişmiş raporlama",
     "value.growing.title": "Büyüyen Şirketler İçin",
     "value.growing.desc": "Genişleyen operasyonlarınıza uyum sağlayan ölçeklenebilir çözümler",
@@ -322,14 +322,14 @@
     "testimonials.sarah.content": "Comptario faturalandırma sürecimi tamamen basitleştirdi. Artık dakikalar içinde profesyonel faturalar oluşturabiliyor ve giderlerimi zahmetsizce takip edebiliyorum.",
     "testimonials.sarah.role": "Serbest Tasarımcı",
     "testimonials.sarah.company": "Design Studio Pro",
-    "testimonials.marcus.content": "Çoklu para birimi özelliği uluslararası müşterilerimiz için hayat kurtarıcı. KDV hesaplamaları otomatik ve doğru, saatlerce manuel çalışmayı kaydediyor.",
+    "testimonials.marcus.content": "Çoklu para birimi özelliği uluslararası iş ortaklarımız için hayat kurtarıcı. KDV hesaplamaları otomatik ve doğru, saatlerce manuel çalışmayı kaydediyor.",
     "testimonials.marcus.role": "CEO",
     "testimonials.marcus.company": "Tech Solutions GmbH",
     "testimonials.elena.content": "Küçük bir işletme olarak basit ama güçlü bir şeye ihtiyacımız vardı. Comptario bize kurumsal yazılımın karmaşıklığı olmadan ihtiyacımız olan her şeyi veriyor.",
     "testimonials.elena.role": "Küçük İşletme Sahibi",
     "testimonials.elena.company": "Yerel Fırın",
     "testimonials.stats.rating": "Ortalama Değerlendirme",
-    "testimonials.stats.customers": "Mutlu Müşteri",
+    "testimonials.stats.customers": "Mutlu Hesap",
     "testimonials.stats.countries": "Ülke",
     "pricing.subtitle": "İş ihtiyaçlarınıza uygun planı seçin. Ücretsiz başlayın ve büyüdükçe yükseltin.",
     "faq.support.title": "Hala sorularınız mı var?",
@@ -348,8 +348,8 @@
     "pricing.features.expenses5": "Ayda en fazla 5 gider kaydı",
     "pricing.features.bank1": "1 banka hesabı",
     "pricing.features.bankUnlimited": "Sınırsız banka hesabı",
-    "pricing.features.customerSupplier1": "1 müşteri ve 1 tedarikçi",
-    "pricing.features.customerSupplierUnlimited": "Sınırsız müşteri ve tedarikçi kaydı",
+    "pricing.features.customerSupplier1": "1 hesap ve 1 tedarikçi",
+    "pricing.features.customerSupplierUnlimited": "Sınırsız hesap ve tedarikçi kaydı",
     "pricing.features.unlimitedInvoicesExpenses": "Sınırsız fatura ve gider kaydı",
     "pricing.features.vat": "Kategori bazlı KDV takibi",
     "pricing.features.pdf": "PDF fatura ve teklif oluşturma",
@@ -726,7 +726,7 @@
     "totalRevenue": "Toplam Gelir",
     "totalExpense": "Toplam Gider",
     "pendingInvoices": "Bekleyen Faturalar",
-    "activeCustomers": "Aktif Müşteriler",
+    "activeCustomers": "Aktif Hesaplar",
     "vatToPay": "Ödenecek KDV",
     "vatToPaySubtitle": "Bu ay ödenen faturalar",
     "quickActions": "Hızlı İşlemler",
@@ -739,18 +739,18 @@
   },
   "quickActions": {
     "newInvoice": "Yeni Fatura",
-    "newInvoiceDesc": "Müşteri faturası oluştur",
+    "newInvoiceDesc": "Hesap faturası oluştur",
     "newExpense": "Yeni Gider",
     "newExpenseDesc": "Gider kaydı ekle",
     "newSale": "Yeni Satış",
     "newSaleDesc": "Satış işlemi kaydet",
     "newQuote": "Yeni Teklif",
-    "newQuoteDesc": "Müşteri için teklif oluştur",
-    "newCustomer": "Yeni Müşteri",
-    "newCustomerDesc": "Müşteri bilgisi ekle",
+    "newQuoteDesc": "Hesap için teklif oluştur",
+    "newCustomer": "Yeni Hesap",
+    "newCustomerDesc": "Hesap bilgisi ekle",
     "newProduct": "Yeni Ürün",
     "newProductDesc": "Ürün bilgisi ekle",
-    "customers": "Müşteriler",
+    "customers": "Hesaplar",
     "suppliers": "Tedarikçiler",
     "banks": "Banka Hesapları",
     "products": "Ürünler"
@@ -764,7 +764,7 @@
     "pending": "Bekliyor",
     "actions": "İşlemler",
     "transaction": "İşlem",
-    "customerDescription": "Müşteri/Açıklama",
+    "customerDescription": "Hesap/Açıklama",
     "amount": "Tutar",
     "status": "Durum",
     "date": "Tarih",
@@ -802,7 +802,7 @@
     "dashboard": "Ana Sayfa",
     "invoices": "Faturalar",
     "expenses": "Giderler",
-    "customers": "Müşteriler",
+    "customers": "Hesaplar",
     "products": "Ürünler",
     "suppliers": "Tedarikçiler",
     "banks": "Bankalar",
@@ -828,7 +828,7 @@
     "title": "Teklifler",
     "newQuote": "Yeni Teklif",
     "comingSoon": "Teklifler modülü için temel sayfa hazır. Gelişmiş liste, durumlar ve PDF şablonları sırada.",
-    "placeholderDescription": "Teklif oluşturma, gönderme, müşteri tarafından görüntüleme ve kabul/ret akışları bu sayfada yer alacaktır. Şimdilik yönlendirme ve menü entegrasyonu tamamlandı.",
+    "placeholderDescription": "Teklif oluşturma, gönderme, hesap tarafından görüntüleme ve kabul/ret akışları bu sayfada yer alacaktır. Şimdilik yönlendirme ve menü entegrasyonu tamamlandı.",
     "search": "Teklif ara...",
     "filterAll": "Tüm Durumlar",
     "viewModal": {
@@ -865,7 +865,7 @@
     },
     "table": {
       "quote": "Teklif",
-      "customer": "Müşteri",
+      "customer": "Hesap",
       "amount": "Tutar",
       "status": "Durum",
       "date": "Tarih",
@@ -889,8 +889,8 @@
     },
     "createModal": {
       "title": "Teklif Oluştur",
-      "customer": "Müşteri",
-      "customerPlaceholder": "Müşteri adı girin",
+      "customer": "Hesap",
+      "customerPlaceholder": "Hesap adı girin",
       "currency": "Para Birimi",
       "date": "Düzenleme Tarihi",
       "amount": "Tutar",
@@ -978,7 +978,7 @@
     "serviceSale": "Hizmet Satışı",
     "issueDate": "Düzenleme Tarihi",
     "dueDate": "Vade Tarihi",
-    "customerInfo": "Müşteri Bilgileri",
+    "customerInfo": "Hesap Bilgileri",
   "itemsServices": "Ürünler/Hizmetler",
     "generalSale": "Genel",
     "description": "Açıklama",
@@ -999,7 +999,7 @@
   "expense.amount": "Tutar",
   "expense.receipt": "Fiş",
   "expense.viewReceipt": "Fişi Görüntüle",
-  "customer.details": "Müşteri Detayları",
+  "customer.details": "Hesap Detayları",
   "customer.personalInfo": "Kişisel Bilgiler",
   "customer.name": "Ad",
   "customer.email": "E-posta",
@@ -1029,12 +1029,12 @@
     "noHistory": "Henüz İşlem Geçmişi Yok",
     "noHistoryDesc": "henüz fatura veya işlem kaydı bulunmuyor.",
     "tip": "İpucu:",
-    "tipDesc": "Bu müşteri için yeni bir fatura oluşturarak işlem geçmişini başlatabilirsiniz.",
+    "tipDesc": "Bu hesap için yeni bir fatura oluşturarak işlem geçmişini başlatabilirsiniz.",
     "createInvoice": "Fatura Oluştur",
     "sale": "Satış",
     "completed": "Tamamlandı",
     "waiting": "Bekliyor",
-  "historyPageTitle": "Müşteri Geçmişi",
+  "historyPageTitle": "Hesap Geçmişi",
   "historySubtitle": "{{name}} için tüm geçmiş işlemler",
     "historyColumns": {
       "name": "İşlem Adı/No",
@@ -1244,7 +1244,7 @@
     "newInvoice": "Yeni Fatura",
     "deleteConfirm": "Bu faturayı silmek istediğinizden emin misiniz?",
     "deleteSuccess": "Fatura silindi",
-    "search": "Fatura numarası veya müşteri ara...",
+    "search": "Fatura numarası veya hesap ara...",
     "filterAll": "Tüm Durumlar",
     "invoicesRegistered": "fatura kayıtlı",
     "inArchive": "arşivde",
@@ -1256,7 +1256,7 @@
     "noInvoicesFoundDesc": "Arama kriterlerinizle eşleşen fatura yok.",
     "createFirstInvoice": "İlk Fatura Oluştur",
     "invoiceNumber": "Fatura",
-    "customer": "Müşteri",
+    "customer": "Hesap",
     "date": "Tarih",
     "amount": "Tutar",
     "status": "Durum",
@@ -1269,7 +1269,7 @@
     "viewInvoice": "Faturayı görüntüle",
     "editInvoice": "Faturayı Düzenle",
     "createInvoice": "Fatura Oluştur",
-    "enterInvoiceInfo": "Müşteri bilgilerini ve ürün detaylarını girin",
+    "enterInvoiceInfo": "Hesap bilgilerini ve ürün detaylarını girin",
     "selectInvoiceType": "Fatura türünü seçin",
     "newSale": "Yeni Satış",
     "newSaleDescription": "Yeni bir satış kaydı oluşturup fatura kesin",
@@ -1288,8 +1288,8 @@
     "returnInvoiceAutoLoad": "💡 Seçilen faturanın ürünleri otomatik olarak negatif miktarlarla yüklenecektir.",
     "issueDate": "Düzenleme Tarihi",
     "dueDate": "Vade Tarihi",
-    "customerName": "Müşteri Adı",
-    "customerSearchPlaceholder": "Müşteri ara veya yeni müşteri adı girin",
+    "customerName": "Hesap Adı",
+    "customerSearchPlaceholder": "Hesap ara veya yeni hesap adı girin",
     "productsAndServices": "Ürün ve Hizmetler",
     "addLine": "Satır Ekle",
     "description": "Açıklama",
@@ -1365,8 +1365,8 @@
     "saleDateRequired": "Satış tarihi gereklidir",
     "unitPriceRequired": "Birim fiyat sıfırdan büyük olmalıdır",
     "quantityRequired": "Miktar sıfırdan büyük olmalıdır",
-    "customerNameRequired": "Müşteri adı gereklidir",
-    "customerNotFound": "Müşteri sistemde bulunamadı. Lütfen listeden seçin.",
+    "customerNameRequired": "Hesap adı gereklidir",
+    "customerNotFound": "Hesap sistemde bulunamadı. Lütfen listeden seçin.",
     "productNameRequired": "Ürün veya hizmet adı gereklidir",
     "productNotFound": "Ürün sistemde bulunamadı. Lütfen listeden seçin.",
     "skuRequired": "SKU zorunlu",
@@ -1374,15 +1374,15 @@
     "validStockRequired": "Geçerli stok adedi girin"
   },
   "customers": {
-    "title": "Müşteriler",
-    "newCustomer": "Yeni Müşteri",
-    "search": "Müşteri ara...",
-    "customersRegistered": "müşteri kayıtlı",
-    "noCustomers": "Henüz müşteri yok",
-    "noCustomersFound": "Müşteri bulunamadı",
-    "noCustomersDesc": "İlk müşterinizi ekleyerek başlayın.",
-    "noCustomersFoundDesc": "Arama kriterlerinizle eşleşen müşteri yok.",
-    "createFirstCustomer": "İlk Müşteri Ekle",
+    "title": "Hesaplar",
+    "newCustomer": "Yeni Hesap",
+    "search": "Hesap ara...",
+    "customersRegistered": "hesap kayıtlı",
+    "noCustomers": "Henüz hesap yok",
+    "noCustomersFound": "Hesap bulunamadı",
+    "noCustomersDesc": "İlk hesabınızı ekleyerek başlayın.",
+    "noCustomersFoundDesc": "Arama kriterlerinizle eşleşen hesap yok.",
+    "createFirstCustomer": "İlk Hesabı Ekle",
     "name": "Ad",
     "email": "E-posta",
     "phone": "Telefon",
@@ -1391,11 +1391,11 @@
     "actions": "İşlemler",
     "importCSV": "CSV/Excel İçe Aktar",
     "downloadTemplate": "Şablon İndir",
-    "editCustomer": "Müşteriyi Düzenle",
-    "addCustomer": "Müşteri Ekle",
-    "selectFromList": "Listeden müşteri seçin",
-    "customersFound": "müşteri bulundu",
-    "enterCustomerInfo": "Müşteri bilgilerini girin",
+    "editCustomer": "Hesabı Düzenle",
+    "addCustomer": "Hesap Ekle",
+    "selectFromList": "Listeden hesap seçin",
+    "customersFound": "hesap bulundu",
+    "enterCustomerInfo": "Hesap bilgilerini girin",
     "address": "Adres",
     "emailPlaceholder": "musteri@example.com",
     "addressPlaceholder": "Tam adres bilgisi...",
@@ -1405,13 +1405,13 @@
     "companyPlaceholder": "ABC Teknoloji Ltd.",
     "duplicate": {
       "title": "Aynı E-posta ile Kayıt Var",
-      "message": "Bu e-posta ({{email}}) ile zaten bir müşteri kayıtlı: {{name}}. Lütfen listeden mevcut kaydı seçin veya düzenleyin.",
-      "openExisting": "Mevcut müşteriyi aç"
+      "message": "Bu e-posta ({{email}}) ile zaten bir hesap kayıtlı: {{name}}. Lütfen listeden mevcut kaydı seçin veya düzenleyin.",
+      "openExisting": "Mevcut hesabı aç"
     },
     "import": {
       "noDataFound": "Dosyada veri bulunamadı.",
-      "noCustomersFound": "Dosyada aktarılacak müşteri bulunamadı.",
-      "success": "{{count}} müşteri başarıyla içe aktarıldı!",
+      "noCustomersFound": "Dosyada aktarılacak hesap bulunamadı.",
+      "success": "{{count}} hesap başarıyla içe aktarıldı!",
       "error": "İçe aktarma sırasında hata oluştu."
     }
   },
@@ -1527,7 +1527,7 @@
   "common.remindMeLater": "Daha Sonra Hatırlat",
   "common.now": "Şimdi",
   "common.generic": {
-    "customer": "Müşteri",
+    "customer": "Hesap",
     "supplier": "Tedarikçi",
     "expense": "Gider",
     "quote": "Teklif"
@@ -1548,10 +1548,10 @@
       "createSuccess": "Fatura başarıyla oluşturuldu"
     },
     "customers": {
-      "updateSuccess": "Müşteri güncellendi",
-      "createSuccess": "Müşteri eklendi",
-      "deleteSuccess": "Müşteri silindi",
-      "deleteError": "Müşteri silinemedi"
+      "updateSuccess": "Hesap güncellendi",
+      "createSuccess": "Hesap eklendi",
+      "deleteSuccess": "Hesap silindi",
+      "deleteError": "Hesap silinemedi"
     },
     "suppliers": {
       "updateSuccess": "Tedarikçi güncellendi",
@@ -1560,7 +1560,7 @@
       "deleteError": "Tedarikçi silinemedi"
     },
     "sales": {
-      "customerNotSelected": "Müşteri seçilmedi! Lütfen geçerli bir müşteri seçin.",
+      "customerNotSelected": "Hesap seçilmedi! Lütfen geçerli bir hesap seçin.",
       "insufficientStock": "❌ Yetersiz stok! {{name}} - Mevcut: {{available}}, İstenen: {{requested}}",
       "createSuccess": "Satış kaydedildi",
       "updateSuccess": "Satış güncellendi",
@@ -1568,7 +1568,7 @@
       "stockUpdateFailed": "Satış kaydedildi ancak stok güncellenemedi",
       "deleteError": "Satış silinemedi",
       "deleteSuccess": "Satış başarıyla silindi",
-      "customerNotFound": "Müşteri bulunamadı! Lütfen önce müşteri oluşturun."
+      "customerNotFound": "Hesap bulunamadı! Lütfen önce hesap oluşturun."
     },
     "expenses": {
       "updateSuccess": "Gider güncellendi",
@@ -1625,7 +1625,7 @@
       "dueSoon": { "title": "Teklif süresi yaklaşıyor", "desc": "{{quoteNumber}} - {{diffDays}} gün kaldı" }
     },
     "customers": {
-      "created": { "title": "Yeni müşteri eklendi", "desc": "{{name}} sisteme kaydedildi." }
+      "created": { "title": "Yeni hesap eklendi", "desc": "{{name}} sisteme kaydedildi." }
     },
     "suppliers": {
       "created": { "title": "Yeni tedarikçi eklendi", "desc": "{{name}} sisteme kaydedildi." }
@@ -1649,14 +1649,14 @@
     "completed": "Tamamlandı",
     "salesList": "Satış Listesi",
     "salesRegistered": "satış kayıtlı",
-    "search": "Satış numarası, müşteri veya ürüne göre ara...",
+    "search": "Satış numarası, hesap veya ürüne göre ara...",
     "noSales": "Henüz satış yok",
     "noSalesFound": "Satış bulunamadı",
     "noSalesDesc": "İlk satışınızı ekleyerek başlayın.",
     "noSalesFoundDesc": "Arama kriterlerinizle eşleşen satış yok.",
     "createFirstSale": "İlk Satış Ekle",
     "sale": "Satış",
-    "customer": "Müşteri",
+    "customer": "Hesap",
     "productService": "Ürün/Hizmet",
     "amount": "Tutar",
     "status": "Durum",
@@ -1696,7 +1696,7 @@
     "enterSaleInfo": "Satış bilgilerini girin",
     "selectExistingSale": "Mevcut Satış Seç",
     "selectSaleForInvoice": "Fatura oluşturmak için bir satış seçin",
-    "searchSalesPlaceholder": "Satış numarası, müşteri veya ürüne göre ara...",
+    "searchSalesPlaceholder": "Satış numarası, hesap veya ürüne göre ara...",
     "noInvoiceableSales": "Faturalanabilir satış bulunamadı",
     "changeSearchCriteria": "Arama kriterlerinizi değiştirmeyi deneyin",
     "allSalesInvoiced": "Tüm satışlar faturalandı",
@@ -1720,14 +1720,14 @@
     "totalIncome": "Toplam Gelir",
     "totalExpense": "Toplam Gider",
     "netProfit": "Net Kar",
-    "totalCustomers": "Toplam Müşteri",
+    "totalCustomers": "Toplam Hesap",
     "net": "Net",
     "last6MonthsPerformance": "Son 6 ay performansı (en yeni → en eski)",
     "financialHealth": "Mali Durum",
     "profitMargin": "Kar Marjı",
     "growthRate": "Büyüme Oranı",
     "averageSale": "Ortalama Satış",
-    "activeCustomers": "Aktif Müşteriler",
+    "activeCustomers": "Aktif Hesaplar",
     "paymentStatusAnalysis": "Ödeme Durumu Analizi",
     "invoiceStatuses": "Fatura Durumları",
     "expenseStatuses": "Gider Durumları",
@@ -1756,14 +1756,14 @@
     "lastExpense": "Son",
     "recentExpenses": "Son Giderler",
     "expenseCategoryDistribution": "Gider Kategori Dağılımı",
-    "customerAnalysis": "Müşteri Analizi",
-    "topCustomers": "En İyi Müşteriler",
+    "customerAnalysis": "Hesap Analizi",
+    "topCustomers": "En İyi Hesaplar",
     "purchases": "alışveriş",
     "last": "Son",
-    "customerStatistics": "Müşteri İstatistikleri",
-    "activeCustomersCount": "Aktif Müşteriler",
-    "revenuePerCustomer": "Müşteri Başına Gelir",
-    "salesPerCustomer": "Müşteri Başına Satış",
+    "customerStatistics": "Hesap İstatistikleri",
+    "activeCustomersCount": "Aktif Hesaplar",
+    "revenuePerCustomer": "Hesap Başına Gelir",
+    "salesPerCustomer": "Hesap Başına Satış",
     "averagePurchases": "Ortalama Alışveriş",
     "maxPurchases": "Maksimum Alışveriş",
     "performanceReports": "Performans Raporları",
@@ -1782,7 +1782,7 @@
     "expenseEfficiency": "Gider Verimliliği Analizi",
     "expenseCategoryPerformance": "Gider Kategori Performansı",
     "noSupplier": "Tedarikçi Yok",
-    "noCustomer": "Müşteri Yok",
+    "noCustomer": "Hesap Yok",
     "quoteAnalysis": "Teklif Analizi",
     "quoteStatuses": "Teklif Durumları",
     "totalQuotes": "Toplam Teklif",
@@ -1837,7 +1837,7 @@
       "archivedInvoices": "Arşivlenmiş Faturalar",
       "archivedExpenses": "Arşivlenmiş Giderler",
       "archivedSales": "Arşivlenmiş Satışlar",
-      "customers": "Müşteriler",
+      "customers": "Hesaplar",
       "suppliers": "Tedarikçiler",
       "archiveSummary": "Arşiv Özeti"
     },
@@ -1848,12 +1848,12 @@
       "expensesHelper": "Ödenmiş giderler burada görünecek",
       "sales": "Arşivlenmiş satış yok",
       "salesHelper": "Tamamlanmış satışlar burada görünecek",
-      "customers": "Müşteri bulunamadı",
+      "customers": "Hesap bulunamadı",
       "suppliers": "Tedarikçi bulunamadı"
     },
     "table": {
       "invoice": "Fatura",
-      "customer": "Müşteri",
+      "customer": "Hesap",
       "amount": "Tutar",
       "status": "Durum",
       "date": "Tarih",
@@ -1957,9 +1957,9 @@
           },
           "business": {
             "title": "İş Verileri",
-            "invoices": "Fatura ve müşteri bilgileri",
+            "invoices": "Fatura ve hesap bilgileri",
             "expenses": "Gider kayıtları",
-            "customers": "Müşteri veritabanı",
+            "customers": "Hesap veritabanı",
             "financial": "Finansal işlem verileri"
           },
           "technical": {
@@ -1973,7 +1973,7 @@
         "dataUse": {
           "title": "Verileri Nasıl Kullanıyoruz",
           "service": "Hizmet sunumu ve hesap yönetimi",
-          "support": "Müşteri desteği ve teknik yardım",
+          "support": "Destek ve teknik yardım",
           "improvements": "Hizmet geliştirme ve optimizasyon",
           "compliance": "Yasal yükümlülüklerin yerine getirilmesi",
           "communications": "Önemli bildirimlerin gönderilmesi"
@@ -2097,7 +2097,7 @@
             "title": "İş Ortaklarımız",
             "analytics": "Web sitesi analitikleri",
             "payments": "Ödeme işlemleri",
-            "support": "Müşteri desteği"
+            "support": "Destek"
           }
         },
         "managing": {
@@ -2136,17 +2136,17 @@
       "sections": {
         "introduction": {
           "title": "Giriş",
-          "content": "Bu Veri İşleme Sözleşmesi (DPA), GDPR Madde 28 gereklilikleri uyarınca, Comptario ile müşteriler arasındaki veri işleme ilişkisini düzenler.",
+          "content": "Bu Veri İşleme Sözleşmesi (DPA), GDPR Madde 28 gereklilikleri uyarınca, Comptario ile kullanıcılar arasındaki veri işleme ilişkisini düzenler.",
           "note": {
             "title": "Önemli Not",
-            "content": "Bu sözleşme, müşterinin veri sorumlusu, Comptario'nun ise veri işleyicisi olduğu durumları kapsar."
+            "content": "Bu sözleşme, kullanıcının veri sorumlusu, Comptario'nun ise veri işleyicisi olduğu durumları kapsar."
           }
         },
         "definitions": {
           "title": "Tanımlar",
           "controller": {
             "title": "Veri Sorumlusu",
-            "desc": "Kişisel verilerin işlenme amaçlarını ve yöntemlerini belirleyen müşteri"
+            "desc": "Kişisel verilerin işlenme amaçlarını ve yöntemlerini belirleyen kullanıcı"
           },
           "processor": {
             "title": "Veri İşleyicisi",
@@ -2170,7 +2170,7 @@
           "purpose": {
             "title": "İşleme Amaçları",
             "service": "Comptario hizmetlerinin sunulması",
-            "support": "Teknik destek ve müşteri hizmetleri",
+            "support": "Teknik destek ve destek hizmetleri",
             "security": "Veri güvenliği ve sistem korunması",
             "compliance": "Yasal yükümlülüklerin yerine getirilmesi"
           }
@@ -2256,7 +2256,7 @@
           "purpose": "E-posta gönderimi ve bildirimler"
         },
         "intercom": {
-          "purpose": "Müşteri desteği ve canlı sohbet"
+          "purpose": "Destek ve canlı sohbet"
         },
         "analytics": {
           "purpose": "Web sitesi analitikleri ve performans izleme"
@@ -2615,7 +2615,7 @@
     "invoice": {
       "title": "FATURA",
   "appSubtitle": "comptario Muhasebe Sistemi",
-      "customerInfo": "Müşteri Bilgileri",
+      "customerInfo": "Hesap Bilgileri",
       "invoiceNumber": "Fatura No",
       "issueDate": "Düzenleme Tarihi",
       "dueDate": "Vade Tarihi",
@@ -2658,7 +2658,7 @@
     },
     "sale": {
       "title": "SATIŞ BELGESİ",
-      "customerInfo": "Müşteri Bilgileri",
+      "customerInfo": "Hesap Bilgileri",
       "saleNumber": "Satış No",
       "saleDate": "Satış Tarihi",
       "status": "Durum",

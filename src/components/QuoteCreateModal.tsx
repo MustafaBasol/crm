@@ -355,7 +355,7 @@ const QuoteCreateModal: React.FC<QuoteCreateModalProps> = ({ isOpen, onClose, cu
               </div>
               {showCustomerDropdown && filteredCustomers.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-56 overflow-y-auto">
-                  <div className="p-2 text-xs text-gray-500 border-b">{filteredCustomers.length} müşteri bulundu</div>
+                  <div className="p-2 text-xs text-gray-500 border-b">{filteredCustomers.length} hesap bulundu</div>
                   {filteredCustomers.map(c => (
                     <button
                       key={c.id}

@@ -118,28 +118,28 @@ const PublicQuotePage: React.FC<PublicQuotePageProps> = ({ quoteId }) => {
 
   const L = useMemo(() => ({
     tr: {
-      title: 'Teklif', appSubtitle: 'Teklif dökümanı', customerInfo: 'Müşteri Bilgileri',
+      title: 'Teklif', appSubtitle: 'Teklif dökümanı', customerInfo: 'Hesap Bilgileri',
       quoteNumber: 'Teklif No', issueDate: 'Düzenleme Tarihi', validUntil: 'Geçerlilik Tarihi', status: 'Durum',
       items: { description: 'Açıklama', quantity: 'Miktar', unitPrice: 'Birim Fiyat', total: 'Toplam' },
       totals: { grandTotal: 'Genel Toplam' }, footer: 'Bu belge bilgi amaçlıdır.', preparedBy: 'Teklifi Hazırlayan',
       copied: 'Bağlantı kopyalandı.'
     },
     en: {
-      title: 'Quote', appSubtitle: 'Quotation document', customerInfo: 'Customer Information',
+      title: 'Quote', appSubtitle: 'Quotation document', customerInfo: 'Account Information',
       quoteNumber: 'Quote No', issueDate: 'Issue Date', validUntil: 'Valid Until', status: 'Status',
       items: { description: 'Description', quantity: 'Qty', unitPrice: 'Unit Price', total: 'Total' },
       totals: { grandTotal: 'Grand Total' }, footer: 'This document is for information purposes.', preparedBy: 'Prepared by',
       copied: 'Link copied.'
     },
     fr: {
-      title: 'Devis', appSubtitle: 'Document de devis', customerInfo: 'Informations client',
+      title: 'Devis', appSubtitle: 'Document de devis', customerInfo: 'Informations compte',
       quoteNumber: 'N° de devis', issueDate: 'Date', validUntil: 'Valable jusqu’au', status: 'Statut',
       items: { description: 'Description', quantity: 'Qté', unitPrice: 'Prix unitaire', total: 'Total' },
       totals: { grandTotal: 'Total général' }, footer: 'Document à titre indicatif.', preparedBy: 'Préparé par',
       copied: 'Lien copié.'
     },
     de: {
-      title: 'Angebot', appSubtitle: 'Angebotsdokument', customerInfo: 'Kundeninformationen',
+      title: 'Angebot', appSubtitle: 'Angebotsdokument', customerInfo: 'Accountinformationen',
       quoteNumber: 'Angebotsnr.', issueDate: 'Datum', validUntil: 'Gültig bis', status: 'Status',
       items: { description: 'Beschreibung', quantity: 'Menge', unitPrice: 'Einzelpreis', total: 'Summe' },
       totals: { grandTotal: 'Gesamtsumme' }, footer: 'Dieses Dokument dient nur zur Information.', preparedBy: 'Erstellt von',

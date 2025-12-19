@@ -10,11 +10,11 @@ const DataProcessingAgreement: React.FC = () => {
   const texts = {
     tr: {
       title: 'Veri İşleme Sözleşmesi (DPA)',
-      subtitle: 'Comptario ile müşteriler arasındaki kişisel veri işleme sözleşmesi ve GDPR uyumluluk bilgileri',
+      subtitle: 'Comptario ile kullanıcılar arasındaki kişisel veri işleme sözleşmesi ve GDPR uyumluluk bilgileri',
       lastUpdated: 'Son güncelleme',
       overview: 'Genel Bakış',
       overviewText:
-        'Bu Veri İşleme Sözleşmesi (DPA), Comptario hizmetlerini kullanan müşterilerimiz ile aramızdaki kişisel veri işleme faaliyetlerini düzenler ve GDPR (Genel Veri Koruma Yönetmeliği) uyumluluğunu sağlar.',
+        'Bu Veri İşleme Sözleşmesi (DPA), Comptario hizmetlerini kullanan kullanıcılarımız ile aramızdaki kişisel veri işleme faaliyetlerini düzenler ve GDPR (Genel Veri Koruma Yönetmeliği) uyumluluğunu sağlar.',
       sections: {
         definitions: {
           title: 'Tanımlar',
@@ -47,7 +47,7 @@ const DataProcessingAgreement: React.FC = () => {
               'Kimlik bilgileri (ad, soyad, e-posta)',
               'İletişim bilgileri (telefon, adres)',
               'Finansal veriler (fatura bilgileri, ödeme kayıtları)',
-              'İş verileri (müşteri kayıtları, ürün bilgileri)',
+              'İş verileri (hesap kayıtları, ürün bilgileri)',
               'Teknik veriler (IP adresi, kullanım kayıtları)',
             ],
           },
@@ -55,7 +55,7 @@ const DataProcessingAgreement: React.FC = () => {
             title: 'İşleme Amaçları',
             items: [
               'Muhasebe ve finansal hizmetlerin sağlanması',
-              'Müşteri destek hizmetleri',
+              'Destek hizmetleri',
               'Sistem güvenliği ve performans optimizasyonu',
               'Yasal yükümlülüklerin yerine getirilmesi',
               'Hizmet geliştirme ve analiz',
@@ -64,7 +64,7 @@ const DataProcessingAgreement: React.FC = () => {
           subjects: {
             title: 'Veri Konusu Kategorileri',
             items: [
-              'Müşteri temsilcileri',
+              'Kullanıcı temsilcileri',
               'Son kullanıcılar',
               'Tedarikçiler',
               'İş ortakları',
@@ -75,13 +75,13 @@ const DataProcessingAgreement: React.FC = () => {
         obligations: {
           title: "Comptario'nun Yükümlülükleri",
           items: [
-            'Kişisel verileri yalnızca müşterinin talimatları doğrultusunda işleme',
+            'Kişisel verileri yalnızca kullanıcının talimatları doğrultusunda işleme',
             'Uygun teknik ve organizasyonel güvenlik önlemlerini uygulama',
             'Personel gizlilik yükümlülüklerini sağlama',
-            'Alt işlemci kullanımında müşteri onayı alma',
+            'Alt işlemci kullanımında kullanıcı onayı alma',
             'Veri ihlallerini gecikmeksizin bildirme',
             'Veri konularının haklarını kullanmasına yardımcı olma',
-            'Müşterinin denetim haklarını destekleme',
+            'Kullanıcının denetim haklarını destekleme',
           ],
         },
         security: {
@@ -103,7 +103,7 @@ const DataProcessingAgreement: React.FC = () => {
         additionalSecurity: {
           title: 'Ek Güvenlik Tedbirleri',
           items: [
-            'Mümkün olduğunda müşteri verilerinin sahte/anonimleştirilmesi',
+            'Mümkün olduğunda hesap verilerinin sahte/anonimleştirilmesi',
             'Ayrı üretim ve test ortamları',
             'Erişimlerin en az ayrıcalık ilkesine göre sınırlandırılması',
           ],
@@ -132,11 +132,11 @@ const DataProcessingAgreement: React.FC = () => {
     en: {
       title: 'Data Processing Agreement (DPA)',
       subtitle:
-        'Personal data processing agreement between Comptario and customers and GDPR compliance information',
+        'Personal data processing agreement between Comptario and service users and GDPR compliance information',
       lastUpdated: 'Last updated',
       overview: 'Overview',
       overviewText:
-        'This Data Processing Agreement (DPA) governs the personal data processing activities between Comptario and our customers using our services, ensuring GDPR (General Data Protection Regulation) compliance.',
+        'This Data Processing Agreement (DPA) governs the personal data processing activities between Comptario and users of our services, ensuring GDPR (General Data Protection Regulation) compliance.',
       sections: {
         definitions: {
           title: 'Definitions',
@@ -169,7 +169,7 @@ const DataProcessingAgreement: React.FC = () => {
               'Identity information (name, surname, email)',
               'Contact information (phone, address)',
               'Financial data (invoice information, payment records)',
-              'Business data (customer records, product information)',
+              'Business data (account records, product information)',
               'Technical data (IP address, usage logs)',
             ],
           },
@@ -177,7 +177,7 @@ const DataProcessingAgreement: React.FC = () => {
             title: 'Purposes of Processing',
             items: [
               'Providing accounting and financial services',
-              'Customer support services',
+              'Support services',
               'System security and performance optimization',
               'Compliance with legal obligations',
               'Service development and analysis',
@@ -186,7 +186,7 @@ const DataProcessingAgreement: React.FC = () => {
           subjects: {
             title: 'Categories of Data Subjects',
             items: [
-              'Customer representatives',
+              'Account representatives',
               'End users',
               'Suppliers',
               'Business partners',
@@ -197,13 +197,13 @@ const DataProcessingAgreement: React.FC = () => {
         obligations: {
           title: "Comptario's Obligations",
           items: [
-            'Process personal data only on customer instructions',
+            'Process personal data only on data controller instructions',
             'Implement appropriate technical and organizational security measures',
             'Ensure staff confidentiality obligations',
-            'Obtain customer approval for sub-processor usage',
+            'Obtain data controller approval for sub-processor usage',
             'Notify data breaches without delay',
             'Assist with data subject rights exercises',
-            'Support customer audit rights',
+            'Support data controller audit rights',
           ],
         },
         security: {
@@ -225,7 +225,7 @@ const DataProcessingAgreement: React.FC = () => {
         additionalSecurity: {
           title: 'Additional Security Measures',
           items: [
-            'Pseudonymization/Anonymization of customer data when possible',
+            'Pseudonymization/Anonymization of account data when possible',
             'Separated production and test environments',
             'Least-privilege access controls enforced',
           ],
@@ -254,11 +254,11 @@ const DataProcessingAgreement: React.FC = () => {
     de: {
       title: 'Datenverarbeitungsvertrag (DPA)',
       subtitle:
-        'Vereinbarung zur Verarbeitung personenbezogener Daten zwischen Comptario und Kunden sowie DSGVO-Compliance-Informationen',
+        'Vereinbarung zur Verarbeitung personenbezogener Daten zwischen Comptario und Nutzern sowie DSGVO-Compliance-Informationen',
       lastUpdated: 'Zuletzt aktualisiert',
       overview: 'Überblick',
       overviewText:
-        'Diese Vereinbarung über die Auftragsverarbeitung (DPA) regelt die Verarbeitung personenbezogener Daten zwischen Comptario und unseren Kunden und stellt die Einhaltung der DSGVO sicher.',
+        'Diese Vereinbarung über die Auftragsverarbeitung (DPA) regelt die Verarbeitung personenbezogener Daten zwischen Comptario und unseren Nutzern und stellt die Einhaltung der DSGVO sicher.',
       sections: {
         definitions: {
           title: 'Definitionen',
@@ -293,7 +293,7 @@ const DataProcessingAgreement: React.FC = () => {
               'Identitätsinformationen (Name, Nachname, E-Mail)',
               'Kontaktinformationen (Telefon, Adresse)',
               'Finanzdaten (Rechnungsinformationen, Zahlungsaufzeichnungen)',
-              'Geschäftsdaten (Kundendatensätze, Produktinformationen)',
+              'Geschäftsdaten (Account-Datensätze, Produktinformationen)',
               'Technische Daten (IP-Adresse, Nutzungsprotokolle)',
             ],
           },
@@ -301,7 +301,7 @@ const DataProcessingAgreement: React.FC = () => {
             title: 'Zwecke der Verarbeitung',
             items: [
               'Bereitstellung von Buchhaltungs- und Finanzdienstleistungen',
-              'Kundensupport-Services',
+              'Support-Services',
               'Systemsicherheit und Leistungsoptimierung',
               'Einhaltung gesetzlicher Verpflichtungen',
               'Serviceentwicklung und Analyse',
@@ -310,7 +310,7 @@ const DataProcessingAgreement: React.FC = () => {
           subjects: {
             title: 'Kategorien von betroffenen Personen',
             items: [
-              'Kundenvertreter',
+              'Organisationsvertreter',
               'Endbenutzer',
               'Lieferanten',
               'Geschäftspartner',
@@ -321,13 +321,13 @@ const DataProcessingAgreement: React.FC = () => {
         obligations: {
           title: 'Verpflichtungen von Comptario',
           items: [
-            'Verarbeitung personenbezogener Daten nur nach Kundenanweisungen',
+            'Verarbeitung personenbezogener Daten nur nach Nutzeranweisungen',
             'Umsetzung angemessener technischer und organisatorischer Sicherheitsmaßnahmen',
             'Gewährleistung der Vertraulichkeitsverpflichtungen der Mitarbeiter',
-            'Einholung der Genehmigung des Kunden für die Nutzung von Unterauftragsverarbeitern',
+            'Einholung der Genehmigung des Nutzers für die Nutzung von Unterauftragsverarbeitern',
             'Unverzügliche Meldung von Datenschutzverletzungen',
             'Unterstützung bei der Ausübung von Rechten betroffener Personen',
-            'Unterstützung der Audit-Rechte des Kunden',
+            'Unterstützung der Audit-Rechte des Nutzers',
           ],
         },
         security: {
@@ -349,7 +349,7 @@ const DataProcessingAgreement: React.FC = () => {
         additionalSecurity: {
           title: 'Zusätzliche Sicherheitsmaßnahmen',
           items: [
-            'Pseudonymisierung/Anonymisierung von Kundendaten, wenn möglich',
+            'Pseudonymisierung/Anonymisierung von Nutzerdaten, wenn möglich',
             'Getrennte Produktions- und Testumgebungen',
             'Durchsetzung des Least-Privilege-Prinzips beim Zugriff',
           ],
@@ -378,11 +378,11 @@ const DataProcessingAgreement: React.FC = () => {
     fr: {
       title: 'Accord de Traitement des Données (DPA)',
       subtitle:
-        'Accord de traitement des données personnelles entre Comptario et les clients et informations de conformité RGPD',
+        'Accord de traitement des données personnelles entre Comptario et les utilisateurs et informations de conformité RGPD',
       lastUpdated: 'Dernière mise à jour',
       overview: 'Aperçu',
       overviewText:
-        'Cet Accord de Traitement des Données (DPA) régit les activités de traitement des données personnelles entre Comptario et nos clients utilisant nos services, garantissant la conformité au RGPD.',
+        'Cet Accord de Traitement des Données (DPA) régit les activités de traitement des données personnelles entre Comptario et nos utilisateurs utilisant nos services, garantissant la conformité au RGPD.',
       sections: {
         definitions: {
           title: 'Définitions',
@@ -417,7 +417,7 @@ const DataProcessingAgreement: React.FC = () => {
               "Informations d'identité (nom, prénom, email)",
               'Informations de contact (téléphone, adresse)',
               'Données financières (informations de facturation, enregistrements de paiement)',
-              'Données commerciales (dossiers clients, informations produits)',
+              'Données commerciales (dossiers de comptes, informations produits)',
               "Données techniques (adresse IP, journaux d'utilisation)",
             ],
           },
@@ -425,7 +425,7 @@ const DataProcessingAgreement: React.FC = () => {
             title: 'Finalités du Traitement',
             items: [
               'Fourniture de services comptables et financiers',
-              'Services de support client',
+              'Services de support',
               'Sécurité du système et optimisation des performances',
               'Respect des obligations légales',
               'Développement et analyse des services',
@@ -434,7 +434,7 @@ const DataProcessingAgreement: React.FC = () => {
           subjects: {
             title: 'Catégories de Personnes Concernées',
             items: [
-              'Représentants clients',
+              "Représentants de l'organisation",
               'Utilisateurs finaux',
               'Fournisseurs',
               'Partenaires commerciaux',
@@ -445,13 +445,13 @@ const DataProcessingAgreement: React.FC = () => {
         obligations: {
           title: 'Obligations de Comptario',
           items: [
-            'Traiter les données personnelles uniquement selon les instructions du client',
+            "Traiter les données personnelles uniquement selon les instructions de l'utilisateur",
             'Mettre en œuvre des mesures de sécurité techniques et organisationnelles appropriées',
             'Assurer les obligations de confidentialité du personnel',
-            "Obtenir l'approbation du client pour l'utilisation de sous-traitants",
+            "Obtenir l'approbation de l'utilisateur pour l'utilisation de sous-traitants",
             'Notifier les violations de données sans délai',
             "Assister dans l'exercice des droits des personnes concernées",
-            "Soutenir les droits d'audit du client",
+            "Soutenir les droits d'audit de l'utilisateur",
           ],
         },
         security: {
@@ -473,7 +473,7 @@ const DataProcessingAgreement: React.FC = () => {
         additionalSecurity: {
           title: 'Mesures de sécurité supplémentaires',
           items: [
-            'Pseudonymisation/Anonymisation des données clients lorsque possible',
+            'Pseudonymisation/Anonymisation des données de compte lorsque possible',
             'Environnements de production et de test séparés',
             'Contrôles d’accès selon le principe du moindre privilège',
           ],

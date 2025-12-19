@@ -569,7 +569,7 @@ export default function InvoiceModal({ onClose, onSave, invoice, customers = [],
         customerId: invoiceData.customerId,
         selectedCustomer,
       });
-      setValidationError('Lütfen müşteri seçin');
+      setValidationError('Lütfen hesap seçin');
       return;
     }
     if (invoiceData.type === 'return' && !invoiceData.originalInvoiceId) {

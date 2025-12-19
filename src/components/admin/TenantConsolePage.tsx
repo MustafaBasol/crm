@@ -479,7 +479,7 @@ const TenantConsolePage: React.FC = () => {
             {/* Kullanım istatistikleri */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               <Info title="Kullanıcı" value={usage?.users} max={limits?.effective?.maxUsers} />
-              <Info title="Müşteri" value={usage?.customers} max={limits?.effective?.maxCustomers} />
+              <Info title="Hesap" value={usage?.customers} max={limits?.effective?.maxCustomers} />
               <Info title="Tedarikçi" value={usage?.suppliers} max={limits?.effective?.maxSuppliers} />
               <Info title="Banka" value={usage?.bankAccounts} max={limits?.effective?.maxBankAccounts} />
               <Info title="Fatura (Ay)" value={usage?.monthly?.invoices} max={limits?.effective?.monthly?.maxInvoices} />
@@ -564,7 +564,7 @@ const TenantConsolePage: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Field label="Maks. Kullanıcı" value={overrideLimits.maxUsers} onChange={(v)=>updateOverride({maxUsers:v})} onClear={()=>markClear('maxUsers')} />
-                  <Field label="Maks. Müşteri" value={overrideLimits.maxCustomers} onChange={(v)=>updateOverride({maxCustomers:v})} onClear={()=>markClear('maxCustomers')} />
+                  <Field label="Maks. Hesap" value={overrideLimits.maxCustomers} onChange={(v)=>updateOverride({maxCustomers:v})} onClear={()=>markClear('maxCustomers')} />
                   <Field label="Maks. Tedarikçi" value={overrideLimits.maxSuppliers} onChange={(v)=>updateOverride({maxSuppliers:v})} onClear={()=>markClear('maxSuppliers')} />
                   <Field label="Maks. Banka Hesabı" value={overrideLimits.maxBankAccounts} onChange={(v)=>updateOverride({maxBankAccounts:v})} onClear={()=>markClear('maxBankAccounts')} />
                   <Field label="Aylık Maks. Fatura" value={overrideLimits.monthly?.maxInvoices} onChange={(v)=>updateOverride({monthly:{maxInvoices:v}})} onClear={()=>markClear('monthly.maxInvoices')} />
@@ -832,7 +832,7 @@ const TenantConsolePage: React.FC = () => {
                     <div className="font-medium text-gray-700">Fatura bulunamadı</div>
                     <div>Olası nedenler:</div>
                     <ul className="list-disc pl-5 space-y-1 text-xs">
-                      <li>Henüz Stripe müşteri oluşturulmadı (ilk upgrade / ödeme işlemi yapılmadı).</li>
+                      <li>Henüz Stripe hesap oluşturulmadı (ilk upgrade / ödeme işlemi yapılmadı).</li>
                       <li>Aktif abonelik yok: subscription planı test veya başlangıç aşamasında olabilir.</li>
                       <li>Test modunda hiç fatura kesilmedi; yalnızca proration oluşmuş olabilir.</li>
                       <li>Stripe API'den boş döndü; dashboarddan manuel kontrol edin.</li>

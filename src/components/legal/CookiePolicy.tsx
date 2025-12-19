@@ -50,7 +50,7 @@ const CookiePolicy: React.FC = () => {
             title: "İş Ortaklarımız:",
             analytics: "Web sitesi kullanım istatistikleri",
             payments: "Güvenli ödeme işlemleri",
-            support: "Müşteri destek hizmetleri"
+            support: "Destek hizmetleri"
           }
         },
         managing: {
@@ -99,7 +99,7 @@ const CookiePolicy: React.FC = () => {
             title: "Our Partners:",
             analytics: "Website usage statistics",
             payments: "Secure payment processing",
-            support: "Customer support services"
+            support: "Support services"
           }
         },
         managing: {
@@ -148,7 +148,7 @@ const CookiePolicy: React.FC = () => {
             title: "Unsere Partner:",
             analytics: "Website-Nutzungsstatistiken",
             payments: "Sichere Zahlungsabwicklung",
-            support: "Kundensupport-Services"
+            support: "Support-Services"
           }
         },
         managing: {
@@ -197,7 +197,7 @@ const CookiePolicy: React.FC = () => {
             title: "Nos partenaires :",
             analytics: "Statistiques d'utilisation du site web",
             payments: "Traitement sécurisé des paiements",
-            support: "Services de support client"
+            support: "Services de support"
           }
         },
         managing: {

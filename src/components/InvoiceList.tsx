@@ -626,7 +626,7 @@ export default function InvoiceList({
                         )}
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-gray-500 font-medium">{t('invoices.customer')}:</span>
-                          <span className="text-gray-900">{invoice.customer?.name || t('invoices.noCustomer', { defaultValue: 'Müşteri Yok' })}</span>
+                          <span className="text-gray-900">{invoice.customer?.name || t('invoices.noCustomer', { defaultValue: 'Hesap Yok' })}</span>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-gray-500 font-medium">{t('invoices.status')}:</span>
@@ -723,7 +723,7 @@ export default function InvoiceList({
                     <td className="hidden md:table-cell px-4 md:px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {invoice.customer?.name || 'Müşteri Yok'}
+                          {invoice.customer?.name || 'Hesap Yok'}
                         </div>
                         <div className="text-xs text-gray-500 hidden lg:block">
                           {invoice.customer?.email || ''}

@@ -122,7 +122,7 @@ export default function CustomerViewModal({
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">{customer.name}</h2>
-              <p className="text-sm text-gray-500">{te('customer.details', 'Customer Details')}</p>
+              <p className="text-sm text-gray-500">{te('customer.details', 'Account Details')}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">

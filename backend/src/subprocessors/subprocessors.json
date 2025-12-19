@@ -89,10 +89,10 @@
       "id": "intercom",
       "name": "Intercom",
       "purpose": {
-        "en": "Customer support and live chat",
-        "tr": "Müşteri desteği ve canlı sohbet",
-        "de": "Kundensupport und Live-Chat",
-        "fr": "Support client et chat en direct"
+        "en": "Support and live chat",
+        "tr": "Hesap desteği ve canlı sohbet",
+        "de": "Support und Live-Chat",
+        "fr": "Support et chat en direct"
       },
       "region": "EU, US",
       "website": "https://intercom.com",

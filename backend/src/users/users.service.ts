@@ -445,7 +445,7 @@ export class UsersService {
 
       if (userData.customers.length > 0) {
         archive.append(this.convertToCSV(userData.customers), {
-          name: 'customers.csv',
+          name: 'accounts.csv',
         });
       }
 

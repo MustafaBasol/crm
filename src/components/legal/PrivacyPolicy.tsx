@@ -35,9 +35,9 @@ const PrivacyPolicy: React.FC = () => {
           business: {
             title: "İş Verileri", 
             items: [
-              "Fatura bilgileri ve müşteri verileri",
+              "Fatura bilgileri ve hesap verileri",
               "Gider kayıtları ve tedarikçi bilgileri",
-              "Müşteri iletişim bilgileri",
+              "Hesap iletişim bilgileri",
               "Finansal raporlar ve vergi bilgileri"
             ]
           }
@@ -46,7 +46,7 @@ const PrivacyPolicy: React.FC = () => {
           title: "Verileri Nasıl Kullanıyoruz",
           items: [
             "Muhasebe hizmetlerini sağlamak",
-            "Müşteri desteği sunmak",
+            "Destek sunmak",
             "Hizmetlerimizi geliştirmek",
             "Yasal yükümlülüklerimizi yerine getirmek"
           ]
@@ -126,9 +126,9 @@ const PrivacyPolicy: React.FC = () => {
           business: {
             title: "Business Data",
             items: [
-              "Invoice information and customer data",
+              "Invoice information and account data",
               "Expense records and supplier information", 
-              "Customer contact information",
+              "Account contact information",
               "Financial reports and tax information"
             ]
           }
@@ -137,7 +137,7 @@ const PrivacyPolicy: React.FC = () => {
           title: "How We Use Your Data",
           items: [
             "To provide accounting services",
-            "To provide customer support",
+            "To provide support",
             "To improve our services",
             "To fulfill our legal obligations"
           ]
@@ -217,9 +217,9 @@ const PrivacyPolicy: React.FC = () => {
           business: {
             title: "Geschäftsdaten",
             items: [
-              "Rechnungsinformationen und Kundendaten",
+              "Rechnungsinformationen und Accountdaten",
               "Ausgabenaufzeichnungen und Lieferanteninformationen",
-              "Kundenkontaktinformationen", 
+              "Account-Kontaktdaten", 
               "Finanzberichte und Steuerinformationen"
             ]
           }
@@ -228,7 +228,7 @@ const PrivacyPolicy: React.FC = () => {
           title: "Wie wir Ihre Daten verwenden",
           items: [
             "Zur Bereitstellung von Buchhaltungsdiensten",
-            "Zur Bereitstellung von Kundensupport",
+            "Zur Bereitstellung von Support",
             "Zur Verbesserung unserer Dienste",
             "Zur Erfüllung unserer rechtlichen Verpflichtungen"
           ]
@@ -308,9 +308,9 @@ const PrivacyPolicy: React.FC = () => {
           business: {
             title: "Données commerciales",
             items: [
-              "Informations de facturation et données client",
+              "Informations de facturation et données de compte",
               "Enregistrements de dépenses et informations fournisseur",
-              "Informations de contact client",
+              "Informations de contact du compte",
               "Rapports financiers et informations fiscales"
             ]
           }
@@ -319,7 +319,7 @@ const PrivacyPolicy: React.FC = () => {
           title: "Comment nous utilisons vos données",
           items: [
             "Pour fournir des services comptables",
-            "Pour fournir un support client",
+            "Pour fournir du support",
             "Pour améliorer nos services", 
             "Pour respecter nos obligations légales"
           ]

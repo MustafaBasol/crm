@@ -104,7 +104,7 @@ const PlanLimitsPage: React.FC = () => {
             onChange={(v) => updatePlan(plan, { maxUsers: v })}
           />
           <NumberField
-            label="Maks. Müşteri"
+            label="Maks. Hesap"
             value={l.maxCustomers}
             onChange={(v) => updatePlan(plan, { maxCustomers: v })}
           />

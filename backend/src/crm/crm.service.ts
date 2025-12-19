@@ -119,7 +119,7 @@ export class CrmService {
     const customer = await this.customerRepo.findOne({
       where: { tenantId, id: accountId },
     });
-    if (!customer) throw new NotFoundException('Customer not found');
+    if (!customer) throw new NotFoundException('Account not found');
 
     if (this.isAdmin(user)) return true;
 
@@ -574,7 +574,7 @@ export class CrmService {
       const customer = await this.customerRepo.findOne({
         where: { tenantId, id: accountId },
       });
-      if (!customer) throw new NotFoundException('Customer not found');
+      if (!customer) throw new NotFoundException('Account not found');
 
       if (!this.isAdmin(user)) {
         await this.assertAccountAccessible(tenantId, user, accountId);
@@ -625,7 +625,7 @@ export class CrmService {
         const customer = await this.customerRepo.findOne({
           where: { tenantId, id: nextAccountId },
         });
-        if (!customer) throw new NotFoundException('Customer not found');
+        if (!customer) throw new NotFoundException('Account not found');
 
         if (!this.isAdmin(user)) {
           await this.assertAccountAccessible(tenantId, user, nextAccountId);
@@ -749,7 +749,7 @@ export class CrmService {
       const customer = await this.customerRepo.findOne({
         where: { tenantId, id: accountId },
       });
-      if (!customer) throw new NotFoundException('Customer not found');
+      if (!customer) throw new NotFoundException('Account not found');
 
       if (!this.isAdmin(user)) {
         const visibleOpp = await this.oppRepo
@@ -881,7 +881,7 @@ export class CrmService {
       const customer = await this.customerRepo.findOne({
         where: { tenantId, id: accountId },
       });
-      if (!customer) throw new NotFoundException('Customer not found');
+      if (!customer) throw new NotFoundException('Account not found');
 
       if (!this.isAdmin(user)) {
         const visibleOpp = await this.oppRepo
@@ -943,7 +943,7 @@ export class CrmService {
       const customer = await this.customerRepo.findOne({
         where: { tenantId, id: task.accountId },
       });
-      if (!customer) throw new NotFoundException('Customer not found');
+      if (!customer) throw new NotFoundException('Account not found');
       if (!this.isAdmin(user)) {
         const visibleOpp = await this.oppRepo
           .createQueryBuilder('opp')
@@ -1002,7 +1002,7 @@ export class CrmService {
       const customer = await this.customerRepo.findOne({
         where: { tenantId, id: task.accountId },
       });
-      if (!customer) throw new NotFoundException('Customer not found');
+      if (!customer) throw new NotFoundException('Account not found');
       if (!this.isAdmin(user)) {
         const visibleOpp = await this.oppRepo
           .createQueryBuilder('opp')
@@ -1158,7 +1158,7 @@ export class CrmService {
       const customer = await this.customerRepo.findOne({
         where: { tenantId, id: accountId },
       });
-      if (!customer) throw new NotFoundException('Customer not found');
+      if (!customer) throw new NotFoundException('Account not found');
     }
 
     const opp = await this.oppRepo.save(
@@ -1383,7 +1383,7 @@ export class CrmService {
         const customer = await this.customerRepo.findOne({
           where: { tenantId, id: nextAccountId },
         });
-        if (!customer) throw new NotFoundException('Customer not found');
+        if (!customer) throw new NotFoundException('Account not found');
         opp.accountId = nextAccountId;
       } else {
         opp.accountId = null;
@@ -1715,7 +1715,7 @@ export class CrmService {
       const customer = await this.customerRepo.findOne({
         where: { tenantId, id: accountId },
       });
-      if (!customer) throw new NotFoundException('Customer not found');
+      if (!customer) throw new NotFoundException('Account not found');
     }
 
     if (opportunityId && accountId) {

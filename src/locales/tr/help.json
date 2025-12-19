@@ -6,7 +6,7 @@
   "sections": [
     { "id": "overview", "title": "Genel Bakış" },
     { "id": "getting-started", "title": "Başlangıç (Kayıt, Giriş, Dil/Para Birimi)" },
-    { "id": "customers", "title": "Müşteriler" },
+    { "id": "customers", "title": "Hesaplar" },
     { "id": "suppliers", "title": "Tedarikçiler" },
     { "id": "products", "title": "Ürünler ve Kategoriler" },
     { "id": "invoices", "title": "Faturalar" },
@@ -33,14 +33,14 @@
     "tipAfter": "tuşlarına basarak Ayarlar'a gidebilirsiniz."
   },
   "customers": {
-    "title": "Müşteriler",
+    "title": "Hesaplar",
     "items": [
-      "Sol menüden Müşteriler sayfasını açın.",
-      "Yeni Müşteri ile hızlıca müşteri ekleyin veya CSV/Excel içe aktarma ile toplu yükleyin.",
-      "Müşteri kartında geçmiş faturaları, bakiyeyi ve iletişim bilgilerini görüntüleyin."
+      "Sol menüden Hesaplar sayfasını açın.",
+      "Yeni Hesap ile hızlıca hesap ekleyin veya CSV/Excel içe aktarma ile toplu yükleyin.",
+      "Hesap kartında geçmiş faturaları, bakiyeyi ve iletişim bilgilerini görüntüleyin."
     ]
   },
-  "suppliers": { "title": "Tedarikçiler", "desc": "Giderlerinizi ilişkilendirmek için tedarikçi kartları oluşturun. İçe aktarma ve düzenleme adımları, müşteriler ile aynıdır." },
+  "suppliers": { "title": "Tedarikçiler", "desc": "Giderlerinizi ilişkilendirmek için tedarikçi kartları oluşturun. İçe aktarma ve düzenleme adımları, hesaplar ile aynıdır." },
   "products": {
     "title": "Ürünler ve Kategoriler",
     "desc": "Stok ve hizmetlerinizi yönetin. Kategori bazlı KDV oranı tanımlayabilir, ürün bazında özel KDV ile üzerine yazabilirsiniz.",
@@ -53,7 +53,7 @@
   "invoices": {
     "title": "Faturalar",
     "steps": [
-      "Yeni Fatura ile müşteri ve kalemleri seçin; ürünler otomatik vergi oranıyla gelir.",
+      "Yeni Fatura ile hesap ve kalemleri seçin; ürünler otomatik vergi oranıyla gelir.",
       "Vade tarihi, notlar ve iskonto ekleyin; PDF önizleme ve e-posta gönderimi yapın.",
       "Ödeme durumu ve iade/iptal işlemlerini fatura üzerinden takip edin."
     ]

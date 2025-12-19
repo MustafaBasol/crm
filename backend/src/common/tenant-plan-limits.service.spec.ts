@@ -2,7 +2,7 @@ import { TenantPlanLimitService } from './tenant-plan-limits.service';
 import { SubscriptionPlan } from '../tenants/entities/tenant.entity';
 
 describe('TenantPlanLimitService', () => {
-  it('FREE: kullanıcı, müşteri, tedarikçi limitleri uygulanmalı', () => {
+  it('FREE: kullanıcı, hesap, tedarikçi limitleri uygulanmalı', () => {
     expect(TenantPlanLimitService.canAddUser(0, SubscriptionPlan.FREE)).toBe(
       true,
     );

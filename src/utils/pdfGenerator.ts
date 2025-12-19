@@ -563,7 +563,7 @@ const buildInvoiceHtml = (invoice: Invoice, c: Partial<CompanyProfile> = {}, lan
     </div>
   `;
 
-  // Teklif PDF'indeki müşteri düzeni ile aynı görünüm ve zenginleştirme
+  // Teklif PDF'indeki hesap düzeni ile aynı görünüm ve zenginleştirme
   let invCustomerEmail = invoice.customerEmail || '';
   let invCustomerPhone = '' as string;
   let invCustomerAddress = invoice.customerAddress ? formatMultilineAddress(invoice.customerAddress) : '';
@@ -598,7 +598,7 @@ const buildInvoiceHtml = (invoice: Invoice, c: Partial<CompanyProfile> = {}, lan
       invCustomerTaxNumber = found.taxNumber || '';
     }
   } catch (error) {
-    pdfWarn('Failed to hydrate invoice customer metadata from cache.', error);
+    pdfWarn('Failed to hydrate invoice account metadata from cache.', error);
   }
 
   // Newline'ları PDF'de kesin satır kırılması için <br/>'e çevir (found olsun veya olmasın uygulanır)
@@ -667,7 +667,7 @@ const buildInvoiceHtml = (invoice: Invoice, c: Partial<CompanyProfile> = {}, lan
         </div>
       </div>
 
-      <!-- Mavi çizginin altında: Sol şirket, sağ müşteri -->
+      <!-- Mavi çizginin altında: Sol şirket, sağ hesap -->
       <div style="display:flex; justify-content:space-between; gap:24px; margin:16px 0 18px 0;">
         <div>${companyBlock}</div>
         <div>${customerBlock}</div>
@@ -932,25 +932,25 @@ const buildQuoteHtml = (
   // Basit çok dilli metinler
   const L = {
     tr: {
-      title: 'Teklif', appSubtitle: 'Teklif dökümanı', customerInfo: 'Müşteri Bilgileri',
+      title: 'Teklif', appSubtitle: 'Teklif dökümanı', customerInfo: 'Hesap Bilgileri',
       quoteNumber: 'Teklif No', issueDate: 'Düzenleme Tarihi', validUntil: 'Geçerlilik Tarihi', status: 'Durum',
       items: { description: 'Açıklama', quantity: 'Miktar', unitPrice: 'Birim Fiyat', total: 'Toplam' },
       totals: { grandTotal: 'Genel Toplam' }, footer: 'Bu belge bilgi amaçlıdır.'
     },
     en: {
-      title: 'Quote', appSubtitle: 'Quotation document', customerInfo: 'Customer Information',
+      title: 'Quote', appSubtitle: 'Quotation document', customerInfo: 'Account Information',
       quoteNumber: 'Quote No', issueDate: 'Issue Date', validUntil: 'Valid Until', status: 'Status',
       items: { description: 'Description', quantity: 'Qty', unitPrice: 'Unit Price', total: 'Total' },
       totals: { grandTotal: 'Grand Total' }, footer: 'This document is for information purposes.'
     },
     fr: {
-      title: 'Devis', appSubtitle: 'Document de devis', customerInfo: 'Informations client',
+      title: 'Devis', appSubtitle: 'Document de devis', customerInfo: 'Informations compte',
       quoteNumber: 'N° de devis', issueDate: 'Date', validUntil: 'Valable jusqu’au', status: 'Statut',
       items: { description: 'Description', quantity: 'Qté', unitPrice: 'Prix unitaire', total: 'Total' },
       totals: { grandTotal: 'Total général' }, footer: 'Document à titre indicatif.'
     },
     de: {
-      title: 'Angebot', appSubtitle: 'Angebotsdokument', customerInfo: 'Kundeninformationen',
+      title: 'Angebot', appSubtitle: 'Angebotsdokument', customerInfo: 'Accountinformationen',
       quoteNumber: 'Angebotsnr.', issueDate: 'Datum', validUntil: 'Gültig bis', status: 'Status',
       items: { description: 'Beschreibung', quantity: 'Menge', unitPrice: 'Einzelpreis', total: 'Summe' },
       totals: { grandTotal: 'Gesamtsumme' }, footer: 'Dieses Dokument dient nur zur Information.'
@@ -969,7 +969,7 @@ const buildQuoteHtml = (
     </div>
   `;
 
-  // Müşteri bilgilerini customers_cache üzerinden zenginleştir (tüm alanlar)
+  // Hesap bilgilerini customers_cache üzerinden zenginleştir (tüm alanlar)
   let customerEmail = '';
   let customerPhone = '';
   let customerAddress = '';
@@ -989,10 +989,10 @@ const buildQuoteHtml = (
       customerCompany = found.company || '';
     }
   } catch (error) {
-    pdfWarn('Failed to hydrate quote customer metadata from cache.', error);
+    pdfWarn('Failed to hydrate quote account metadata from cache.', error);
   }
 
-  // Dinamik etiketler (diller) – müşteri alanları
+  // Dinamik etiketler (diller) – hesap alanları
   const fieldLabels = {
     tr: { company: 'Şirket', email: 'E-posta', phone: 'Tel', address: 'Adres', tax: 'Vergi No' },
     en: { company: 'Company', email: 'Email', phone: 'Phone', address: 'Address', tax: 'Tax Number' },

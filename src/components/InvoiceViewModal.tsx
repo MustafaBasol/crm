@@ -95,28 +95,28 @@ export default function InvoiceViewModal({
       createdAt: 'Oluşturulma',
       updatedBy: 'Son güncelleyen',
       updatedAt: 'Son güncelleme',
-      noCustomer: 'Müşteri Yok',
+      noCustomer: 'Hesap Yok',
     },
     en: {
       createdBy: 'Created by',
       createdAt: 'Created at',
       updatedBy: 'Last updated by',
       updatedAt: 'Last updated',
-      noCustomer: 'No Customer',
+      noCustomer: 'No Account',
     },
     de: {
       createdBy: 'Erstellt von',
       createdAt: 'Erstellt am',
       updatedBy: 'Zuletzt aktualisiert von',
       updatedAt: 'Zuletzt aktualisiert',
-      noCustomer: 'Kein Kunde',
+      noCustomer: 'Kein Account',
     },
     fr: {
       createdBy: 'Créé par',
       createdAt: 'Créé le',
       updatedBy: 'Dernière mise à jour par',
       updatedAt: 'Dernière mise à jour',
-      noCustomer: 'Aucun Client',
+      noCustomer: 'Aucun Compte',
     }
   };
   const L = labels[lang] || labels.en;

@@ -56,7 +56,7 @@ export class CreateSaleDto {
 
   @ApiProperty({
     required: false,
-    description: 'Müşteri adı (ID yoksa otomatik oluşturma için)',
+    description: 'Hesap adı (ID yoksa otomatik oluşturma için)',
   })
   @IsOptional()
   @IsString()
@@ -64,7 +64,7 @@ export class CreateSaleDto {
 
   @ApiProperty({
     required: false,
-    description: 'Müşteri e-posta (otomatik oluşturma için opsiyonel)',
+    description: 'Hesap e-posta (otomatik oluşturma için opsiyonel)',
   })
   @IsOptional()
   @IsString()

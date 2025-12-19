@@ -477,7 +477,11 @@ export class QuotesService {
 
         const oppAccountId = opp.accountId || null;
         const quoteCustomerId = q.customerId ? String(q.customerId) : null;
-        if (quoteCustomerId && oppAccountId && quoteCustomerId !== oppAccountId) {
+        if (
+          quoteCustomerId &&
+          oppAccountId &&
+          quoteCustomerId !== oppAccountId
+        ) {
           throw new BadRequestException(
             'quote.customerId must match opportunity accountId',
           );

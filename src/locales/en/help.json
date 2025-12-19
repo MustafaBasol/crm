@@ -6,7 +6,7 @@
   "sections": [
     { "id": "overview", "title": "Overview" },
     { "id": "getting-started", "title": "Getting Started (Sign Up, Sign In, Language/Currency)" },
-    { "id": "customers", "title": "Customers" },
+    { "id": "customers", "title": "Accounts" },
     { "id": "suppliers", "title": "Suppliers" },
     { "id": "products", "title": "Products & Categories" },
     { "id": "invoices", "title": "Invoices" },
@@ -32,10 +32,10 @@
     "tipKeyboard": "Quick navigation:",
     "tipAfter": "to go to Settings."
   },
-  "customers": { "title": "Customers", "items": ["Open the Customers page from the sidebar.", "Add a customer or import via CSV/Excel.", "See past invoices, balance, and contact details on the customer card."] },
-  "suppliers": { "title": "Suppliers", "desc": "Create supplier cards to link expenses. Import and editing steps are the same as customers." },
+  "customers": { "title": "Accounts", "items": ["Open the Accounts page from the sidebar.", "Add an account or import via CSV/Excel.", "See past invoices, balance, and contact details on the account card."] },
+  "suppliers": { "title": "Suppliers", "desc": "Create supplier cards to link expenses. Import and editing steps are the same as accounts." },
   "products": { "title": "Products & Categories", "desc": "Manage stock and services. Define category-level VAT, override per product if needed.", "items": ["Add new products with SKU and price.", "Set minimum stock levels and get low-stock alerts.", "Auto-VAT on invoices via category/product settings."] },
-  "invoices": { "title": "Invoices", "steps": ["Create invoice with customer and line items; products bring their VAT rate.", "Add due date, notes, discounts; preview PDF and send by email.", "Track payment status and void/return operations."] },
+  "invoices": { "title": "Invoices", "steps": ["Create invoice with account and line items; products bring their VAT rate.", "Add due date, notes, discounts; preview PDF and send by email.", "Track payment status and void/return operations."] },
   "expenses": { "title": "Expenses", "desc": "Record supplier, amount, date, and status. Get reminders near due date; edits are blocked when period lock is active." },
   "sales": { "title": "Sales", "desc": "Sales are auto-created from invoices; you can also add manual sales. Multi-line sales are supported; stock decreases automatically." },
   "bank": { "title": "Bank Accounts", "desc": "Track bank accounts. Free plan: 1 account; upper plans: unlimited. Provide name and IBAN when adding." },

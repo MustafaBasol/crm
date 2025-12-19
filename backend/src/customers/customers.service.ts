@@ -38,7 +38,7 @@ export class CustomersService {
       where: { id, tenantId },
     });
     if (!customer) {
-      throw new NotFoundException(`Customer with ID ${id} not found`);
+      throw new NotFoundException(`Account with ID ${id} not found`);
     }
     return customer;
   }
@@ -57,7 +57,7 @@ export class CustomersService {
         .getOne();
       if (existing) {
         throw new BadRequestException(
-          `Bu e-posta (${email}) ile zaten bir müşteri kayıtlı`,
+          `Bu e-posta (${email}) ile zaten bir hesap kayıtlı`,
         );
       }
     }
@@ -87,9 +87,7 @@ export class CustomersService {
       return await this.customersRepository.save(customer);
     } catch (error) {
       if (this.isUniqueCustomerConstraint(error)) {
-        throw new BadRequestException(
-          'Bu e-posta ile zaten bir müşteri kayıtlı',
-        );
+        throw new BadRequestException('Bu e-posta ile zaten bir hesap kayıtlı');
       }
       throw error;
     }
@@ -113,7 +111,7 @@ export class CustomersService {
         .getOne();
       if (existing) {
         throw new BadRequestException(
-          `Bu e-posta (${nextEmail}) ile zaten bir müşteri kayıtlı`,
+          `Bu e-posta (${nextEmail}) ile zaten bir hesap kayıtlı`,
         );
       }
     }
@@ -134,7 +132,7 @@ export class CustomersService {
     if (relatedInvoices.length > 0) {
       throw new HttpException(
         {
-          message: 'Bu müşteri silinemez çünkü bağlı faturalar var',
+          message: 'Bu hesap silinemez çünkü bağlı faturalar var',
           relatedInvoices: relatedInvoices.map((i) => ({
             id: i.id,
             invoiceNumber: i.invoiceNumber,

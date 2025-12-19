@@ -6,7 +6,7 @@
   "sections": [
     { "id": "overview", "title": "Aperçu" },
     { "id": "getting-started", "title": "Premiers pas (Inscription, Connexion, Langue/Devise)" },
-    { "id": "customers", "title": "Clients" },
+    { "id": "customers", "title": "Comptes" },
     { "id": "suppliers", "title": "Fournisseurs" },
     { "id": "products", "title": "Produits & Catégories" },
     { "id": "invoices", "title": "Factures" },
@@ -32,10 +32,10 @@
     "tipKeyboard": "Navigation rapide :",
     "tipAfter": "pour aller aux Paramètres."
   },
-  "customers": { "title": "Clients", "items": ["Ouvrez la page Clients depuis la barre latérale.", "Ajoutez un client ou importez via CSV/Excel.", "Consultez les anciennes factures, le solde et les coordonnées depuis la fiche client."] },
-  "suppliers": { "title": "Fournisseurs", "desc": "Créez des fiches fournisseurs pour lier les dépenses. Import et édition identiques à ceux des clients." },
+  "customers": { "title": "Comptes", "items": ["Ouvrez la page Comptes depuis la barre latérale.", "Ajoutez un compte ou importez via CSV/Excel.", "Consultez les anciennes factures, le solde et les coordonnées depuis la fiche compte."] },
+  "suppliers": { "title": "Fournisseurs", "desc": "Créez des fiches fournisseurs pour lier les dépenses. Import et édition identiques à ceux des comptes." },
   "products": { "title": "Produits & Catégories", "desc": "Gérez stocks et services. Définissez la TVA au niveau des catégories et, si besoin, surchargez par produit.", "items": ["Ajoutez de nouveaux produits avec SKU et prix.", "Définissez un stock minimum et recevez des alertes de stock faible.", "TVA automatique sur les factures via les réglages catégorie/produit."] },
-  "invoices": { "title": "Factures", "steps": ["Créez une facture avec client et lignes; les produits apportent leur taux de TVA.", "Ajoutez l'échéance, des notes, remises; aperçu PDF et envoi par e‑mail.", "Suivez l'état de paiement et les opérations d'annulation/retour."] },
+  "invoices": { "title": "Factures", "steps": ["Créez une facture avec compte et lignes; les produits apportent leur taux de TVA.", "Ajoutez l'échéance, des notes, remises; aperçu PDF et envoi par e‑mail.", "Suivez l'état de paiement et les opérations d'annulation/retour."] },
   "expenses": { "title": "Dépenses", "desc": "Enregistrez fournisseur, montant, date et statut. Rappels proches de l'échéance; modifications bloquées si la période est verrouillée." },
   "sales": { "title": "Ventes", "desc": "Les ventes sont créées automatiquement depuis les factures; vous pouvez aussi en ajouter manuellement. Ventes multi‑lignes prises en charge; décrément de stock automatique." },
   "bank": { "title": "Comptes bancaires", "desc": "Suivez vos comptes bancaires. Plan gratuit : 1 compte; plans supérieurs : illimité. Fournissez nom et IBAN lors de l'ajout." },

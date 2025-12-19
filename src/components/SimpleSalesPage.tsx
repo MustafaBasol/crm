@@ -481,7 +481,7 @@ export default function SimpleSalesPage({ customers = [], sales = [], invoices =
     try {
       const headers = [
         t('sales.sale', { defaultValue: 'Sale' }),
-        t('sales.customer', { defaultValue: 'Customer' }),
+        t('sales.customer', { defaultValue: 'Account' }),
         t('sales.productService', { defaultValue: 'Product/Service' }),
         t('sales.amount', { defaultValue: 'Amount' }),
         t('sales.status', { defaultValue: 'Status' }),
@@ -714,7 +714,7 @@ export default function SimpleSalesPage({ customers = [], sales = [], invoices =
 
       if (customers.length === 0) {
         logger.error('simpleSales.invoice.noCustomers');
-        alert('Fatura oluşturmak için önce en az bir müşteri eklemelisiniz.\n\n"Müşteriler" sayfasından yeni müşteri ekleyebilirsiniz.');
+        alert('Fatura oluşturmak için önce en az bir hesap eklemelisiniz.\n\n"Hesaplar" sayfasından yeni hesap ekleyebilirsiniz.');
         setShowInvoiceConfirmModal(false);
         setSelectedSaleForInvoice(null);
         return;
@@ -1510,7 +1510,7 @@ export default function SimpleSalesPage({ customers = [], sales = [], invoices =
             // PDF generator için customer bilgilerini tamamla
             const invoiceWithCustomer = {
               ...invoice,
-              customerName: invoice.customer?.name || invoice.customerName || 'Müşteri Yok',
+              customerName: invoice.customer?.name || invoice.customerName || 'Hesap Yok',
               customerEmail: invoice.customer?.email || invoice.customerEmail || '',
               customerAddress: invoice.customer?.address || invoice.customerAddress || '',
             };

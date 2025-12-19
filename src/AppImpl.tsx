@@ -1935,7 +1935,7 @@ const AppContent: React.FC = () => {
           dueDate.setHours(0, 0, 0, 0);
           const dueDateMs = dueDate.getTime();
           
-          const customerName = invoice.customer?.name || tOr('common.generic.customer', 'Müşteri');
+          const customerName = invoice.customer?.name || tOr('common.generic.customer', 'Hesap');
           const invoiceNumber = invoice.invoiceNumber || `#${invoice.id}`;
           
           if (dueDateMs < todayMs) {
@@ -2155,7 +2155,7 @@ const AppContent: React.FC = () => {
           if (n.relatedId?.startsWith('invoice-')) {
             const id = n.relatedId.split('invoice-')[1];
             const inv: any = invoices.find(x => String((x as any).id) === String(id));
-            const customerName = inv?.customer?.name || tOr('common.generic.customer', 'Müşteri');
+            const customerName = inv?.customer?.name || tOr('common.generic.customer', 'Hesap');
             const invoiceNumber = inv?.invoiceNumber || `#${inv?.id || ''}`;
             const dueDate = inv?.dueDate ? new Date(inv.dueDate) : null;
             if (dueDate) {
@@ -2648,10 +2648,10 @@ const AppContent: React.FC = () => {
           const existing = customers.find(c => (String(c?.email || '').trim().toLowerCase()) === normalizedEmail);
           if (existing) {
             setInfoModal({
-              title: t('customers.duplicate.title') || 'Müşteri zaten kayıtlı',
-              message: t('customers.duplicate.message', { email: cleanData.email, name: existing.name }) || `Bu e-posta (${cleanData.email}) ile bir müşteri zaten kayıtlı (${existing.name}). Lütfen listeden mevcut kaydı seçin.`,
+              title: t('customers.duplicate.title') || 'Hesap zaten kayıtlı',
+              message: t('customers.duplicate.message', { email: cleanData.email, name: existing.name }) || `Bu e-posta (${cleanData.email}) ile bir hesap zaten kayıtlı (${existing.name}). Lütfen listeden mevcut kaydı seçin.`,
               tone: 'error',
-              confirmLabel: t('customers.duplicate.openExisting') || 'Mevcut müşteriyi aç',
+              confirmLabel: t('customers.duplicate.openExisting') || 'Mevcut hesabı aç',
               onConfirm: () => {
                 // Müşteriler sayfasına gidip ilgili kaydı aç
                 setSelectedCustomer(existing as any);
@@ -2670,7 +2670,7 @@ const AppContent: React.FC = () => {
         
         // 🔔 Bildirim ekle
         addNotification(
-          tOr('notifications.customers.created.title', 'Yeni müşteri eklendi'),
+          tOr('notifications.customers.created.title', 'Yeni hesap eklendi'),
           tOr('notifications.customers.created.desc', `${created.name} sisteme kaydedildi.`, { name: created.name }),
           'success',
           'customers',
@@ -2682,18 +2682,22 @@ const AppContent: React.FC = () => {
       console.error('Error details:', error.response?.data);
       const status = error?.response?.status;
       const serverMsg: string | string[] | undefined = error?.response?.data?.message;
-      const msg = Array.isArray(serverMsg) ? serverMsg.join(', ') : (serverMsg || error.message || 'Müşteri kaydedilemedi');
+      const msg = Array.isArray(serverMsg) ? serverMsg.join(', ') : (serverMsg || error.message || 'Hesap kaydedilemedi');
 
       // Backend duplicate guard: show actionable modal instead of toast
       const attemptedEmail = String(customerData?.email || '').trim().toLowerCase();
-      if (status === 400 && typeof msg === 'string' && (msg.toLowerCase().includes('zaten bir müşteri') || msg.toLowerCase().includes('duplicate'))) {
+      if (
+        status === 400 &&
+        typeof msg === 'string' &&
+        (msg.toLowerCase().includes('zaten bir müşteri') || msg.toLowerCase().includes('zaten bir hesap') || msg.toLowerCase().includes('duplicate'))
+      ) {
         const existing = customers.find(c => (String(c?.email || '').trim().toLowerCase()) === attemptedEmail);
         if (existing) {
           setInfoModal({
-            title: t('customers.duplicate.title') || 'Müşteri zaten kayıtlı',
+            title: t('customers.duplicate.title') || 'Hesap zaten kayıtlı',
             message: t('customers.duplicate.message', { email: customerData.email, name: existing.name }) || msg,
             tone: 'error',
-            confirmLabel: t('customers.duplicate.openExisting') || 'Mevcut müşteriyi aç',
+            confirmLabel: t('customers.duplicate.openExisting') || 'Mevcut hesabı aç',
             onConfirm: () => {
               setSelectedCustomer(existing as any);
               setShowCustomerViewModal(true);
@@ -2710,7 +2714,7 @@ const AppContent: React.FC = () => {
   };
 
   const deleteCustomer = async (customerId: string | number) => {
-    if (typeof window !== "undefined" && !window.confirm(t('customers.deleteConfirm', { defaultValue: 'Bu müşteriyi silmek istediğinizden emin misiniz?' }))) {
+    if (typeof window !== "undefined" && !window.confirm(t('customers.deleteConfirm', { defaultValue: 'Bu hesabı silmek istediğinizden emin misiniz?' }))) {
       return;
     }
     try {
@@ -2723,7 +2727,7 @@ const AppContent: React.FC = () => {
       // Bağlı fatura kontrolü
       if (error.response?.data?.relatedInvoices) {
         setDeleteWarningData({
-          title: 'Müşteri Silinemez',
+          title: 'Hesap Silinemez',
           message: error.response.data.message,
           relatedItems: normalizeRelatedItems(error.response.data.relatedInvoices),
           itemType: 'invoice'
@@ -3605,10 +3609,10 @@ const AppContent: React.FC = () => {
         const customerInfo = customers.find(c => c.id === cleanData.customerId);
         addNotification(
           tOr('notifications.invoices.created.title', 'Yeni fatura oluşturuldu'),
-          tOr('notifications.invoices.created.desc', `${created.invoiceNumber} - ${customerInfo?.name || 'Müşteri'} için fatura hazır.`, { invoiceNumber: created.invoiceNumber, customerName: customerInfo?.name || 'Müşteri' }),
+          tOr('notifications.invoices.created.desc', `${created.invoiceNumber} - ${customerInfo?.name || 'Hesap'} için fatura hazır.`, { invoiceNumber: created.invoiceNumber, customerName: customerInfo?.name || 'Hesap' }),
           'success',
           'invoices',
-          { i18nTitleKey: 'notifications.invoices.created.title', i18nDescKey: 'notifications.invoices.created.desc', i18nParams: { invoiceNumber: created.invoiceNumber, customerName: customerInfo?.name || 'Müşteri' } }
+          { i18nTitleKey: 'notifications.invoices.created.title', i18nDescKey: 'notifications.invoices.created.desc', i18nParams: { invoiceNumber: created.invoiceNumber, customerName: customerInfo?.name || 'Hesap' } }
         );
         
         return created; // Oluşturulan faturayı return et
@@ -4795,10 +4799,10 @@ const AppContent: React.FC = () => {
       const customerInfo = customers.find((c) => c.id === customerId);
       addNotification(
         tOr('notifications.invoices.created.title', 'Yeni fatura oluşturuldu'),
-        tOr('notifications.invoices.created.desc', `${created.invoiceNumber} - ${customerInfo?.name || 'Müşteri'} için fatura hazır.`, { invoiceNumber: created.invoiceNumber, customerName: customerInfo?.name || 'Müşteri' }),
+        tOr('notifications.invoices.created.desc', `${created.invoiceNumber} - ${customerInfo?.name || 'Hesap'} için fatura hazır.`, { invoiceNumber: created.invoiceNumber, customerName: customerInfo?.name || 'Hesap' }),
         'success',
         'invoices',
-        { i18nTitleKey: 'notifications.invoices.created.title', i18nDescKey: 'notifications.invoices.created.desc', i18nParams: { invoiceNumber: created.invoiceNumber, customerName: customerInfo?.name || 'Müşteri' } }
+        { i18nTitleKey: 'notifications.invoices.created.title', i18nDescKey: 'notifications.invoices.created.desc', i18nParams: { invoiceNumber: created.invoiceNumber, customerName: customerInfo?.name || 'Hesap' } }
       );
 
       showToast(t('toasts.invoices.createSuccess'), 'success');

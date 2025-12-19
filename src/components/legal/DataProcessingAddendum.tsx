@@ -19,7 +19,7 @@ const DataProcessingAddendum: React.FC = () => {
       sections: {
         introduction: {
           title: "Giriş",
-          content: "Bu Veri İşleme Sözleşmesi (VİS), Comptario'nun müşterilerimizin kişisel verilerini nasıl işlediğini ve koruduğunu açıklar. GDPR Madde 28 gereksinimlerine tam uyum sağlar.",
+          content: "Bu Veri İşleme Sözleşmesi (VİS), Comptario'nun kullanıcılarımızın kişisel verilerini nasıl işlediğini ve koruduğunu açıklar. GDPR Madde 28 gereksinimlerine tam uyum sağlar.",
           note: {
             title: "Önemli Not",
             content: "Bu sözleşme, Comptario hizmetlerini kullanmaya başladığınızda otomatik olarak yürürlüğe girer."
@@ -29,7 +29,7 @@ const DataProcessingAddendum: React.FC = () => {
           title: "Tanımlar",
           controller: {
             title: "Veri Sorumlusu",
-            desc: "Kişisel verilerin işlenmesinin amaç ve vasıtalarını belirleyen kişi (müşteri şirketi)."
+            desc: "Kişisel verilerin işlenmesinin amaç ve vasıtalarını belirleyen kişi (kullanıcı şirketi)."
           },
           processor: {
             title: "Veri İşleyici",
@@ -44,7 +44,7 @@ const DataProcessingAddendum: React.FC = () => {
           title: "İşleme Detayları",
           subject: {
             title: "İşleme Konusu",
-            desc: "Muhasebe hizmetlerinin sağlanması ve müşteri desteği"
+            desc: "Muhasebe hizmetlerinin sağlanması ve destek"
           },
           duration: {
             title: "İşleme Süresi",
@@ -53,7 +53,7 @@ const DataProcessingAddendum: React.FC = () => {
           purpose: {
             title: "İşleme Amaçları",
             service: "Muhasebe hizmetlerinin sağlanması",
-            support: "Müşteri desteği ve teknik yardım",
+            support: "Destek ve teknik yardım",
             security: "Sistem güvenliği ve veri koruması",
             compliance: "Yasal yükümlülüklerin yerine getirilmesi"
           }
@@ -111,7 +111,7 @@ const DataProcessingAddendum: React.FC = () => {
           content: "Herhangi bir veri güvenliği ihlali durumunda, Comptario derhal gerekli adımları atar ve ilgili makamları bilgilendirir.",
           notification: {
             title: "Bildirim Süresi",
-            content: "Veri ihlali durumunda 72 saat içinde müşteri ve ilgili makamlar bilgilendirilir."
+            content: "Veri ihlali durumunda 72 saat içinde kullanıcı ve ilgili makamlar bilgilendirilir."
           }
         }
       },
@@ -251,7 +251,7 @@ const DataProcessingAddendum: React.FC = () => {
       sections: {
         introduction: {
           title: "Einführung",
-          content: "Dieser Auftragsverarbeitungsvertrag (AVV) erklärt, wie Comptario die personenbezogenen Daten unserer Kunden verarbeitet und schützt. Er entspricht vollständig den Anforderungen von GDPR Artikel 28.",
+          content: "Dieser Auftragsverarbeitungsvertrag (AVV) erklärt, wie Comptario die personenbezogenen Daten unserer Nutzer verarbeitet und schützt. Er entspricht vollständig den Anforderungen von GDPR Artikel 28.",
           note: {
             title: "Wichtiger Hinweis",
             content: "Diese Vereinbarung tritt automatisch in Kraft, wenn Sie die Comptario-Dienste nutzen."
@@ -261,7 +261,7 @@ const DataProcessingAddendum: React.FC = () => {
           title: "Definitionen",
           controller: {
             title: "Verantwortlicher",
-            desc: "Die Stelle, die die Zwecke und Mittel der Verarbeitung personenbezogener Daten bestimmt (Kundenunternehmen)."
+            desc: "Die Stelle, die die Zwecke und Mittel der Verarbeitung personenbezogener Daten bestimmt (Nutzerunternehmen)."
           },
           processor: {
             title: "Auftragsverarbeiter",
@@ -276,7 +276,7 @@ const DataProcessingAddendum: React.FC = () => {
           title: "Verarbeitungsdetails",
           subject: {
             title: "Verarbeitungsgegenstand",
-            desc: "Bereitstellung von Buchhaltungsdienstleistungen und Kundensupport"
+            desc: "Bereitstellung von Buchhaltungsdienstleistungen und Support"
           },
           duration: {
             title: "Verarbeitungsdauer",
@@ -285,7 +285,7 @@ const DataProcessingAddendum: React.FC = () => {
           purpose: {
             title: "Verarbeitungszwecke",
             service: "Bereitstellung von Buchhaltungsdienstleistungen",
-            support: "Kundensupport und technische Unterstützung",
+            support: "Support und technische Unterstützung",
             security: "Systemsicherheit und Datenschutz",
             compliance: "Erfüllung rechtlicher Verpflichtungen"
           }
@@ -343,7 +343,7 @@ const DataProcessingAddendum: React.FC = () => {
           content: "Im Falle einer Datensicherheitsverletzung ergreift Comptario sofort notwendige Maßnahmen und informiert die zuständigen Behörden.",
           notification: {
             title: "Meldezeitraum",
-            content: "Im Falle einer Datenschutzverletzung werden Kunden und zuständige Behörden innerhalb von 72 Stunden benachrichtigt."
+            content: "Im Falle einer Datenschutzverletzung werden Nutzer und zuständige Behörden innerhalb von 72 Stunden benachrichtigt."
           }
         }
       },
@@ -367,7 +367,7 @@ const DataProcessingAddendum: React.FC = () => {
       sections: {
         introduction: {
           title: "Introduction",
-          content: "Cet Accord de Traitement des Données (ATD) explique comment Comptario traite et protège les données personnelles de nos clients. Il respecte entièrement les exigences de l'Article 28 du GDPR.",
+          content: "Cet Accord de Traitement des Données (ATD) explique comment Comptario traite et protège les données personnelles de nos utilisateurs. Il respecte entièrement les exigences de l'Article 28 du GDPR.",
           note: {
             title: "Note Importante",
             content: "Cet accord entre automatiquement en vigueur lorsque vous commencez à utiliser les services Comptario."
@@ -377,7 +377,7 @@ const DataProcessingAddendum: React.FC = () => {
           title: "Définitions",
           controller: {
             title: "Responsable du Traitement",
-            desc: "L'entité qui détermine les finalités et les moyens du traitement des données personnelles (entreprise cliente)."
+            desc: "L'entité qui détermine les finalités et les moyens du traitement des données personnelles (entreprise utilisatrice)."
           },
           processor: {
             title: "Sous-traitant",
@@ -392,7 +392,7 @@ const DataProcessingAddendum: React.FC = () => {
           title: "Détails du Traitement",
           subject: {
             title: "Objet du Traitement",
-            desc: "Fourniture de services comptables et support client"
+            desc: "Fourniture de services comptables et support"
           },
           duration: {
             title: "Durée",
@@ -401,7 +401,7 @@ const DataProcessingAddendum: React.FC = () => {
           purpose: {
             title: "Finalités du Traitement",
             service: "Fourniture de services comptables",
-            support: "Support client et assistance technique",
+            support: "Support et assistance technique",
             security: "Sécurité du système et protection des données",
             compliance: "Respect des obligations légales"
           }
@@ -459,7 +459,7 @@ const DataProcessingAddendum: React.FC = () => {
           content: "En cas de violation de la sécurité des données, Comptario prend immédiatement les mesures nécessaires et informe les autorités compétentes.",
           notification: {
             title: "Période de Notification",
-            content: "En cas de violation de données, les clients et les autorités compétentes sont notifiés dans les 72 heures."
+            content: "En cas de violation de données, les utilisateurs et les autorités compétentes sont notifiés dans les 72 heures."
           }
         }
       },

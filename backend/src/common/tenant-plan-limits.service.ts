@@ -238,8 +238,8 @@ export class TenantPlanLimitService {
           : `Plan limitine ulaşıldı: En fazla ${limits.maxUsers} kullanıcı eklenebilir. Daha fazla kullanıcı için plan yükseltin.`;
       case 'customer':
         return this.isUnlimited(limits.maxCustomers)
-          ? 'Bu planda müşteri sayısı sınırsız.'
-          : `Plan limitine ulaşıldı: En fazla ${limits.maxCustomers} müşteri eklenebilir. Planınızı yükseltin.`;
+          ? 'Bu planda hesap sayısı sınırsız.'
+          : `Plan limitine ulaşıldı: En fazla ${limits.maxCustomers} hesap eklenebilir. Planınızı yükseltin.`;
       case 'supplier':
         return this.isUnlimited(limits.maxSuppliers)
           ? 'Bu planda tedarikçi sayısı sınırsız.'
@@ -276,8 +276,8 @@ export class TenantPlanLimitService {
           : `Plan limitine ulaşıldı: En fazla ${limits.maxUsers} kullanıcı eklenebilir.`;
       case 'customer':
         return this.isUnlimited(limits.maxCustomers)
-          ? 'Müşteri sayısı sınırsız.'
-          : `Plan limitine ulaşıldı: En fazla ${limits.maxCustomers} müşteri eklenebilir.`;
+          ? 'Hesap sayısı sınırsız.'
+          : `Plan limitine ulaşıldı: En fazla ${limits.maxCustomers} hesap eklenebilir.`;
       case 'supplier':
         return this.isUnlimited(limits.maxSuppliers)
           ? 'Tedarikçi sayısı sınırsız.'

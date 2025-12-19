@@ -132,7 +132,7 @@ const Hero: React.FC<HeroProps> = ({ onTryForFree, onSignIn, onWatchDemo }) => {
                       </div>
                       <div>
                         <div className="font-medium text-gray-900">Invoice #INV-2024-001</div>
-                        <div className="text-sm text-gray-500">Client ABC Ltd.</div>
+                        <div className="text-sm text-gray-500">Account ABC Ltd.</div>
                       </div>
                     </div>
                     <div className="text-emerald-600 font-semibold">€850</div>

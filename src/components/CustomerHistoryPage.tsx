@@ -671,7 +671,7 @@ export default function CustomerHistoryPage() {
       {/* Full-width container like other pages */}
       <div className="w-full px-6 py-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">{t('customer.historyPageTitle') || 'Müşteri Geçmişi'}</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t('customer.historyPageTitle') || 'Hesap Geçmişi'}</h1>
           <p className="text-sm text-slate-500">{customer?.name ? (t('customer.historySubtitle', { name: customer.name }) as string) : (t('customer.historyPageTitle') as string)}</p>
         </div>
 

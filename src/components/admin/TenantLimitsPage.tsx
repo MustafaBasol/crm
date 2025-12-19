@@ -255,7 +255,7 @@ const TenantLimitsPage: React.FC = () => {
                   <div className="text-sm">{defaultLimits.maxUsers}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 mb-1">Maks. Müşteri</div>
+                  <div className="text-xs text-gray-500 mb-1">Maks. Hesap</div>
                   <div className="text-sm">{defaultLimits.maxCustomers}</div>
                 </div>
                 <div>
@@ -294,7 +294,7 @@ const TenantLimitsPage: React.FC = () => {
               </div>
               <div>
                 <NumberField
-                  label="Maks. Müşteri"
+                  label="Maks. Hesap"
                   value={overrideLimits.maxCustomers}
                   onChange={(v) => updateOverride({ maxCustomers: v })}
                   hint="-1 = Sınırsız, boş = plan varsayılanı"
@@ -361,7 +361,7 @@ const TenantLimitsPage: React.FC = () => {
                   <div className="text-sm">{effectiveLimits.maxUsers}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 mb-1">Maks. Müşteri</div>
+                  <div className="text-xs text-gray-500 mb-1">Maks. Hesap</div>
                   <div className="text-sm">{effectiveLimits.maxCustomers}</div>
                 </div>
                 <div>
@@ -391,7 +391,7 @@ const TenantLimitsPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <StatBox title="Kullanıcı" value={usage.users} max={effectiveLimits?.maxUsers} />
-                <StatBox title="Müşteri" value={usage.customers} max={effectiveLimits?.maxCustomers} />
+                <StatBox title="Hesap" value={usage.customers} max={effectiveLimits?.maxCustomers} />
                 <StatBox title="Tedarikçi" value={usage.suppliers} max={effectiveLimits?.maxSuppliers} />
                 <StatBox title="Banka Hesabı" value={usage.bankAccounts} max={effectiveLimits?.maxBankAccounts} />
                 <StatBox title="Aylık Fatura" value={usage.monthly?.invoices || 0} max={effectiveLimits?.monthly?.maxInvoices} />

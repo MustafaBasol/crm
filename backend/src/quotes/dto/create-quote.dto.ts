@@ -12,7 +12,7 @@ import {
 import { QuoteStatus } from '../entities/quote.entity';
 
 export class CreateQuoteDto {
-  @ApiPropertyOptional({ description: 'Customer ID (UUID)' })
+  @ApiPropertyOptional({ description: 'Account ID (UUID)' })
   @IsOptional()
   @IsString()
   customerId?: string;
@@ -57,7 +57,7 @@ export class CreateQuoteDto {
   @IsString()
   scopeOfWorkHtml?: string;
 
-  @ApiPropertyOptional({ description: 'Customer name (denormalized)' })
+  @ApiPropertyOptional({ description: 'Account name (denormalized)' })
   @IsOptional()
   @IsString()
   @MaxLength(255)

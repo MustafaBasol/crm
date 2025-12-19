@@ -61,7 +61,7 @@ const SubprocessorsList: React.FC = () => {
         user: 'Kullanıcı verisi',
         transaction: 'İşlem verisi',
         payment: 'Ödeme verisi',
-        customer: 'Müşteri verisi',
+        customer: 'Hesap verisi',
         email: 'E-posta adresleri',
         communication: 'İletişim verisi',
         usage: 'Kullanım verisi',
@@ -129,7 +129,7 @@ const SubprocessorsList: React.FC = () => {
         user: 'Benutzerdaten',
         transaction: 'Transaktionsdaten',
         payment: 'Zahlungsdaten',
-        customer: 'Kundendaten',
+        customer: 'Accountdaten',
         email: 'E-Mail-Adressen',
         communication: 'Kommunikationsdaten',
         usage: 'Nutzungsdaten',
@@ -163,7 +163,7 @@ const SubprocessorsList: React.FC = () => {
         user: 'Données utilisateur',
         transaction: 'Données de transaction',
         payment: 'Données de paiement',
-        customer: 'Données client',
+        customer: 'Données de compte',
         email: 'Adresses e-mail',
         communication: 'Données de communication',
         usage: 'Données d\'utilisation',
@@ -266,7 +266,7 @@ const SubprocessorsList: React.FC = () => {
         'Stripe Inc.': {
           name: 'Stripe Inc.',
           purpose: 'Ödeme işleme ve finansal hizmetler',
-          categories: ['Ödeme verisi', 'İşlem verisi', 'Müşteri verisi']
+          categories: ['Ödeme verisi', 'İşlem verisi', 'Hesap verisi']
         },
         'Google Analytics': {
           name: 'Google Analytics',
