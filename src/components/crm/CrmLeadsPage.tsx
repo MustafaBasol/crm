@@ -6,6 +6,7 @@ import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSa
 
 type StoredPageState = {
   query?: string;
+  sortKey?: string;
   limit?: number;
   offset?: number;
 };
@@ -35,6 +36,14 @@ const emptyForm: LeadFormState = {
   status: '',
 };
 
+type LeadSortKey =
+  | 'updatedDesc'
+  | 'updatedAsc'
+  | 'createdDesc'
+  | 'createdAsc'
+  | 'nameAsc'
+  | 'nameDesc';
+
 export default function CrmLeadsPage() {
   const { t } = useTranslation('common');
 
@@ -45,6 +54,15 @@ export default function CrmLeadsPage() {
 
   const restored = useMemo(() => readPageState(), []);
   const [query, setQuery] = useState(() => (typeof restored?.query === 'string' ? restored.query : ''));
+
+  const [sortKey, setSortKey] = useState<LeadSortKey>(() => {
+    const v = restored?.sortKey;
+    const allowed: LeadSortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'nameAsc', 'nameDesc'];
+    return typeof v === 'string' && (allowed as string[]).includes(v)
+      ? (v as LeadSortKey)
+      : 'updatedDesc';
+  });
+
   const [limit] = useState(() => {
     const v = restored?.limit;
     return typeof v === 'number' && Number.isFinite(v) ? v : 25;
@@ -57,9 +75,9 @@ export default function CrmLeadsPage() {
   useEffect(() => {
     safeSessionStorage.setItem(
       PAGE_STATE_KEY,
-      JSON.stringify({ query, limit, offset } satisfies StoredPageState),
+      JSON.stringify({ query, sortKey, limit, offset } satisfies StoredPageState),
     );
-  }, [query, limit, offset]);
+  }, [query, sortKey, limit, offset]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,6 +94,17 @@ export default function CrmLeadsPage() {
     try {
       const data = await leadsApi.listCrmLeads({
         q: query.trim() ? query.trim() : undefined,
+        ...(sortKey === 'updatedAsc'
+          ? { sortBy: 'updatedAt' as const, sortDir: 'asc' as const }
+          : sortKey === 'createdDesc'
+            ? { sortBy: 'createdAt' as const, sortDir: 'desc' as const }
+            : sortKey === 'createdAsc'
+              ? { sortBy: 'createdAt' as const, sortDir: 'asc' as const }
+              : sortKey === 'nameAsc'
+                ? { sortBy: 'name' as const, sortDir: 'asc' as const }
+                : sortKey === 'nameDesc'
+                  ? { sortBy: 'name' as const, sortDir: 'desc' as const }
+                  : { sortBy: 'updatedAt' as const, sortDir: 'desc' as const }),
         limit,
         offset,
       });
@@ -91,11 +120,11 @@ export default function CrmLeadsPage() {
 
   useEffect(() => {
     void reload();
-  }, [query, limit, offset]);
+  }, [query, sortKey, limit, offset]);
 
   useEffect(() => {
     setOffset(0);
-  }, [query, limit]);
+  }, [query, sortKey, limit]);
 
   const openCreate = () => {
     setModalError(null);
@@ -211,6 +240,20 @@ export default function CrmLeadsPage() {
           placeholder={`${t('common.search')}...`}
           className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
         />
+
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as LeadSortKey)}
+          className="w-full sm:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+          aria-label={t('app.sort.label') as string}
+        >
+          <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
+          <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
+          <option value="createdDesc">{t('app.sort.createdDesc')}</option>
+          <option value="createdAsc">{t('app.sort.createdAsc')}</option>
+          <option value="nameAsc">{t('app.sort.nameAsc')}</option>
+          <option value="nameDesc">{t('app.sort.nameDesc')}</option>
+        </select>
       </div>
 
       {!loading && !error && total > 0 && (

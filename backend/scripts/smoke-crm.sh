@@ -253,6 +253,26 @@ LEAD_ID="$(json_get "$LEAD_CREATED_JSON" "j.id")"
 echo "Lead ID: $LEAD_ID"
 http_json GET "$API_BASE/crm/leads" "" "$TOKEN" | tee "$TMP_DIR/smoke.leads.list.json" >/dev/null
 
+echo "== CRM: leads sorting (sortBy=name&sortDir=asc) =="
+LEAD_SORT_CREATE_A="$TMP_DIR/smoke.lead.sort.a.create.json"
+LEAD_SORT_CREATE_B="$TMP_DIR/smoke.lead.sort.b.create.json"
+cat > "$LEAD_SORT_CREATE_A" <<JSON
+{"name":"A Lead Sort $TS","email":"lead.sort.a.$TS@example.com","phone":"+90504$TS","company":"ACME","status":"new"}
+JSON
+cat > "$LEAD_SORT_CREATE_B" <<JSON
+{"name":"B Lead Sort $TS","email":"lead.sort.b.$TS@example.com","phone":"+90505$TS","company":"ACME","status":"new"}
+JSON
+
+LEAD_SORT_CREATED_A_JSON="$TMP_DIR/smoke.lead.sort.a.created.json"
+LEAD_SORT_CREATED_B_JSON="$TMP_DIR/smoke.lead.sort.b.created.json"
+http_json POST "$API_BASE/crm/leads" "$LEAD_SORT_CREATE_A" "$TOKEN" | tee "$LEAD_SORT_CREATED_A_JSON" >/dev/null
+http_json POST "$API_BASE/crm/leads" "$LEAD_SORT_CREATE_B" "$TOKEN" | tee "$LEAD_SORT_CREATED_B_JSON" >/dev/null
+
+LEADS_SORTED_JSON="$TMP_DIR/smoke.leads.sorted.json"
+http_json GET "$API_BASE/crm/leads?q=Lead%20Sort%20$TS&sortBy=name&sortDir=asc" "" "$TOKEN" | tee "$LEADS_SORTED_JSON" >/dev/null
+LEADS_SORTED_FIRST_NAME="$(json_get "$LEADS_SORTED_JSON" "Array.isArray(j.items) && j.items[0] && j.items[0].name")"
+[[ "$LEADS_SORTED_FIRST_NAME" == "A Lead Sort $TS" ]] || fail "Expected leads sorted first name to be 'A Lead Sort $TS', got '$LEADS_SORTED_FIRST_NAME'. Response: $LEADS_SORTED_JSON"
+
 cat > "$LEAD_UPDATE" <<JSON
 {"status":"qualified"}
 JSON
@@ -473,6 +493,27 @@ OPPS_LIST_JSON="$TMP_DIR/smoke.crm.opps.list.json"
 http_json GET "$API_BASE/crm/opportunities?limit=50&offset=0" "" "$TOKEN" | tee "$OPPS_LIST_JSON" >/dev/null
 OPPS_LIST_HAS_OPP="$(json_get "$OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID')")"
 [[ "$OPPS_LIST_HAS_OPP" == "true" ]] || fail "Owner opportunities list missing created opportunity: $OPPS_LIST_JSON"
+
+echo "== CRM: opportunities list sorting (name ASC) =="
+OPP_SORT_Q="OppSort$TS"
+OPP_SORT_A_CREATE="$TMP_DIR/smoke.opportunity.sort.a.create.json"
+OPP_SORT_B_CREATE="$TMP_DIR/smoke.opportunity.sort.b.create.json"
+cat > "$OPP_SORT_A_CREATE" <<JSON
+{"accountId":"$CUSTOMER_ID","name":"A $OPP_SORT_Q","amount":0,"currency":"TRY"}
+JSON
+cat > "$OPP_SORT_B_CREATE" <<JSON
+{"accountId":"$CUSTOMER_ID","name":"B $OPP_SORT_Q","amount":0,"currency":"TRY"}
+JSON
+
+OPP_SORT_A_CREATED_JSON="$TMP_DIR/smoke.opportunity.sort.a.created.json"
+OPP_SORT_B_CREATED_JSON="$TMP_DIR/smoke.opportunity.sort.b.created.json"
+http_json POST "$API_BASE/crm/opportunities" "$OPP_SORT_A_CREATE" "$TOKEN" | tee "$OPP_SORT_A_CREATED_JSON" >/dev/null
+http_json POST "$API_BASE/crm/opportunities" "$OPP_SORT_B_CREATE" "$TOKEN" | tee "$OPP_SORT_B_CREATED_JSON" >/dev/null
+
+OPPS_SORT_LIST_JSON="$TMP_DIR/smoke.crm.opps.sort.list.json"
+http_json GET "$API_BASE/crm/opportunities?q=$OPP_SORT_Q&sortBy=name&sortDir=asc&limit=50&offset=0" "" "$TOKEN" | tee "$OPPS_SORT_LIST_JSON" >/dev/null
+OPPS_SORT_FIRST_NAME="$(json_get "$OPPS_SORT_LIST_JSON" "Array.isArray(j?.items) && j.items[0] ? String(j.items[0].name||'') : ''")"
+[[ "${OPPS_SORT_FIRST_NAME}" == "A ${OPP_SORT_Q}" ]] || fail "Expected first opportunity name to be 'A ${OPP_SORT_Q}', got '${OPPS_SORT_FIRST_NAME}': $OPPS_SORT_LIST_JSON"
 
 OPPS_LIST_TOTAL="$(json_get "$OPPS_LIST_JSON" "typeof j.total === 'number' ? String(j.total) : ''")"
 OPPS_LIST_LIMIT="$(json_get "$OPPS_LIST_JSON" "typeof j.limit === 'number' ? String(j.limit) : ''")"

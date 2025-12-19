@@ -211,9 +211,27 @@ export class CrmService {
 
   async listLeads(
     tenantId: string,
-    opts?: { q?: string; limit?: number; offset?: number },
+    opts?: {
+      q?: string;
+      sortBy?: string;
+      sortDir?: string;
+      limit?: number;
+      offset?: number;
+    },
   ) {
     const { limit, offset } = this.normalizePagination(opts);
+
+    const sortByRaw = String(opts?.sortBy ?? '').trim();
+    const sortDirRaw = String(opts?.sortDir ?? '')
+      .trim()
+      .toLowerCase();
+    const sortDir = sortDirRaw === 'asc' ? 'ASC' : 'DESC';
+    const sortBy: 'updatedAt' | 'createdAt' | 'name' =
+      sortByRaw === 'createdAt'
+        ? 'createdAt'
+        : sortByRaw === 'name'
+          ? 'name'
+          : 'updatedAt';
 
     const qb = this.leadRepo
       .createQueryBuilder('l')
@@ -234,7 +252,18 @@ export class CrmService {
       );
     }
 
-    qb.orderBy('l.updatedAt', 'DESC').skip(offset).take(limit);
+    if (sortBy === 'name') {
+      qb.addSelect('LOWER(l.name)', 'l_name_lower');
+      qb.orderBy('l_name_lower', sortDir);
+      qb.addOrderBy('l.updatedAt', 'DESC');
+    } else if (sortBy === 'createdAt') {
+      qb.orderBy('l.createdAt', sortDir);
+      qb.addOrderBy('l.updatedAt', 'DESC');
+    } else {
+      qb.orderBy('l.updatedAt', sortDir);
+    }
+
+    qb.skip(offset).take(limit);
     const [items, total] = await qb.getManyAndCount();
     return { items, total, limit, offset };
   }
@@ -1864,6 +1893,8 @@ export class CrmService {
       stageId?: string;
       accountId?: string;
       status?: CrmOpportunityStatus;
+      sortBy?: string;
+      sortDir?: string;
       limit?: number;
       offset?: number;
     },
@@ -1884,10 +1915,41 @@ export class CrmService {
       ? Math.max(0, Math.floor(rawOffset))
       : 0;
 
+    const sortByRaw = String(opts?.sortBy ?? '').trim();
+    const sortDirRaw = String(opts?.sortDir ?? '')
+      .trim()
+      .toLowerCase();
+    const sortDir: 'ASC' | 'DESC' = sortDirRaw === 'asc' ? 'ASC' : 'DESC';
+    const sortBy: 'updatedAt' | 'createdAt' | 'name' =
+      sortByRaw === 'createdAt' ||
+      sortByRaw === 'name' ||
+      sortByRaw === 'updatedAt'
+        ? sortByRaw
+        : 'updatedAt';
+
     const qb = this.oppRepo
       .createQueryBuilder('o')
       .where('o.tenantId = :tenantId', { tenantId })
       .andWhere('o.pipelineId = :pipelineId', { pipelineId: pipeline.id });
+
+    const applySort = (
+      qb: ReturnType<Repository<CrmOpportunity>['createQueryBuilder']>,
+    ) => {
+      if (sortBy === 'name') {
+        qb.addSelect('LOWER(o.name)', 'o_name_lower');
+        qb.orderBy('o_name_lower', sortDir);
+        qb.addOrderBy('o.updatedAt', 'DESC');
+        return;
+      }
+
+      if (sortBy === 'createdAt') {
+        qb.orderBy('o.createdAt', sortDir);
+        qb.addOrderBy('o.updatedAt', 'DESC');
+        return;
+      }
+
+      qb.orderBy('o.updatedAt', sortDir);
+    };
 
     if (!this.isAdmin(user)) {
       const memberRows = await this.oppMemberRepo.find({
@@ -1922,7 +1984,8 @@ export class CrmService {
       }
     }
 
-    qb.orderBy('o.updatedAt', 'DESC').skip(offset).take(limit);
+    applySort(qb);
+    qb.skip(offset).take(limit);
 
     const [opportunities, total] = await qb.getManyAndCount();
 

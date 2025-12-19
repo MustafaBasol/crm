@@ -40,11 +40,15 @@ export class CrmController {
   async listLeads(
     @User() user: CurrentUser,
     @Query('q') q?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
     return this.crmService.listLeads(user.tenantId, {
       q,
+      sortBy,
+      sortDir,
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
     });
@@ -159,6 +163,8 @@ export class CrmController {
     @Query('stageId') stageId?: string,
     @Query('accountId') accountId?: string,
     @Query('status') status?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -174,6 +180,8 @@ export class CrmController {
       stageId,
       accountId,
       status: statusValue,
+      sortBy,
+      sortDir,
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
     });

@@ -54,6 +54,40 @@ Faz 2 adımı (küçük ama yüksek değer — 2025-12-19):
 
 Not: Bu oturumda backend `nohup` ile başlatıldıysa PID `.tmp/backend.pid` içinde olabilir.
 
+## Handoff (CRM: Leads list sorting) — 2025-12-19
+
+Amaç: CRM Leads listesinde server-side sorting (`sortBy`/`sortDir`) + UI sort select + smoke regresyonu.
+
+### Yapılan değişiklik
+
+- Backend: `GET /api/crm/leads` artık `sortBy` + `sortDir` destekliyor.
+  - Whitelist: `updatedAt | createdAt | name`
+  - Default: `updatedAt desc`
+  - Stabilite: tie-break `updatedAt DESC`
+  - `name` için TypeORM güvenli pattern: `addSelect(LOWER(...))` + alias üzerinden `orderBy`
+- Frontend: Leads list UI’ya sort select eklendi; state sessionStorage’da tutuluyor (`crm.leads.pageState.v1`).
+  - Sort değişince pagination `offset` resetleniyor.
+- Smoke: Leads sorting regresyonu eklendi (`sortBy=name&sortDir=asc` ile ilk kayıt “A …” assert).
+
+### İlgili dosyalar
+
+- [backend/src/crm/crm.controller.ts](backend/src/crm/crm.controller.ts)
+- [backend/src/crm/crm.service.ts](backend/src/crm/crm.service.ts)
+- [src/api/crm-leads.ts](src/api/crm-leads.ts)
+- [src/components/crm/CrmLeadsPage.tsx](src/components/crm/CrmLeadsPage.tsx)
+- [backend/scripts/smoke-crm.sh](backend/scripts/smoke-crm.sh)
+
+### Doğrulama
+
+- Frontend: `npm run lint && npm run build`
+- Backend: `npm run lint:backend && npm run build:backend && npm run test:backend`
+- Smoke:
+  - `npm run start:backend`
+  - `npm run smoke:crm`
+  - `npm run smoke:crm:authz`
+
+Not: `npm run smoke:crm` backend ayakta değilse `curl` connection refused ile (exit code 7) düşebilir; önce `npm run start:backend` çalıştır.
+
 # Dev Session Notes (2025-12-18)
 
 ## Handoff (CRM: create-from-quote response enrichment) — 2025-12-18

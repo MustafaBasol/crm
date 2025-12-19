@@ -15,6 +15,7 @@ type StoredPageState = {
   accountId?: string;
   status?: StatusFilter;
   stageId?: string;
+  sortKey?: string;
   limit?: number;
 };
 
@@ -28,6 +29,14 @@ const readPageState = (): StoredPageState | null => {
 };
 
 type StatusFilter = 'all' | 'open' | 'won' | 'lost';
+
+type OpportunitySortKey =
+  | 'updatedDesc'
+  | 'updatedAsc'
+  | 'createdDesc'
+  | 'createdAsc'
+  | 'nameAsc'
+  | 'nameDesc';
 
 const toDateLabel = (value: string | null | undefined, locale: string): string => {
   const raw = String(value ?? '').trim();
@@ -66,6 +75,14 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
     return v === 'open' || v === 'won' || v === 'lost' || v === 'all' ? v : 'all';
   });
   const [stageId, setStageId] = useState<string>(() => (typeof restored?.stageId === 'string' ? restored.stageId : ''));
+
+  const [sortKey, setSortKey] = useState<OpportunitySortKey>(() => {
+    const v = restored?.sortKey;
+    const allowed: OpportunitySortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'nameAsc', 'nameDesc'];
+    return typeof v === 'string' && (allowed as string[]).includes(v)
+      ? (v as OpportunitySortKey)
+      : 'updatedDesc';
+  });
 
   const [limit, setLimit] = useState(() => {
     const v = restored?.limit;
@@ -134,11 +151,12 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
           accountId,
           status,
           stageId,
+          sortKey,
           limit,
         } satisfies StoredPageState,
       ),
     );
-  }, [q, accountId, status, stageId, limit]);
+  }, [q, accountId, status, stageId, sortKey, limit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,7 +192,7 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
 
   useEffect(() => {
     setOffset(0);
-  }, [debouncedQ, accountId, status, stageId, limit]);
+  }, [debouncedQ, accountId, status, stageId, sortKey, limit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,6 +207,17 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
           stageId: stageId || undefined,
           accountId: accountId || undefined,
           status: status === 'all' ? undefined : status,
+          ...(sortKey === 'updatedAsc'
+            ? { sortBy: 'updatedAt' as const, sortDir: 'asc' as const }
+            : sortKey === 'createdDesc'
+              ? { sortBy: 'createdAt' as const, sortDir: 'desc' as const }
+              : sortKey === 'createdAsc'
+                ? { sortBy: 'createdAt' as const, sortDir: 'asc' as const }
+                : sortKey === 'nameAsc'
+                  ? { sortBy: 'name' as const, sortDir: 'asc' as const }
+                  : sortKey === 'nameDesc'
+                    ? { sortBy: 'name' as const, sortDir: 'desc' as const }
+                    : { sortBy: 'updatedAt' as const, sortDir: 'desc' as const }),
           limit,
           offset,
         });
@@ -211,7 +240,7 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQ, accountId, stageId, status, limit, offset]);
+  }, [debouncedQ, accountId, stageId, status, sortKey, limit, offset]);
 
   const total = page.total;
   const start = total === 0 ? 0 : Math.min(total, page.offset + 1);
@@ -304,6 +333,23 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
                 {stageLabel(s)}
               </option>
             ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">{t('app.sort.label')}</label>
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as OpportunitySortKey)}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300"
+            aria-label={t('app.sort.label') as string}
+          >
+            <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
+            <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
+            <option value="createdDesc">{t('app.sort.createdDesc')}</option>
+            <option value="createdAsc">{t('app.sort.createdAsc')}</option>
+            <option value="nameAsc">{t('app.sort.nameAsc')}</option>
+            <option value="nameDesc">{t('app.sort.nameDesc')}</option>
           </select>
         </div>
       </div>

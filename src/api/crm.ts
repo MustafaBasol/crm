@@ -70,6 +70,8 @@ export const listOpportunities = async (params?: {
   stageId?: string;
   accountId?: string;
   status?: 'open' | 'won' | 'lost';
+  sortBy?: 'updatedAt' | 'createdAt' | 'name';
+  sortDir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
 }): Promise<CrmOpportunityListResponse> => {
@@ -78,6 +80,8 @@ export const listOpportunities = async (params?: {
   if (params?.stageId) search.set('stageId', params.stageId);
   if (params?.accountId) search.set('accountId', params.accountId);
   if (params?.status) search.set('status', params.status);
+  if (params?.sortBy) search.set('sortBy', params.sortBy);
+  if (params?.sortDir) search.set('sortDir', params.sortDir);
   if (typeof params?.limit === 'number') search.set('limit', String(params.limit));
   if (typeof params?.offset === 'number') search.set('offset', String(params.offset));
 

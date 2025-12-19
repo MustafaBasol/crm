@@ -419,14 +419,14 @@ export default function CrmActivitiesPage(
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as ActivitySortKey)}
               className="border rounded-lg px-3 py-2 text-sm border-gray-300 text-gray-700"
-              aria-label={t('crm.sort.label') as string}
+                aria-label={t('app.sort.label') as string}
             >
-              <option value="updatedDesc">{t('crm.sort.updatedDesc')}</option>
-              <option value="updatedAsc">{t('crm.sort.updatedAsc')}</option>
-              <option value="createdDesc">{t('crm.sort.createdDesc')}</option>
-              <option value="createdAsc">{t('crm.sort.createdAsc')}</option>
-              <option value="titleAsc">{t('crm.sort.titleAsc')}</option>
-              <option value="titleDesc">{t('crm.sort.titleDesc')}</option>
+                <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
+                <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
+                <option value="createdDesc">{t('app.sort.createdDesc')}</option>
+                <option value="createdAsc">{t('app.sort.createdAsc')}</option>
+                <option value="titleAsc">{t('app.sort.titleAsc')}</option>
+                <option value="titleDesc">{t('app.sort.titleDesc')}</option>
             </select>
           )}
           <select
