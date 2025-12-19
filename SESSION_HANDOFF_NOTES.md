@@ -73,13 +73,14 @@ Bu repo, CRM tarafında Faz 1–3’ün büyük bölümünü kapsayan bir seviye
 - CRM backend parity: leads/contacts/opportunities/pipeline/activities/tasks CRUD + list (Faz 1).
 - CRM frontend temel sayfalar + deal detail + deep-link’ler (Faz 2–3).
 - CRM list iyileştirmeleri (Faz 2 kalite): `q` search ve server-side sorting kademeli eklendi.
+- Faz 4 (minimum): Deal’den teklif oluşturma + mevcut teklifi deal’e bağlama + teklif kabulü ile deal kapanışı + satış/fatura bağlı doküman görünümü (smoke ile doğrulandı).
 
 **Şu anki en mantıklı Faz 3 tamamlama adımı**
 
 - Smoke kapsaması “liste kalite” için zaten sorting assertion’larını içeriyor (Activities/Tasks title ASC).
 - Bu noktadan sonra en yüksek değerli sıradaki adım genelde:
   - Bu branch’i `main`’e PR ile almak (Faz 2–3 kalite iyileştirmeleri tek yerde toplansın)
-  - Ardından Faz 4 (opsiyonel) için: Deal ↔ Quote bağlantısı ve minimum akış (deal’den teklif oluştur/bağla)
+  - (Opsiyonel) Faz 4 minimum akış bu branch’te tamamlandı; PR merge sonrası stabilizasyon/iyileştirme döngüsüyle ilerlenebilir.
 
 Not: Faz tanımlarının tek kaynağı burasıdır; diğer roadmap dokümanları referans kabul edilir.
 
@@ -134,6 +135,21 @@ Faz 2 adımı (küçük ama yüksek değer — 2025-12-19):
 - `npm run smoke:crm:authz`
 
 Not: Bu oturumda backend `nohup` ile başlatıldıysa PID `.tmp/backend.pid` içinde olabilir.
+
+## Handoff (CRM: Deal ↔ Quote bağlama) — 2025-12-19
+
+Amaç: Deal detaydan mevcut bir teklifi deal’e bağlayabilmek (Quote `opportunityId` update) ve Faz 4 minimum akışı tamamlamak.
+
+### Yapılan değişiklik
+
+- Backend: `PATCH /api/quotes/:id` artık `opportunityId` link/unlink destekliyor (yetki kontrolü + müşteri uyumu).
+- Frontend: Deal detail sayfasına “Teklif bağla” aksiyonu eklendi (quoteId prompt ile).
+- Smoke: Mevcut (unlinked) bir teklif `PATCH` ile fırsata bağlanıyor ve `GET /api/quotes?opportunityId=...` listesinde doğrulanıyor.
+
+### Doğrulama
+
+- `npm run lint` → PASS
+- `npm run smoke:crm:with-backend` → `== OK ==`
 
 ## Handoff (CRM: Leads list sorting) — 2025-12-19
 
