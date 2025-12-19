@@ -414,6 +414,25 @@ QUOTE_NUMBER="$(json_get "$QUOTE_CREATED_JSON" "j.quoteNumber")"
 QUOTE_PUBLIC_ID="$(json_get "$QUOTE_CREATED_JSON" "j.publicId")"
 [[ -n "$QUOTE_PUBLIC_ID" ]] || fail "Quote publicId missing in create response: $QUOTE_CREATED_JSON"
 
+echo "== Quotes: link existing quote to opportunity (PATCH /quotes/:id) =="
+QUOTE2_CREATE_JSON="$TMP_DIR/smoke.quote2.create.json"
+QUOTE2_CREATED_JSON="$TMP_DIR/smoke.quote2.created.json"
+cat > "$QUOTE2_CREATE_JSON" <<JSON
+{"customerId":"$CUSTOMER_ID","issueDate":"$(date +%F)","validUntil":"$(date -d '+30 days' +%F)","currency":"TRY","total":0,"items":[],"scopeOfWorkHtml":""}
+JSON
+http_json POST "$API_BASE/quotes" "$QUOTE2_CREATE_JSON" "$TOKEN" | tee "$QUOTE2_CREATED_JSON" >/dev/null
+QUOTE2_ID="$(json_get "$QUOTE2_CREATED_JSON" "j.id")"
+[[ -n "$QUOTE2_ID" ]] || fail "Quote2 id missing in create response: $QUOTE2_CREATED_JSON"
+
+QUOTE2_LINK_JSON="$TMP_DIR/smoke.quote2.link.json"
+QUOTE2_LINK_RES="$TMP_DIR/smoke.quote2.link.res.json"
+cat > "$QUOTE2_LINK_JSON" <<JSON
+{"opportunityId":"$OPP_ID"}
+JSON
+http_json PATCH "$API_BASE/quotes/$QUOTE2_ID" "$QUOTE2_LINK_JSON" "$TOKEN" | tee "$QUOTE2_LINK_RES" >/dev/null
+QUOTE2_LINKED_MATCH="$(json_get "$QUOTE2_LINK_RES" "j && String(j.opportunityId||'') === '$OPP_ID'")"
+[[ "$QUOTE2_LINKED_MATCH" == "true" ]] || fail "Expected quote2.opportunityId to match opportunityId after patch: $QUOTE2_LINK_RES"
+
 echo "== Quotes: public accept triggers opportunity won =="
 QUOTE_ACCEPTED_JSON="$TMP_DIR/smoke.quote.accepted.json"
 http_json POST "$API_BASE/public/quotes/$QUOTE_PUBLIC_ID/accept" "" "" | tee "$QUOTE_ACCEPTED_JSON" >/dev/null
@@ -487,6 +506,9 @@ QUOTES_BY_OPP_JSON="$TMP_DIR/smoke.quotes.by-opp.json"
 http_json GET "$API_BASE/quotes?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$QUOTES_BY_OPP_JSON" >/dev/null
 QUOTES_BY_OPP_HAS_QUOTE="$(json_get "$QUOTES_BY_OPP_JSON" "Array.isArray(j) && j.some(q => q && q.id === '$QUOTE_ID')")"
 [[ "$QUOTES_BY_OPP_HAS_QUOTE" == "true" ]] || fail "Quotes list by opportunityId missing created quote: $QUOTES_BY_OPP_JSON"
+
+QUOTES_BY_OPP_HAS_QUOTE2="$(json_get "$QUOTES_BY_OPP_JSON" "Array.isArray(j) && j.some(q => q && q.id === '$QUOTE2_ID')")"
+[[ "$QUOTES_BY_OPP_HAS_QUOTE2" == "true" ]] || fail "Quotes list by opportunityId missing patched quote2: $QUOTES_BY_OPP_JSON"
 
 echo "== CRM: opportunities list endpoint (/crm/opportunities) =="
 OPPS_LIST_JSON="$TMP_DIR/smoke.crm.opps.list.json"

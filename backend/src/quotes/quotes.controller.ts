@@ -63,7 +63,7 @@ export class QuotesController {
     @Body() dto: UpdateQuoteDto,
     @User() user: CurrentUser,
   ) {
-    return this.service.update(user.tenantId, id, dto);
+    return this.service.update(user.tenantId, id, dto, user);
   }
 
   @UseGuards(JwtAuthGuard)

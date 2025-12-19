@@ -249,6 +249,42 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
     }
   };
 
+  const [linkingQuote, setLinkingQuote] = useState(false);
+
+  const linkExistingQuoteToDeal = async () => {
+    if (!opportunity) return;
+    if (!opportunity.accountId) {
+      setError(t('crm.pipeline.validation.accountRequired') as string);
+      return;
+    }
+
+    const quoteId = String(
+      window.prompt(
+        t('crm.dealDetail.linkQuotePrompt', {
+          defaultValue: 'Bağlamak istediğiniz teklif ID\'sini girin (UUID):',
+        }) as string,
+      ) || '',
+    ).trim();
+    if (!quoteId) return;
+
+    const ok = window.confirm(
+      t('crm.dealDetail.linkQuoteConfirm', {
+        defaultValue: 'Bu teklif bu anlaşmaya bağlansın mı?',
+      }) as string,
+    );
+    if (!ok) return;
+
+    try {
+      setLinkingQuote(true);
+      await quotesApi.updateQuote(quoteId, { opportunityId: opportunity.id });
+      await reloadOpportunity();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setLinkingQuote(false);
+    }
+  };
+
   const backToPipeline = () => {
     try {
       window.location.hash = 'crm-pipeline';
@@ -723,19 +759,29 @@ export default function CrmDealDetailPage(props: { opportunityId: string }) {
               ({linkedQuotes.length})
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              try {
-                window.location.hash = 'quotes';
-              } catch {
-                // ignore
-              }
-            }}
-            className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            {t('quotes.title', { defaultValue: 'Teklifler' }) as string}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void linkExistingQuoteToDeal()}
+              disabled={linkingQuote || creatingQuote}
+              className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            >
+              {t('crm.dealDetail.linkQuote', { defaultValue: 'Teklif bağla' }) as string}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  window.location.hash = 'quotes';
+                } catch {
+                  // ignore
+                }
+              }}
+              className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              {t('quotes.title', { defaultValue: 'Teklifler' }) as string}
+            </button>
+          </div>
         </div>
 
         {linkedQuotes.length === 0 ? (

@@ -455,8 +455,41 @@ export class QuotesService {
     return this.maybeExpire(q);
   }
 
-  async update(tenantId: string, id: string, dto: UpdateQuoteDto) {
+  async update(
+    tenantId: string,
+    id: string,
+    dto: UpdateQuoteDto,
+    user?: CurrentUser,
+  ) {
     const q = await this.findOne(tenantId, id);
+
+    if (typeof dto.opportunityId !== 'undefined') {
+      const raw = dto.opportunityId ? String(dto.opportunityId).trim() : '';
+      if (!raw) {
+        q.opportunityId = null;
+      } else {
+        if (!user) throw new BadRequestException('User context required');
+        const opp = await this.ensureOpportunityAccessOrThrow(
+          tenantId,
+          user,
+          raw,
+        );
+
+        const oppAccountId = opp.accountId || null;
+        const quoteCustomerId = q.customerId ? String(q.customerId) : null;
+        if (quoteCustomerId && oppAccountId && quoteCustomerId !== oppAccountId) {
+          throw new BadRequestException(
+            'quote.customerId must match opportunity accountId',
+          );
+        }
+
+        q.opportunityId = opp.id;
+        if (!quoteCustomerId && oppAccountId) {
+          q.customerId = await this.ensureCustomerExistsOrNull(oppAccountId);
+        }
+      }
+    }
+
     // Basit alan ataması
     if (dto.issueDate) q.issueDate = new Date(dto.issueDate);
     if (typeof dto.validUntil !== 'undefined')
@@ -477,8 +510,13 @@ export class QuotesService {
     if (typeof dto.status !== 'undefined') q.status = dto.status;
     // Not: version ve revisions alanları sunucu tarafından yönetilir; DTO üzerinden güncellenmez
 
-    // Attribution best-effort (when fields exist)
-    // Controller currently doesn't pass user; keep backward-compatible.
+    if (user) {
+      q.updatedById = user.id;
+      q.updatedByName =
+        [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+        user.email ||
+        null;
+    }
 
     return this.repo.save(q);
   }
