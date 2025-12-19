@@ -7,33 +7,33 @@ Bu doküman, CRM smoke testlerini çalıştırırken en sık görülen sorunlar�
 Backend ayakta değilse otomatik başlatıp bitince kapatan wrapper’lar:
 
 ```bash
-npm run smoke:crm:with-backend
-npm run smoke:crm:authz:with-backend
+npm run smoke:crm
+npm run smoke:crm:authz
 ```
 
 Doğrudan smoke scriptleri (backend ayakta olmalı):
 
 ```bash
-npm run smoke:crm
-npm run smoke:crm:authz
+npm run smoke:crm:raw
+npm run smoke:crm:authz:raw
 ```
 
 ## Sık hatalar
 
 ### 1) `curl: (7) Failed to connect ...` / exit code 7
 
-**Belirti**: `npm run smoke:crm` çalıştırınca connection refused ve `exit 7`.
+**Belirti**: `npm run smoke:crm:raw` çalıştırınca connection refused ve `exit 7`.
 
 **Neden**: Backend çalışmıyor ya da beklenen portta dinlemiyor.
 
 **Çözüm**:
 
-- En kolay: `npm run smoke:crm:with-backend`
+- En kolay: `npm run smoke:crm`
 - Alternatif: backend’i başlatıp sonra smoke çalıştır:
 
 ```bash
 ./start-backend.sh
-npm run smoke:crm
+npm run smoke:crm:raw
 ```
 
 Backend’i durdurmak için:
