@@ -6,6 +6,8 @@
       "updatedAsc": "Güncellenme (eskiden yeniye)",
       "createdDesc": "Oluşturulma (yeniden eskiye)",
       "createdAsc": "Oluşturulma (eskiden yeniye)",
+      "nameAsc": "İsim (A–Z)",
+      "nameDesc": "İsim (Z–A)",
       "titleAsc": "Başlık (A–Z)",
       "titleDesc": "Başlık (Z–A)"
     },

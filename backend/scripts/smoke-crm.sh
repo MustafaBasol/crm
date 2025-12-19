@@ -298,6 +298,31 @@ CONTACT_ID="$(json_get "$CONTACT_CREATED_JSON" "j.id")"
 
 echo "Contact ID: $CONTACT_ID"
 
+echo "== CRM: contacts sorting (sortBy=name&sortDir=asc) =="
+CONTACT_SORT_CREATE_A="$TMP_DIR/smoke.contact.sort.a.create.json"
+CONTACT_SORT_CREATE_B="$TMP_DIR/smoke.contact.sort.b.create.json"
+cat > "$CONTACT_SORT_CREATE_A" <<JSON
+{"name":"A Contact Sort $TS","email":"contact.sort.a.$TS@example.com","phone":"+90502$TS","company":"ACME"}
+JSON
+cat > "$CONTACT_SORT_CREATE_B" <<JSON
+{"name":"B Contact Sort $TS","email":"contact.sort.b.$TS@example.com","phone":"+90503$TS","company":"ACME"}
+JSON
+
+CONTACT_SORT_A_JSON="$TMP_DIR/smoke.contact.sort.a.created.json"
+CONTACT_SORT_B_JSON="$TMP_DIR/smoke.contact.sort.b.created.json"
+http_json POST "$API_BASE/crm/contacts" "$CONTACT_SORT_CREATE_A" "$TOKEN" | tee "$CONTACT_SORT_A_JSON" >/dev/null
+http_json POST "$API_BASE/crm/contacts" "$CONTACT_SORT_CREATE_B" "$TOKEN" | tee "$CONTACT_SORT_B_JSON" >/dev/null
+
+CONTACT_SORT_A_ID="$(json_get "$CONTACT_SORT_A_JSON" "j.id")"
+CONTACT_SORT_B_ID="$(json_get "$CONTACT_SORT_B_JSON" "j.id")"
+[[ -n "$CONTACT_SORT_A_ID" ]] || fail "Contact sort A id missing in create response: $CONTACT_SORT_A_JSON"
+[[ -n "$CONTACT_SORT_B_ID" ]] || fail "Contact sort B id missing in create response: $CONTACT_SORT_B_JSON"
+
+CONTACTS_SORTED_JSON="$TMP_DIR/smoke.contacts.sorted.by-name.json"
+http_json GET "$API_BASE/crm/contacts?q=Contact%20Sort%20$TS&sortBy=name&sortDir=asc" "" "$TOKEN" | tee "$CONTACTS_SORTED_JSON" >/dev/null
+FIRST_CONTACT_NAME="$(json_get "$CONTACTS_SORTED_JSON" "Array.isArray(j.items) && j.items[0] && j.items[0].name")"
+[[ "$FIRST_CONTACT_NAME" == "A Contact Sort $TS" ]] || fail "Expected first contact name to be 'A Contact Sort $TS' for sortBy=name&sortDir=asc, got '$FIRST_CONTACT_NAME': $CONTACTS_SORTED_JSON"
+
 echo "== CRM: contact accountId update before opportunity visibility =="
 CONTACT_FORBIDDEN_PATCH="$TMP_DIR/smoke.contact.forbidden.patch.json"
 cat > "$CONTACT_FORBIDDEN_PATCH" <<JSON
@@ -690,6 +715,9 @@ cat > "$CONTACT_UPDATE" <<JSON
 JSON
 http_json PATCH "$API_BASE/crm/contacts/$CONTACT_ID" "$CONTACT_UPDATE" "$TOKEN" | tee "$TMP_DIR/smoke.contact.updated.json" >/dev/null
 http_json DELETE "$API_BASE/crm/contacts/$CONTACT_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.contact.deleted.json" >/dev/null
+
+http_json DELETE "$API_BASE/crm/contacts/$CONTACT_SORT_A_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.contact.sort.a.deleted.json" >/dev/null
+http_json DELETE "$API_BASE/crm/contacts/$CONTACT_SORT_B_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.contact.sort.b.deleted.json" >/dev/null
 
 http_json DELETE "$API_BASE/customers/$CUSTOMER_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.customer.deleted.json" >/dev/null
 

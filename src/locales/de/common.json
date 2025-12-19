@@ -297,6 +297,8 @@
       "updatedAsc": "Aktualisiert (älteste)",
       "createdDesc": "Erstellt (neueste)",
       "createdAsc": "Erstellt (älteste)",
+      "nameAsc": "Name (A–Z)",
+      "nameDesc": "Name (Z–A)",
       "titleAsc": "Titel (A–Z)",
       "titleDesc": "Titel (Z–A)"
     },

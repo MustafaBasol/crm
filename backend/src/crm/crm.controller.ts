@@ -78,12 +78,16 @@ export class CrmController {
     @User() user: CurrentUser,
     @Query('accountId') accountId?: string,
     @Query('q') q?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
     return this.crmService.listContacts(user.tenantId, user, {
       accountId,
       q,
+      sortBy,
+      sortDir,
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
     });

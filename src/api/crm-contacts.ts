@@ -24,6 +24,8 @@ export type UpdateCrmContactDto = Partial<CreateCrmContactDto>;
 export const listCrmContacts = async (options?: {
   accountId?: string;
   q?: string;
+  sortBy?: 'updatedAt' | 'createdAt' | 'name';
+  sortDir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
 }): Promise<import('./crm-leads').CrmPagedResponse<CrmContact>> => {
@@ -33,6 +35,8 @@ export const listCrmContacts = async (options?: {
       params: {
         accountId: options?.accountId,
         q: options?.q,
+        sortBy: options?.sortBy,
+        sortDir: options?.sortDir,
         limit: options?.limit,
         offset: options?.offset,
       },

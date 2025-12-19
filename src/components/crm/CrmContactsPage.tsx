@@ -12,6 +12,7 @@ type Props = {
 type StoredPageState = {
   query?: string;
   accountFilterId?: string;
+  sortKey?: string;
   limit?: number;
   offset?: number;
 };
@@ -24,6 +25,8 @@ const readPageState = (): StoredPageState | null => {
   if (!parsed) return null;
   return parsed;
 };
+
+type ContactSortKey = 'updatedDesc' | 'updatedAsc' | 'createdDesc' | 'createdAsc' | 'nameAsc' | 'nameDesc';
 
 type ContactFormState = {
   name: string;
@@ -72,6 +75,12 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
     return typeof v === 'number' && Number.isFinite(v) ? v : 0;
   });
 
+  const [sortKey, setSortKey] = useState<ContactSortKey>(() => {
+    const v = restored?.sortKey;
+    const allowed: ContactSortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'nameAsc', 'nameDesc'];
+    return typeof v === 'string' && (allowed as string[]).includes(v) ? (v as ContactSortKey) : 'updatedDesc';
+  });
+
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<contactsApi.CrmContact | null>(null);
 
@@ -82,6 +91,17 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
       const data = await contactsApi.listCrmContacts({
         accountId: accountFilterId.trim() ? accountFilterId.trim() : undefined,
         q: query.trim() ? query.trim() : undefined,
+        ...(sortKey === 'updatedAsc'
+          ? { sortBy: 'updatedAt' as const, sortDir: 'asc' as const }
+          : sortKey === 'createdDesc'
+            ? { sortBy: 'createdAt' as const, sortDir: 'desc' as const }
+            : sortKey === 'createdAsc'
+              ? { sortBy: 'createdAt' as const, sortDir: 'asc' as const }
+              : sortKey === 'nameAsc'
+                ? { sortBy: 'name' as const, sortDir: 'asc' as const }
+                : sortKey === 'nameDesc'
+                  ? { sortBy: 'name' as const, sortDir: 'desc' as const }
+                  : { sortBy: 'updatedAt' as const, sortDir: 'desc' as const }),
         limit,
         offset,
       });
@@ -117,20 +137,21 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
       JSON.stringify({
         query,
         accountFilterId,
+        sortKey,
         limit,
         offset,
       } satisfies StoredPageState),
     );
-  }, [query, accountFilterId, limit, offset]);
+  }, [query, accountFilterId, sortKey, limit, offset]);
 
   useEffect(() => {
     void reload();
     void loadCustomers();
-  }, [accountFilterId, query, limit, offset]);
+  }, [accountFilterId, query, sortKey, limit, offset]);
 
   useEffect(() => {
     setOffset(0);
-  }, [accountFilterId, query, limit]);
+  }, [accountFilterId, query, sortKey, limit]);
 
   const openCreate = () => {
     setModalError(null);
@@ -257,6 +278,20 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
               {c.name}
             </option>
           ))}
+        </select>
+
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as ContactSortKey)}
+          className="w-full sm:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+          aria-label={t('crm.sort.label') as string}
+        >
+          <option value="updatedDesc">{t('crm.sort.updatedDesc')}</option>
+          <option value="updatedAsc">{t('crm.sort.updatedAsc')}</option>
+          <option value="createdDesc">{t('crm.sort.createdDesc')}</option>
+          <option value="createdAsc">{t('crm.sort.createdAsc')}</option>
+          <option value="nameAsc">{t('crm.sort.nameAsc')}</option>
+          <option value="nameDesc">{t('crm.sort.nameDesc')}</option>
         </select>
       </div>
 

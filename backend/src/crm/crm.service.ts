@@ -303,6 +303,8 @@ export class CrmService {
     options?: {
       accountId?: string;
       q?: string;
+      sortBy?: string;
+      sortDir?: string;
       limit?: number;
       offset?: number;
     },
@@ -312,6 +314,37 @@ export class CrmService {
     const q = String(options?.q ?? '')
       .trim()
       .toLowerCase();
+
+    const sortByRaw = String(options?.sortBy ?? '').trim();
+    const sortDirRaw = String(options?.sortDir ?? '')
+      .trim()
+      .toLowerCase();
+    const sortDir = sortDirRaw === 'asc' ? 'ASC' : 'DESC';
+    const sortBy: 'updatedAt' | 'createdAt' | 'name' =
+      sortByRaw === 'createdAt'
+        ? 'createdAt'
+        : sortByRaw === 'name'
+          ? 'name'
+          : 'updatedAt';
+
+    const applySort = (
+      qb: ReturnType<Repository<CrmContact>['createQueryBuilder']>,
+    ) => {
+      if (sortBy === 'name') {
+        qb.addSelect('LOWER(c.name)', 'c_name_lower');
+        qb.orderBy('c_name_lower', sortDir);
+        qb.addOrderBy('c.updatedAt', 'DESC');
+        return;
+      }
+
+      if (sortBy === 'createdAt') {
+        qb.orderBy('c.createdAt', sortDir);
+        qb.addOrderBy('c.updatedAt', 'DESC');
+        return;
+      }
+
+      qb.orderBy('c.updatedAt', sortDir);
+    };
 
     const applySearch = (
       qb: ReturnType<Repository<CrmContact>['createQueryBuilder']>,
@@ -345,7 +378,8 @@ export class CrmService {
           .where('c.tenantId = :tenantId', { tenantId })
           .andWhere('c.accountId = :accountId', { accountId });
         applySearch(qb);
-        qb.orderBy('c.updatedAt', 'DESC').skip(offset).take(limit);
+        applySort(qb);
+        qb.skip(offset).take(limit);
         const [items, total] = await qb.getManyAndCount();
         return { items, total, limit, offset };
       }
@@ -354,7 +388,8 @@ export class CrmService {
         .createQueryBuilder('c')
         .where('c.tenantId = :tenantId', { tenantId });
       applySearch(qb);
-      qb.orderBy('c.updatedAt', 'DESC').skip(offset).take(limit);
+      applySort(qb);
+      qb.skip(offset).take(limit);
       const [items, total] = await qb.getManyAndCount();
       return { items, total, limit, offset };
     }
@@ -374,7 +409,8 @@ export class CrmService {
         qb.andWhere('c.createdByUserId = :userId', { userId: user.id });
       }
       applySearch(qb);
-      qb.orderBy('c.updatedAt', 'DESC').skip(offset).take(limit);
+      applySort(qb);
+      qb.skip(offset).take(limit);
       const [items, total] = await qb.getManyAndCount();
       return { items, total, limit, offset };
     }
@@ -398,7 +434,8 @@ export class CrmService {
         }),
       );
     applySearch(qb);
-    qb.orderBy('c.updatedAt', 'DESC').skip(offset).take(limit);
+    applySort(qb);
+    qb.skip(offset).take(limit);
     const [items, total] = await qb.getManyAndCount();
     return { items, total, limit, offset };
   }

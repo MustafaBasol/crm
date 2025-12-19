@@ -6,6 +6,8 @@
       "updatedAsc": "Updated (oldest)",
       "createdDesc": "Created (newest)",
       "createdAsc": "Created (oldest)",
+      "nameAsc": "Name (A–Z)",
+      "nameDesc": "Name (Z–A)",
       "titleAsc": "Title (A–Z)",
       "titleDesc": "Title (Z–A)"
     },
