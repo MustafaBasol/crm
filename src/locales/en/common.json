@@ -1,5 +1,14 @@
 {
   "app": {
+    "sort": {
+      "label": "Sort",
+      "updatedDesc": "Updated (newest)",
+      "updatedAsc": "Updated (oldest)",
+      "createdDesc": "Created (newest)",
+      "createdAsc": "Created (oldest)",
+      "titleAsc": "Title (A–Z)",
+      "titleDesc": "Title (Z–A)"
+    },
     "name": "comptario",
     "subtitle": "Accounting System"
   },

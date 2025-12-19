@@ -6,6 +6,15 @@
     "range": "{{start}}-{{end}} / {{total}}"
   },
   "app": {
+    "sort": {
+      "label": "Tri",
+      "updatedDesc": "Modifié (récent)",
+      "updatedAsc": "Modifié (ancien)",
+      "createdDesc": "Créé (récent)",
+      "createdAsc": "Créé (ancien)",
+      "titleAsc": "Titre (A–Z)",
+      "titleDesc": "Titre (Z–A)"
+    },
     "name": "comptario",
     "subtitle": "Système de Comptabilité"
   },

@@ -6,6 +6,8 @@ import * as contactsApi from '../../api/crm-contacts';
 
 type ActivityStatusFilter = 'all' | 'open' | 'completed';
 
+type ActivitySortKey = 'updatedDesc' | 'updatedAsc' | 'createdDesc' | 'createdAsc' | 'titleAsc' | 'titleDesc';
+
 type ActivityFormState = {
   title: string;
   type: string;
@@ -72,6 +74,8 @@ export default function CrmActivitiesPage(
 
   const [statusFilter, setStatusFilter] = useState<ActivityStatusFilter>('all');
 
+  const [sortKey, setSortKey] = useState<ActivitySortKey>('updatedDesc');
+
   const [query, setQuery] = useState('');
 
   const [limit] = useState(25);
@@ -93,14 +97,42 @@ export default function CrmActivitiesPage(
 
       const q = query.trim() ? query.trim() : undefined;
 
+      const sort = !isScopedTimeline
+        ? (() => {
+            switch (sortKey) {
+              case 'updatedAsc':
+                return { sortBy: 'updatedAt' as const, sortDir: 'asc' as const };
+              case 'createdDesc':
+                return { sortBy: 'createdAt' as const, sortDir: 'desc' as const };
+              case 'createdAsc':
+                return { sortBy: 'createdAt' as const, sortDir: 'asc' as const };
+              case 'titleAsc':
+                return { sortBy: 'title' as const, sortDir: 'asc' as const };
+              case 'titleDesc':
+                return { sortBy: 'title' as const, sortDir: 'desc' as const };
+              case 'updatedDesc':
+              default:
+                return { sortBy: 'updatedAt' as const, sortDir: 'desc' as const };
+            }
+          })()
+        : undefined;
+
+      const baseParams = {
+        q,
+        status: statusParam,
+        limit,
+        offset,
+        ...(sort ? { sortBy: sort.sortBy, sortDir: sort.sortDir } : {}),
+      };
+
       const data = await activitiesApi.listCrmActivities(
         scope === 'opportunity'
-          ? { opportunityId: opportunityId as string, q, status: statusParam, limit, offset }
+          ? { opportunityId: opportunityId as string, ...baseParams }
           : scope === 'contact'
-            ? { contactId: contactId as string, q, status: statusParam, limit, offset }
+            ? { contactId: contactId as string, ...baseParams }
             : scope === 'account'
-              ? { accountId: accountId as string, q, status: statusParam, limit, offset }
-              : { q, status: statusParam, limit, offset },
+              ? { accountId: accountId as string, ...baseParams }
+              : { ...baseParams },
       );
 
       const nextItems = Array.isArray(data?.items) ? data.items : [];
@@ -115,7 +147,7 @@ export default function CrmActivitiesPage(
 
   useEffect(() => {
     void reload();
-  }, [opportunityId, contactId, accountId, statusFilter, query, limit, offset]);
+  }, [opportunityId, contactId, accountId, isScopedTimeline, statusFilter, query, sortKey, limit, offset]);
 
   useEffect(() => {
     setStatusFilter('all');
@@ -127,7 +159,7 @@ export default function CrmActivitiesPage(
 
   useEffect(() => {
     setOffset(0);
-  }, [opportunityId, contactId, accountId, statusFilter, query, limit]);
+  }, [opportunityId, contactId, accountId, isScopedTimeline, statusFilter, query, sortKey, limit]);
 
   useEffect(() => {
     if (scope !== 'global') return;
@@ -330,14 +362,16 @@ export default function CrmActivitiesPage(
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
 
   const filteredRows = useMemo(() => {
+    if (!isScopedTimeline) return rows;
+
     const base = Array.isArray(rows) ? [...rows] : [];
-    const sortKey = (a: activitiesApi.CrmActivity): number => {
+    const sortKeyMs = (a: activitiesApi.CrmActivity): number => {
       return parseDateMs(a.dueAt) ?? parseDateMs(a.createdAt) ?? 0;
     };
 
-    base.sort((a, b) => sortKey(b) - sortKey(a));
+    base.sort((a, b) => sortKeyMs(b) - sortKeyMs(a));
     return base;
-  }, [rows]);
+  }, [rows, isScopedTimeline]);
 
   const timelineGroups = useMemo(() => {
     const groups = new Map<string, { header: string; ms: number; items: activitiesApi.CrmActivity[] }>();
@@ -380,6 +414,21 @@ export default function CrmActivitiesPage(
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {!isScopedTimeline && (
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as ActivitySortKey)}
+              className="border rounded-lg px-3 py-2 text-sm border-gray-300 text-gray-700"
+              aria-label={t('crm.sort.label') as string}
+            >
+              <option value="updatedDesc">{t('crm.sort.updatedDesc')}</option>
+              <option value="updatedAsc">{t('crm.sort.updatedAsc')}</option>
+              <option value="createdDesc">{t('crm.sort.createdDesc')}</option>
+              <option value="createdAsc">{t('crm.sort.createdAsc')}</option>
+              <option value="titleAsc">{t('crm.sort.titleAsc')}</option>
+              <option value="titleDesc">{t('crm.sort.titleDesc')}</option>
+            </select>
+          )}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as ActivityStatusFilter)}

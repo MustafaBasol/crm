@@ -5,6 +5,8 @@ import * as tasksApi from '../../api/crm-tasks';
 
 type TaskStatusFilter = 'all' | 'open' | 'completed';
 
+type TaskSortKey = 'updatedDesc' | 'updatedAsc' | 'createdDesc' | 'createdAsc' | 'titleAsc' | 'titleDesc';
+
 type TaskFormState = {
   title: string;
   dueAt: string;
@@ -51,6 +53,8 @@ export default function CrmTasksPage(props: {
 
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
 
+  const [sortKey, setSortKey] = useState<TaskSortKey>('updatedDesc');
+
   const [query, setQuery] = useState('');
 
   const [limit] = useState(25);
@@ -69,12 +73,30 @@ export default function CrmTasksPage(props: {
 
       const q = query.trim() ? query.trim() : undefined;
 
+      const sort = (() => {
+        switch (sortKey) {
+          case 'updatedAsc':
+            return { sortBy: 'updatedAt' as const, sortDir: 'asc' as const };
+          case 'createdDesc':
+            return { sortBy: 'createdAt' as const, sortDir: 'desc' as const };
+          case 'createdAsc':
+            return { sortBy: 'createdAt' as const, sortDir: 'asc' as const };
+          case 'titleAsc':
+            return { sortBy: 'title' as const, sortDir: 'asc' as const };
+          case 'titleDesc':
+            return { sortBy: 'title' as const, sortDir: 'desc' as const };
+          case 'updatedDesc':
+          default:
+            return { sortBy: 'updatedAt' as const, sortDir: 'desc' as const };
+        }
+      })();
+
       const data = await tasksApi.listCrmTasks(
         opportunityId
-          ? { opportunityId, q, status: statusParam, limit, offset }
+          ? { opportunityId, q, sortBy: sort.sortBy, sortDir: sort.sortDir, status: statusParam, limit, offset }
           : accountId
-            ? { accountId, q, status: statusParam, limit, offset }
-            : { q, status: statusParam, limit, offset },
+            ? { accountId, q, sortBy: sort.sortBy, sortDir: sort.sortDir, status: statusParam, limit, offset }
+            : { q, sortBy: sort.sortBy, sortDir: sort.sortDir, status: statusParam, limit, offset },
       );
 
       const nextItems = Array.isArray(data?.items) ? data.items : [];
@@ -89,7 +111,7 @@ export default function CrmTasksPage(props: {
 
   useEffect(() => {
     void reload();
-  }, [opportunityId, accountId, statusFilter, query, limit, offset]);
+  }, [opportunityId, accountId, statusFilter, query, sortKey, limit, offset]);
 
   useEffect(() => {
     setStatusFilter('all');
@@ -101,7 +123,7 @@ export default function CrmTasksPage(props: {
 
   useEffect(() => {
     setOffset(0);
-  }, [opportunityId, accountId, statusFilter, query, limit]);
+  }, [opportunityId, accountId, statusFilter, query, sortKey, limit]);
 
   const parseDateMs = (value: string | null | undefined): number | null => {
     const raw = String(value ?? '').trim();
@@ -329,6 +351,20 @@ export default function CrmTasksPage(props: {
               </button>
             );
           })}
+
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as TaskSortKey)}
+            className="border rounded-lg px-3 py-2 text-sm border-gray-300 text-gray-700"
+            aria-label={t('crm.sort.label') as string}
+          >
+            <option value="updatedDesc">{t('crm.sort.updatedDesc')}</option>
+            <option value="updatedAsc">{t('crm.sort.updatedAsc')}</option>
+            <option value="createdDesc">{t('crm.sort.createdDesc')}</option>
+            <option value="createdAsc">{t('crm.sort.createdAsc')}</option>
+            <option value="titleAsc">{t('crm.sort.titleAsc')}</option>
+            <option value="titleDesc">{t('crm.sort.titleDesc')}</option>
+          </select>
         </div>
       )}
 

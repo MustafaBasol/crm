@@ -1,5 +1,14 @@
 {
   "app": {
+    "sort": {
+      "label": "Sıralama",
+      "updatedDesc": "Güncellenme (yeniden eskiye)",
+      "updatedAsc": "Güncellenme (eskiden yeniye)",
+      "createdDesc": "Oluşturulma (yeniden eskiye)",
+      "createdAsc": "Oluşturulma (eskiden yeniye)",
+      "titleAsc": "Başlık (A–Z)",
+      "titleDesc": "Başlık (Z–A)"
+    },
     "name": "comptario",
     "subtitle": "Muhasebe Sistemi"
   },

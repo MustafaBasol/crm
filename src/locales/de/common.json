@@ -291,6 +291,15 @@
     }
   },
   "app": {
+    "sort": {
+      "label": "Sortierung",
+      "updatedDesc": "Aktualisiert (neueste)",
+      "updatedAsc": "Aktualisiert (älteste)",
+      "createdDesc": "Erstellt (neueste)",
+      "createdAsc": "Erstellt (älteste)",
+      "titleAsc": "Titel (A–Z)",
+      "titleDesc": "Titel (Z–A)"
+    },
     "name": "comptario",
     "subtitle": "Buchhaltungssystem"
   },
