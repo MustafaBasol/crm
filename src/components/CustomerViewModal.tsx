@@ -166,10 +166,11 @@ export default function CustomerViewModal({
             </div>
           </div>
           {/* Customer Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">{te('customer.personalInfo', 'Personal Information')}</h3>
-              <div className="space-y-4">
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{te('customer.accountInfo', 'Account Information')}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <div className="space-y-4">
                 <div className="flex items-center text-sm">
                   <User className="w-4 h-4 text-gray-400 mr-3" />
                   <div>
@@ -200,12 +201,11 @@ export default function CustomerViewModal({
                     <span className="ml-2 font-medium text-gray-900">{formatDate(customer.createdAt)}</span>
                   </div>
                 </div>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">{te('customer.companyInfo', 'Company Information')}</h3>
-              <div className="space-y-4">
+              <div>
+                <div className="space-y-4">
                 {customer.company && (
                   <div className="flex items-center text-sm">
                     <Building2 className="w-4 h-4 text-gray-400 mr-3" />
@@ -224,6 +224,7 @@ export default function CustomerViewModal({
                     </div>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           </div>

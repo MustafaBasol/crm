@@ -916,6 +916,7 @@
   "expense.receipt": "Receipt",
   "expense.viewReceipt": "View Receipt",
   "customer.details": "Account Details",
+  "customer.accountInfo": "Account Information",
   "customer.personalInfo": "Personal Information",
   "customer.name": "Name",
   "customer.email": "Email",

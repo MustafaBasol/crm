@@ -1334,6 +1334,7 @@
   "expense.receipt": "Beleg",
   "expense.viewReceipt": "Beleg Anzeigen",
   "customer.details": "Accountdetails",
+  "customer.accountInfo": "Accountinformationen",
   "customer.personalInfo": "Persönliche Informationen",
   "customer.name": "Name",
   "customer.email": "E-Mail",
