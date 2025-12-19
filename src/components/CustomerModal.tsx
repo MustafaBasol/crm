@@ -128,7 +128,7 @@ export default function CustomerModal({ isOpen, onClose, onSave, customer }: Cus
                 value={customerData.name}
                 onChange={(e) => setCustomerData({...customerData, name: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder={t('customers.namePlaceholder')}
+                placeholder={t('customers.accountNamePlaceholder')}
                 required
               />
             </div>
