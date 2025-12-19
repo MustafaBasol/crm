@@ -63,6 +63,13 @@ Tam dokümantasyon: Swagger — `http://localhost:3000/api`
 - Birim test: `cd backend && npm test`
 - Not: E2E testleri plan limitlerini (müşteri/tedarikçi/fatura/gider ve banka hesabı) doğrular.
 
+## 🧪 CRM Smoke (Geliştirme)
+
+- Önerilen (backend kapalıysa otomatik başlatır):
+  - `npm run smoke:crm:with-backend`
+  - `npm run smoke:crm:authz:with-backend`
+- Not: `npm run smoke:crm` / `npm run smoke:crm:authz` komutları backend ayakta değilse `curl` connection refused (exit 7) ile düşebilir.
+
 ## 🧩 Planlar ve Limitler (Starter / Pro / Business)
 
 - Starter (Free):
