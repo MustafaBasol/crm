@@ -209,10 +209,89 @@ export class CrmService {
     return undefined;
   }
 
+  private parseDateParam(
+    raw: string | undefined,
+    kind: 'start' | 'end',
+    paramName: 'startDate' | 'endDate',
+  ): Date | undefined {
+    const value = String(raw ?? '').trim();
+    if (!value) return undefined;
+
+    const isoDate = value.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/);
+    if (isoDate) {
+      const year = Number(isoDate[1]);
+      const month = Number(isoDate[2]);
+      const day = Number(isoDate[3]);
+      if (
+        !Number.isFinite(year) ||
+        !Number.isFinite(month) ||
+        !Number.isFinite(day) ||
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > 31
+      ) {
+        throw new BadRequestException(`Invalid ${paramName}`);
+      }
+      const d =
+        kind === 'start'
+          ? new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
+          : new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+      if (!Number.isFinite(d.getTime())) {
+        throw new BadRequestException(`Invalid ${paramName}`);
+      }
+      return d;
+    }
+
+    const parsed = Date.parse(value);
+    if (!Number.isFinite(parsed)) {
+      throw new BadRequestException(`Invalid ${paramName}`);
+    }
+    return new Date(parsed);
+  }
+
+  private normalizeDateRange(
+    startDate?: string,
+    endDate?: string,
+  ): {
+    start?: Date;
+    end?: Date;
+  } | null {
+    const start = this.parseDateParam(startDate, 'start', 'startDate');
+    const end = this.parseDateParam(endDate, 'end', 'endDate');
+    if (!start && !end) return null;
+    if (start && end && start.getTime() > end.getTime()) {
+      throw new BadRequestException('startDate must be <= endDate');
+    }
+    return { start, end };
+  }
+
+  private applyDateRangeToQb(
+    qb: {
+      andWhere: (sql: string, params?: Record<string, unknown>) => unknown;
+    },
+    field: string,
+    range: { start?: Date; end?: Date } | null,
+    opts?: { requireNotNull?: boolean },
+  ) {
+    if (!range) return;
+    if (opts?.requireNotNull) {
+      qb.andWhere(`${field} IS NOT NULL`);
+    }
+    if (range.start) {
+      qb.andWhere(`${field} >= :startDate`, { startDate: range.start });
+    }
+    if (range.end) {
+      qb.andWhere(`${field} <= :endDate`, { endDate: range.end });
+    }
+  }
+
   async listLeads(
     tenantId: string,
     opts?: {
       q?: string;
+      startDate?: string;
+      endDate?: string;
       sortBy?: string;
       sortDir?: string;
       limit?: number;
@@ -220,6 +299,7 @@ export class CrmService {
     },
   ) {
     const { limit, offset } = this.normalizePagination(opts);
+    const dateRange = this.normalizeDateRange(opts?.startDate, opts?.endDate);
 
     const sortByRaw = String(opts?.sortBy ?? '').trim();
     const sortDirRaw = String(opts?.sortDir ?? '')
@@ -236,6 +316,8 @@ export class CrmService {
     const qb = this.leadRepo
       .createQueryBuilder('l')
       .where('l.tenantId = :tenantId', { tenantId });
+
+    this.applyDateRangeToQb(qb, 'l.createdAt', dateRange);
 
     const q = String(opts?.q ?? '')
       .trim()
@@ -332,6 +414,8 @@ export class CrmService {
     options?: {
       accountId?: string;
       q?: string;
+      startDate?: string;
+      endDate?: string;
       sortBy?: string;
       sortDir?: string;
       limit?: number;
@@ -343,6 +427,10 @@ export class CrmService {
     const q = String(options?.q ?? '')
       .trim()
       .toLowerCase();
+    const dateRange = this.normalizeDateRange(
+      options?.startDate,
+      options?.endDate,
+    );
 
     const sortByRaw = String(options?.sortBy ?? '').trim();
     const sortDirRaw = String(options?.sortDir ?? '')
@@ -406,6 +494,7 @@ export class CrmService {
           .createQueryBuilder('c')
           .where('c.tenantId = :tenantId', { tenantId })
           .andWhere('c.accountId = :accountId', { accountId });
+        this.applyDateRangeToQb(qb, 'c.createdAt', dateRange);
         applySearch(qb);
         applySort(qb);
         qb.skip(offset).take(limit);
@@ -416,6 +505,7 @@ export class CrmService {
       const qb = this.contactRepo
         .createQueryBuilder('c')
         .where('c.tenantId = :tenantId', { tenantId });
+      this.applyDateRangeToQb(qb, 'c.createdAt', dateRange);
       applySearch(qb);
       applySort(qb);
       qb.skip(offset).take(limit);
@@ -434,6 +524,7 @@ export class CrmService {
         .createQueryBuilder('c')
         .where('c.tenantId = :tenantId', { tenantId })
         .andWhere('c.accountId = :accountId', { accountId });
+      this.applyDateRangeToQb(qb, 'c.createdAt', dateRange);
       if (!canViewAllForAccount) {
         qb.andWhere('c.createdByUserId = :userId', { userId: user.id });
       }
@@ -462,6 +553,7 @@ export class CrmService {
           }
         }),
       );
+    this.applyDateRangeToQb(qb, 'c.createdAt', dateRange);
     applySearch(qb);
     applySort(qb);
     qb.skip(offset).take(limit);
@@ -565,6 +657,8 @@ export class CrmService {
       opportunityId?: string;
       accountId?: string;
       q?: string;
+      startDate?: string;
+      endDate?: string;
       sortBy?: string;
       sortDir?: string;
       status?: string;
@@ -580,6 +674,10 @@ export class CrmService {
       .trim()
       .toLowerCase();
     const qLike = q ? `%${q}%` : '';
+    const dateRange = this.normalizeDateRange(
+      options?.startDate,
+      options?.endDate,
+    );
 
     const sortByRaw = String(options?.sortBy ?? '').trim();
     const sortDirRaw = String(options?.sortDir ?? '')
@@ -634,6 +732,9 @@ export class CrmService {
         .createQueryBuilder('t')
         .where('t.tenantId = :tenantId', { tenantId })
         .andWhere('t.opportunityId = :opportunityId', { opportunityId });
+      this.applyDateRangeToQb(qb, 't.dueAt', dateRange, {
+        requireNotNull: true,
+      });
       applySearch(qb);
       if (completed != null) {
         qb.andWhere('t.completed = :completed', { completed });
@@ -674,6 +775,9 @@ export class CrmService {
         .createQueryBuilder('t')
         .where('t.tenantId = :tenantId', { tenantId })
         .andWhere('t.accountId = :accountId', { accountId });
+      this.applyDateRangeToQb(qb, 't.dueAt', dateRange, {
+        requireNotNull: true,
+      });
       applySearch(qb);
       if (completed != null) {
         qb.andWhere('t.completed = :completed', { completed });
@@ -689,6 +793,9 @@ export class CrmService {
       const qb = this.taskRepo
         .createQueryBuilder('t')
         .where('t.tenantId = :tenantId', { tenantId });
+      this.applyDateRangeToQb(qb, 't.dueAt', dateRange, {
+        requireNotNull: true,
+      });
       applySearch(qb);
       if (completed != null) {
         qb.andWhere('t.completed = :completed', { completed });
@@ -732,6 +839,8 @@ export class CrmService {
           }
         }),
       );
+
+    this.applyDateRangeToQb(qb, 't.dueAt', dateRange, { requireNotNull: true });
 
     applySearch(qb);
 
@@ -1332,6 +1441,8 @@ export class CrmService {
       accountId?: string;
       contactId?: string;
       q?: string;
+      startDate?: string;
+      endDate?: string;
       sortBy?: string;
       sortDir?: string;
       status?: string;
@@ -1348,6 +1459,10 @@ export class CrmService {
       .trim()
       .toLowerCase();
     const qLike = q ? `%${q}%` : '';
+    const dateRange = this.normalizeDateRange(
+      options?.startDate,
+      options?.endDate,
+    );
 
     const sortByRaw = String(options?.sortBy ?? '').trim();
     const sortDirRaw = String(options?.sortDir ?? '')
@@ -1405,6 +1520,9 @@ export class CrmService {
         .createQueryBuilder('a')
         .where('a.tenantId = :tenantId', { tenantId })
         .andWhere('a.opportunityId = :opportunityId', { opportunityId });
+      this.applyDateRangeToQb(qb, 'a.dueAt', dateRange, {
+        requireNotNull: true,
+      });
       applySearch(qb);
       if (completed != null) {
         qb.andWhere('a.completed = :completed', { completed });
@@ -1426,6 +1544,9 @@ export class CrmService {
         .createQueryBuilder('a')
         .where('a.tenantId = :tenantId', { tenantId })
         .andWhere('a.accountId = :accountId', { accountId });
+      this.applyDateRangeToQb(qb, 'a.dueAt', dateRange, {
+        requireNotNull: true,
+      });
       if (!canViewAllForAccount) {
         qb.andWhere('a.createdByUserId = :userId', { userId: user.id });
       }
@@ -1450,6 +1571,9 @@ export class CrmService {
           .createQueryBuilder('a')
           .where('a.tenantId = :tenantId', { tenantId })
           .andWhere('a.contactId = :contactId', { contactId });
+        this.applyDateRangeToQb(qb, 'a.dueAt', dateRange, {
+          requireNotNull: true,
+        });
         applySearch(qb);
         if (completed != null) {
           qb.andWhere('a.completed = :completed', { completed });
@@ -1471,6 +1595,9 @@ export class CrmService {
           .createQueryBuilder('a')
           .where('a.tenantId = :tenantId', { tenantId })
           .andWhere('a.contactId = :contactId', { contactId });
+        this.applyDateRangeToQb(qb, 'a.dueAt', dateRange, {
+          requireNotNull: true,
+        });
         if (!canViewAllForAccount) {
           qb.andWhere('a.createdByUserId = :userId', { userId: user.id });
         }
@@ -1490,6 +1617,9 @@ export class CrmService {
           .where('a.tenantId = :tenantId', { tenantId })
           .andWhere('a.contactId = :contactId', { contactId })
           .andWhere('a.createdByUserId = :userId', { userId: user.id });
+        this.applyDateRangeToQb(qb, 'a.dueAt', dateRange, {
+          requireNotNull: true,
+        });
         applySearch(qb);
         if (completed != null) {
           qb.andWhere('a.completed = :completed', { completed });
@@ -1505,6 +1635,9 @@ export class CrmService {
       const qb = this.activityRepo
         .createQueryBuilder('a')
         .where('a.tenantId = :tenantId', { tenantId });
+      this.applyDateRangeToQb(qb, 'a.dueAt', dateRange, {
+        requireNotNull: true,
+      });
       applySearch(qb);
       if (completed != null) {
         qb.andWhere('a.completed = :completed', { completed });
@@ -1548,6 +1681,8 @@ export class CrmService {
           }
         }),
       );
+
+    this.applyDateRangeToQb(qb, 'a.dueAt', dateRange, { requireNotNull: true });
 
     applySearch(qb);
 
@@ -1899,6 +2034,8 @@ export class CrmService {
       stageId?: string;
       accountId?: string;
       status?: CrmOpportunityStatus;
+      startDate?: string;
+      endDate?: string;
       sortBy?: string;
       sortDir?: string;
       limit?: number;
@@ -1937,6 +2074,11 @@ export class CrmService {
       .createQueryBuilder('o')
       .where('o.tenantId = :tenantId', { tenantId })
       .andWhere('o.pipelineId = :pipelineId', { pipelineId: pipeline.id });
+
+    const dateRange = this.normalizeDateRange(opts?.startDate, opts?.endDate);
+    this.applyDateRangeToQb(qb, 'o.expectedCloseDate', dateRange, {
+      requireNotNull: true,
+    });
 
     const applySort = (
       qb: ReturnType<Repository<CrmOpportunity>['createQueryBuilder']>,
