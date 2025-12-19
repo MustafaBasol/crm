@@ -48,6 +48,7 @@
 ### 💼 Sales CRM (Pipeline) — Dönüşüm
 
 - **[docs/sales-crm/PIPELINE_SALES_CRM_ROADMAP.md](./docs/sales-crm/PIPELINE_SALES_CRM_ROADMAP.md)** — Pipeline odaklı CRM dönüşüm yol haritası
+- **[docs/CRM_NICE_TO_HAVE.md](./docs/CRM_NICE_TO_HAVE.md)** — Temel CRM sonrası “çok iyi olur” geliştirme listesi
 
 ### 📋 Geliştirme
 
