@@ -1282,7 +1282,7 @@
     "noCustomersDesc": "Start by adding your first account.",
     "noCustomersFoundDesc": "No accounts match your search criteria.",
     "createFirstCustomer": "Add First Account",
-    "name": "Name",
+    "name": "Account Name",
     "email": "Email",
     "phone": "Phone",
     "totalInvoices": "Total Invoices",

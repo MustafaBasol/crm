@@ -1699,7 +1699,7 @@
     "noCustomersDesc": "Beginnen Sie mit Ihrem ersten Account.",
     "noCustomersFoundDesc": "Keine Accounts entsprechen Ihren Suchkriterien.",
     "createFirstCustomer": "Ersten Account Hinzufügen",
-    "name": "Name",
+    "name": "Account-Name",
     "email": "E-Mail",
     "phone": "Telefon",
     "totalInvoices": "Rechnungen Gesamt",

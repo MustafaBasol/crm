@@ -1902,7 +1902,7 @@
     "noCustomersDesc": "Commencez par ajouter votre premier compte.",
     "noCustomersFoundDesc": "Aucun compte ne correspond à vos critères de recherche.",
     "createFirstCustomer": "Ajouter le Premier Compte",
-    "name": "Nom",
+    "name": "Nom du compte",
     "email": "E-mail",
     "phone": "Téléphone",
     "totalInvoices": "Total Factures",

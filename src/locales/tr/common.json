@@ -1383,7 +1383,7 @@
     "noCustomersDesc": "İlk hesabınızı ekleyerek başlayın.",
     "noCustomersFoundDesc": "Arama kriterlerinizle eşleşen hesap yok.",
     "createFirstCustomer": "İlk Hesabı Ekle",
-    "name": "Ad",
+    "name": "Hesap Adı",
     "email": "E-posta",
     "phone": "Telefon",
     "totalInvoices": "Toplam Fatura",
