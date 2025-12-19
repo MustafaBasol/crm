@@ -65,6 +65,7 @@
 - **[backend/TEST_REPORT.md](./backend/TEST_REPORT.md)** - Backend test raporu
 - **[backend/PERFORMANCE.md](./backend/PERFORMANCE.md)** - Performans notları
 - **[docs/DEV_BACKEND_POSTGRES_SMOKE.md](./docs/DEV_BACKEND_POSTGRES_SMOKE.md)** - Docker’sız Postgres + backend çalıştırma ve CRM smoke test
+- **[docs/CRM_SMOKE_TROUBLESHOOTING.md](./docs/CRM_SMOKE_TROUBLESHOOTING.md)** - CRM smoke sorun giderme (exit 7, port, PID/log)
 
 ---
 
