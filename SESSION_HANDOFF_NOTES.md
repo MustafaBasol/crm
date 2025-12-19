@@ -329,12 +329,11 @@ Not: [backend/test/run-e2e.sh](backend/test/run-e2e.sh) `.env` dosyasını sourc
   - Owner aynı move payload’ı ile → **200/201**
   - (Opsiyonel) `MEMBER_ROLE=ADMIN` ile org-admin member `POST /crm/opportunities/:id/move` → **200/201**
 
-### Yeni sohbette devam (kalan işler)
+### Yeni sohbette devam (durum)
 
-1. Yetki politikası (ürün kararı): **team member stage move asla**. İzin sadece: tenant admin, opportunity owner, veya current org `ADMIN/OWNER`.
-2. CRM authz yüzeyi büyüdükçe smoke’ı küçük parçalara ayırmayı değerlendir (örn. `smoke-crm-authz.sh`), ama şimdilik tek dosya yeterli.
-
-Not: Artık authz odaklı daha kısa smoke mevcut: `npm run smoke:crm:authz` (script: `backend/scripts/smoke-crm-authz.sh`).
+- Yetki politikası net: **team member stage move asla**. İzin sadece: tenant admin, opportunity owner, veya current org `ADMIN/OWNER`.
+- CRM authz smoke zaten ayrı: `npm run smoke:crm:authz`.
+- CRM Faz 0–4 (dev stabilizasyonu + temel CRM + quote/invoice minimum) bu repo’da tamamlandı; bu bölümde CRM’e dair “bloklayan kalan iş” yok.
 
 ## Handoff (Backend + Postgres + CRM Smoke) — 2025-12-15
 
@@ -360,9 +359,15 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
   - `curl -sS http://127.0.0.1:3000/api/health`
   - `curl -sS http://127.0.0.1:3001/api/health`
 
-2. CRM smoke test (backend ayaktayken):
+2. CRM smoke test (önerilen):
 
-- `npm run smoke:crm`
+- `npm run smoke:crm` (backend kapalıysa otomatik başlatır)
+- `npm run smoke:crm:authz` (backend kapalıysa otomatik başlatır)
+
+Backend ayaktayken doğrudan script koşturmak istersen:
+
+- `npm run smoke:crm:raw`
+- `npm run smoke:crm:authz:raw`
 
 3. Port çakışması (EADDRINUSE) varsa:
 
@@ -381,11 +386,13 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
   - `start-backend.sh` ve `start-dev.sh` otomatik `backend/scripts/ensure-postgres.sh` çalıştırır.
   - Script `systemctl` kullanmaz (container’da systemd yok); `sudo -n pg_ctlcluster ...` ile cluster’ı başlatır.
   - İstersen dev akışında kapat: `ENSURE_POSTGRES=0 npm run start:backend`
-- Smoke script’ler (`npm run smoke:crm`, `npm run smoke:crm:authz`) artık **port sabitlemez**:
+- Smoke base URL çözümü artık **port sabitlemez**:
   - `BASE_URL` set edilmediyse önce `backend/.env` içindeki `PORT` okunur.
   - `PORT` yoksa health probe ile `3000` → `3001` denenir.
   - Override: `BASE_URL=http://127.0.0.1:XXXX` veya `BACKEND_URL=...`.
   - (İleri kullanım) `BACKEND_ENV_FILE=...` veya `BACKEND_PORT=...`.
+
+Not: NPM script seviyesinde `npm run smoke:crm` / `npm run smoke:crm:authz` wrapper’a yönlendirildi; backend ayakta olmalı senaryosu için `*:raw` kullan.
 
 ## Biten işler (CRM)
 
@@ -624,7 +631,9 @@ Devam etmek için:
 - `App.tsx` üzerindeki `handleCreateInvoiceFromSale` akışı `InvoiceDraftPayload` tipini kullanacak şekilde yeniden yazıldı; müşteri çözümleme/line item senaryoları `logger` telemetrisiyle raporlanıyor, backend payload'ı `BackendInvoicePayload` ile tiplenip tüm tutarlar `toNumberSafe` üzerinden normalize ediliyor ve cache yazımları hata verdiğinde uyarı log'ları bırakılıyor.
 - `SimpleSalesPage` entegrasyonu artık `logger` destekli `handleSimpleSalesPageUpdate` üzerinden ilerliyor; aynı helper tenant scoped cache'leri güncel tutuyor ve `GeneralLedger`'ın `onSalesUpdate` prop'u da bu paylaşılan `persistSalesState` fonksiyonuna taşındı.
 
-## Kalan işler ve nasıl ilerleyeceğim
+## Genel Backlog (CRM dışı / tech-debt)
+
+Not: Aşağıdaki maddeler CRM Faz 0–4 “temel CRM” kapsamının parçası değildir. Daha çok genel uygulama tech-debt ve refactor backlog’u niteliğindedir.
 
 1. **Legacy global storage temizliği**
 
