@@ -567,13 +567,27 @@ FOUND_CONTACT_IN_FILTER="$(json_get "$CONTACTS_FILTERED_BY_ACCOUNT_JSON" "Array.
 echo "== CRM: activities (contactId filter) =="
 ACTIVITY_CREATE="$TMP_DIR/smoke.activity.create.json"
 cat > "$ACTIVITY_CREATE" <<JSON
-{"title":"Contact Activity Smoke $TS","type":"call","contactId":"$CONTACT_ID","completed":false}
+{"title":"Contact Activity Smoke $TS","type":"call","contactId":"$CONTACT_ID","dueAt":"2025-12-15","completed":false}
 JSON
 ACTIVITY_CREATED_JSON="$TMP_DIR/smoke.activity.created.json"
 http_json POST "$API_BASE/crm/activities" "$ACTIVITY_CREATE" "$TOKEN" | tee "$ACTIVITY_CREATED_JSON" >/dev/null
 ACTIVITY_ID="$(json_get "$ACTIVITY_CREATED_JSON" "j.id")"
 [[ -n "$ACTIVITY_ID" ]] || fail "Activity id missing in create response: $ACTIVITY_CREATED_JSON"
 echo "Activity ID: $ACTIVITY_ID"
+
+ACTIVITY_CREATE2="$TMP_DIR/smoke.activity2.create.json"
+cat > "$ACTIVITY_CREATE2" <<JSON
+{"title":"A Contact Activity Smoke $TS","type":"call","contactId":"$CONTACT_ID","dueAt":"2025-12-01","completed":false}
+JSON
+ACTIVITY_CREATED2_JSON="$TMP_DIR/smoke.activity2.created.json"
+http_json POST "$API_BASE/crm/activities" "$ACTIVITY_CREATE2" "$TOKEN" | tee "$ACTIVITY_CREATED2_JSON" >/dev/null
+ACTIVITY2_ID="$(json_get "$ACTIVITY_CREATED2_JSON" "j.id")"
+[[ -n "$ACTIVITY2_ID" ]] || fail "Activity2 id missing in create response: $ACTIVITY_CREATED2_JSON"
+
+ACTIVITIES_SORTED_JSON="$TMP_DIR/smoke.activities.sorted.by-title.json"
+http_json GET "$API_BASE/crm/activities?contactId=$CONTACT_ID&sortBy=title&sortDir=asc" "" "$TOKEN" | tee "$ACTIVITIES_SORTED_JSON" >/dev/null
+FIRST_ACTIVITY_TITLE="$(json_get "$ACTIVITIES_SORTED_JSON" "Array.isArray(j.items) && j.items[0] && j.items[0].title")"
+[[ "$FIRST_ACTIVITY_TITLE" == "A Contact Activity Smoke $TS" ]] || fail "Expected first activity title to be 'A Contact Activity Smoke $TS' for sortBy=title&sortDir=asc, got '$FIRST_ACTIVITY_TITLE': $ACTIVITIES_SORTED_JSON"
 
 ACTIVITIES_FILTERED_BY_Q_JSON="$TMP_DIR/smoke.activities.filtered.by-contact.q.json"
 http_json GET "$API_BASE/crm/activities?contactId=$CONTACT_ID&q=Contact%20Activity%20Smoke%20$TS" "" "$TOKEN" | tee "$ACTIVITIES_FILTERED_BY_Q_JSON" >/dev/null
@@ -626,6 +640,7 @@ FOUND_IN_FILTER="$(json_get "$ACTIVITIES_FILTERED_JSON" "Array.isArray(j.items) 
 [[ "$FOUND_IN_FILTER" == "true" ]] || fail "Created activity not found in filtered list: $ACTIVITIES_FILTERED_JSON"
 
 http_json DELETE "$API_BASE/crm/activities/$ACTIVITY_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.activity.deleted.json" >/dev/null
+http_json DELETE "$API_BASE/crm/activities/$ACTIVITY2_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.activity2.deleted.json" >/dev/null
 
 # Tasks CRUD (minimal coverage)
 echo "== CRM: tasks CRUD =="
@@ -638,10 +653,24 @@ http_json POST "$API_BASE/crm/tasks" "$TASK_CREATE" "$TOKEN" | tee "$TASK_CREATE
 TASK_ID="$(json_get "$TASK_CREATED_JSON" "j.id")"
 [[ -n "$TASK_ID" ]] || fail "Task id missing in create response: $TASK_CREATED_JSON"
 
+TASK_CREATE2="$TMP_DIR/smoke.task2.create.json"
+cat > "$TASK_CREATE2" <<JSON
+{"title":"A Task Smoke $TS","opportunityId":"$OPP_ID","accountId":null,"dueAt":"2025-12-01","completed":false,"assigneeUserId":null}
+JSON
+TASK_CREATED2_JSON="$TMP_DIR/smoke.task2.created.json"
+http_json POST "$API_BASE/crm/tasks" "$TASK_CREATE2" "$TOKEN" | tee "$TASK_CREATED2_JSON" >/dev/null
+TASK2_ID="$(json_get "$TASK_CREATED2_JSON" "j.id")"
+[[ -n "$TASK2_ID" ]] || fail "Task2 id missing in create response: $TASK_CREATED2_JSON"
+
 TASKS_FILTERED_JSON="$TMP_DIR/smoke.tasks.filtered.by-opportunity.json"
 http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$TASKS_FILTERED_JSON" >/dev/null
 FOUND_TASK_IN_FILTER="$(json_get "$TASKS_FILTERED_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$TASK_ID')")"
 [[ "$FOUND_TASK_IN_FILTER" == "true" ]] || fail "Created task not found in opportunityId filtered list: $TASKS_FILTERED_JSON"
+
+TASKS_SORTED_JSON="$TMP_DIR/smoke.tasks.sorted.by-title.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID&sortBy=title&sortDir=asc" "" "$TOKEN" | tee "$TASKS_SORTED_JSON" >/dev/null
+FIRST_TASK_TITLE="$(json_get "$TASKS_SORTED_JSON" "Array.isArray(j.items) && j.items[0] && j.items[0].title")"
+[[ "$FIRST_TASK_TITLE" == "A Task Smoke $TS" ]] || fail "Expected first task title to be 'A Task Smoke $TS' for sortBy=title&sortDir=asc, got '$FIRST_TASK_TITLE': $TASKS_SORTED_JSON"
 
 TASKS_FILTERED_BY_Q_JSON="$TMP_DIR/smoke.tasks.filtered.by-opportunity.q.json"
 http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID&q=Task%20Smoke%20$TS" "" "$TOKEN" | tee "$TASKS_FILTERED_BY_Q_JSON" >/dev/null
@@ -654,6 +683,7 @@ cat > "$TASK_UPDATE" <<JSON
 JSON
 http_json PATCH "$API_BASE/crm/tasks/$TASK_ID" "$TASK_UPDATE" "$TOKEN" | tee "$TMP_DIR/smoke.task.updated.json" >/dev/null
 http_json DELETE "$API_BASE/crm/tasks/$TASK_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.task.deleted.json" >/dev/null
+http_json DELETE "$API_BASE/crm/tasks/$TASK2_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.task2.deleted.json" >/dev/null
 
 cat > "$CONTACT_UPDATE" <<JSON
 {"company":"ACME Updated"}

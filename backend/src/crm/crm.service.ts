@@ -499,6 +499,8 @@ export class CrmService {
       opportunityId?: string;
       accountId?: string;
       q?: string;
+      sortBy?: string;
+      sortDir?: string;
       status?: string;
       limit?: number;
       offset?: number;
@@ -512,6 +514,33 @@ export class CrmService {
       .trim()
       .toLowerCase();
     const qLike = q ? `%${q}%` : '';
+
+    const sortByRaw = String(options?.sortBy ?? '').trim();
+    const sortDirRaw = String(options?.sortDir ?? '')
+      .trim()
+      .toLowerCase();
+    const sortDir: 'ASC' | 'DESC' = sortDirRaw === 'asc' ? 'ASC' : 'DESC';
+    const sortBy: 'updatedAt' | 'createdAt' | 'title' =
+      sortByRaw === 'createdAt' ||
+      sortByRaw === 'title' ||
+      sortByRaw === 'updatedAt'
+        ? sortByRaw
+        : 'updatedAt';
+
+    const applySort = (
+      qb: ReturnType<Repository<CrmTask>['createQueryBuilder']>,
+    ) => {
+      if (sortBy === 'title') {
+        qb.orderBy('LOWER(t.title)', sortDir).addOrderBy('t.updatedAt', 'DESC');
+        return;
+      }
+      if (sortBy === 'createdAt') {
+        qb.orderBy('t.createdAt', sortDir).addOrderBy('t.updatedAt', 'DESC');
+        return;
+      }
+
+      qb.orderBy('t.updatedAt', sortDir);
+    };
 
     const applySearch = (
       qb: ReturnType<Repository<CrmTask>['createQueryBuilder']>,
@@ -543,7 +572,8 @@ export class CrmService {
       if (completed != null) {
         qb.andWhere('t.completed = :completed', { completed });
       }
-      qb.orderBy('t.updatedAt', 'DESC').skip(offset).take(limit);
+      applySort(qb);
+      qb.skip(offset).take(limit);
       const [items, total] = await qb.getManyAndCount();
       return { items, total, limit, offset };
     }
@@ -582,7 +612,8 @@ export class CrmService {
       if (completed != null) {
         qb.andWhere('t.completed = :completed', { completed });
       }
-      qb.orderBy('t.updatedAt', 'DESC').skip(offset).take(limit);
+      applySort(qb);
+      qb.skip(offset).take(limit);
       const [items, total] = await qb.getManyAndCount();
       return { items, total, limit, offset };
     }
@@ -596,7 +627,8 @@ export class CrmService {
       if (completed != null) {
         qb.andWhere('t.completed = :completed', { completed });
       }
-      qb.orderBy('t.updatedAt', 'DESC').skip(offset).take(limit);
+      applySort(qb);
+      qb.skip(offset).take(limit);
       const [items, total] = await qb.getManyAndCount();
       return { items, total, limit, offset };
     }
@@ -633,10 +665,11 @@ export class CrmService {
             });
           }
         }),
-      )
-      .orderBy('t.updatedAt', 'DESC');
+      );
 
     applySearch(qb);
+
+    applySort(qb);
 
     if (completed != null) {
       qb.andWhere('t.completed = :completed', { completed });
@@ -1227,6 +1260,8 @@ export class CrmService {
       accountId?: string;
       contactId?: string;
       q?: string;
+      sortBy?: string;
+      sortDir?: string;
       status?: string;
       limit?: number;
       offset?: number;
@@ -1241,6 +1276,33 @@ export class CrmService {
       .trim()
       .toLowerCase();
     const qLike = q ? `%${q}%` : '';
+
+    const sortByRaw = String(options?.sortBy ?? '').trim();
+    const sortDirRaw = String(options?.sortDir ?? '')
+      .trim()
+      .toLowerCase();
+    const sortDir: 'ASC' | 'DESC' = sortDirRaw === 'asc' ? 'ASC' : 'DESC';
+    const sortBy: 'updatedAt' | 'createdAt' | 'title' =
+      sortByRaw === 'createdAt' ||
+      sortByRaw === 'title' ||
+      sortByRaw === 'updatedAt'
+        ? sortByRaw
+        : 'updatedAt';
+
+    const applySort = (
+      qb: ReturnType<Repository<CrmActivity>['createQueryBuilder']>,
+    ) => {
+      if (sortBy === 'title') {
+        qb.orderBy('LOWER(a.title)', sortDir).addOrderBy('a.updatedAt', 'DESC');
+        return;
+      }
+      if (sortBy === 'createdAt') {
+        qb.orderBy('a.createdAt', sortDir).addOrderBy('a.updatedAt', 'DESC');
+        return;
+      }
+
+      qb.orderBy('a.updatedAt', sortDir);
+    };
 
     const applySearch = (
       qb: ReturnType<Repository<CrmActivity>['createQueryBuilder']>,
@@ -1275,7 +1337,8 @@ export class CrmService {
       if (completed != null) {
         qb.andWhere('a.completed = :completed', { completed });
       }
-      qb.orderBy('a.updatedAt', 'DESC').skip(offset).take(limit);
+      applySort(qb);
+      qb.skip(offset).take(limit);
       const [items, total] = await qb.getManyAndCount();
       return { items, total, limit, offset };
     }
@@ -1298,7 +1361,8 @@ export class CrmService {
       if (completed != null) {
         qb.andWhere('a.completed = :completed', { completed });
       }
-      qb.orderBy('a.updatedAt', 'DESC').skip(offset).take(limit);
+      applySort(qb);
+      qb.skip(offset).take(limit);
       const [items, total] = await qb.getManyAndCount();
       return { items, total, limit, offset };
     }
@@ -1318,7 +1382,8 @@ export class CrmService {
         if (completed != null) {
           qb.andWhere('a.completed = :completed', { completed });
         }
-        qb.orderBy('a.updatedAt', 'DESC').skip(offset).take(limit);
+        applySort(qb);
+        qb.skip(offset).take(limit);
         const [items, total] = await qb.getManyAndCount();
         return { items, total, limit, offset };
       }
@@ -1341,7 +1406,8 @@ export class CrmService {
         if (completed != null) {
           qb.andWhere('a.completed = :completed', { completed });
         }
-        qb.orderBy('a.updatedAt', 'DESC').skip(offset).take(limit);
+        applySort(qb);
+        qb.skip(offset).take(limit);
         const [items, total] = await qb.getManyAndCount();
         return { items, total, limit, offset };
       }
@@ -1356,7 +1422,8 @@ export class CrmService {
         if (completed != null) {
           qb.andWhere('a.completed = :completed', { completed });
         }
-        qb.orderBy('a.updatedAt', 'DESC').skip(offset).take(limit);
+        applySort(qb);
+        qb.skip(offset).take(limit);
         const [items, total] = await qb.getManyAndCount();
         return { items, total, limit, offset };
       }
@@ -1370,7 +1437,8 @@ export class CrmService {
       if (completed != null) {
         qb.andWhere('a.completed = :completed', { completed });
       }
-      qb.orderBy('a.updatedAt', 'DESC').skip(offset).take(limit);
+      applySort(qb);
+      qb.skip(offset).take(limit);
       const [items, total] = await qb.getManyAndCount();
       return { items, total, limit, offset };
     }
@@ -1407,10 +1475,11 @@ export class CrmService {
             });
           }
         }),
-      )
-      .orderBy('a.updatedAt', 'DESC');
+      );
 
     applySearch(qb);
+
+    applySort(qb);
 
     if (completed != null) {
       qb.andWhere('a.completed = :completed', { completed });
