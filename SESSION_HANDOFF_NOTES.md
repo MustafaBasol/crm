@@ -14,6 +14,18 @@ Amaç: CRM paging değişiklikleri sonrası yerel doğrulama yapmak ve smoke aut
 - `npm run smoke:crm` → `== OK ==`
 - `npm run smoke:crm:authz` → `== OK ==`
 
+Ek not (yeniden doğrulama — 2025-12-19):
+
+- Health: `http://127.0.0.1:3000/api/health` → `{"appStatus":"ok","dbStatus":"ok",...}`
+- Backend `nohup` ile başlatıldıysa PID: `.tmp/backend.pid`, log: `.tmp/backend.log`
+
+Faz 2 adımı (küçük ama yüksek değer — 2025-12-19):
+
+- CRM list uçlarına opsiyonel `q` search eklendi:
+  - `GET /api/crm/activities?...&q=...`
+  - `GET /api/crm/tasks?...&q=...`
+- Doğrulama: `npm run smoke:crm` ve `npm run smoke:crm:authz` → `== OK ==`
+
 ### Yapılan değişiklik
 
 - Authz smoke script’i `GET /api/crm/contacts?accountId=...` çağrısında artık **paged response** döndüğü için assertion güncellendi:
