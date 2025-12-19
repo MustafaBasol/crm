@@ -2,6 +2,24 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import * as tasksApi from '../../api/crm-tasks';
+import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSafe';
+
+type StoredPageState = {
+  query?: string;
+  statusFilter?: string;
+  sortKey?: string;
+  limit?: number;
+  offset?: number;
+};
+
+const PAGE_STATE_KEY = 'crm.tasks.pageState.v1';
+
+const readPageState = (): StoredPageState | null => {
+  const raw = safeSessionStorage.getItem(PAGE_STATE_KEY);
+  const parsed = parseLocalObject<StoredPageState>(raw, PAGE_STATE_KEY);
+  if (!parsed) return null;
+  return parsed;
+};
 
 type TaskStatusFilter = 'all' | 'open' | 'completed';
 
@@ -37,6 +55,8 @@ export default function CrmTasksPage(props: {
 
   const globalMode = !opportunityId && !accountId;
 
+  const restored = useMemo(() => (globalMode ? readPageState() : null), []);
+
   const [items, setItems] = useState<tasksApi.CrmTask[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -51,14 +71,40 @@ export default function CrmTasksPage(props: {
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<tasksApi.CrmTask | null>(null);
 
-  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>(() => {
+    const v = restored?.statusFilter;
+    const allowed: TaskStatusFilter[] = ['all', 'open', 'completed'];
+    return typeof v === 'string' && (allowed as string[]).includes(v)
+      ? (v as TaskStatusFilter)
+      : 'all';
+  });
 
-  const [sortKey, setSortKey] = useState<TaskSortKey>('updatedDesc');
+  const [sortKey, setSortKey] = useState<TaskSortKey>(() => {
+    const v = restored?.sortKey;
+    const allowed: TaskSortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'titleAsc', 'titleDesc'];
+    return typeof v === 'string' && (allowed as string[]).includes(v)
+      ? (v as TaskSortKey)
+      : 'updatedDesc';
+  });
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(() => (typeof restored?.query === 'string' ? restored.query : ''));
 
-  const [limit] = useState(25);
-  const [offset, setOffset] = useState(0);
+  const [limit] = useState(() => {
+    const v = restored?.limit;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 25;
+  });
+  const [offset, setOffset] = useState(() => {
+    const v = restored?.offset;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  });
+
+  useEffect(() => {
+    if (!globalMode) return;
+    safeSessionStorage.setItem(
+      PAGE_STATE_KEY,
+      JSON.stringify({ query, statusFilter, sortKey, limit, offset } satisfies StoredPageState),
+    );
+  }, [globalMode, query, statusFilter, sortKey, limit, offset]);
 
   const reload = async () => {
     setError(null);
