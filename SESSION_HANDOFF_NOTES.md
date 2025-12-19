@@ -1,5 +1,47 @@
 # Dev Session Notes (2025-11-24)
 
+# Dev Session Notes (2025-12-19)
+
+## Handoff (Doğrulama + smoke authz fix) — 2025-12-19
+
+Amaç: CRM paging değişiklikleri sonrası yerel doğrulama yapmak ve smoke authz senaryosunu yeni paged response sözleşmesine uyarlamak.
+
+### Son durum
+
+- `npm run build` → PASS
+- `cd backend && npm run build` → PASS
+- Backend health: `GET /api/health` → 200 OK (port genelde `backend/.env` içindeki `PORT`, pratikte 3000)
+- `npm run smoke:crm` → `== OK ==`
+- `npm run smoke:crm:authz` → `== OK ==`
+
+### Yapılan değişiklik
+
+- Authz smoke script’i `GET /api/crm/contacts?accountId=...` çağrısında artık **paged response** döndüğü için assertion güncellendi:
+  - Önce: `Array.isArray(j) && j.some(...)`
+  - Sonra: `Array.isArray(j.items) && j.items.some(...)`
+
+İlgili dosya:
+
+- `backend/scripts/smoke-crm-authz.sh`
+
+İlgili commit:
+
+- ae2ca91 — `test(smoke): fix authz contacts paging assertion`
+
+### Yeni sohbette hızlı devam
+
+1. Branch:
+
+- `git switch chore/dev-stabilize-backend-smoke`
+
+2. Backend + smoke doğrulama:
+
+- `npm run start:backend`
+- `npm run smoke:crm`
+- `npm run smoke:crm:authz`
+
+Not: Bu oturumda backend `nohup` ile başlatıldıysa PID `.tmp/backend.pid` içinde olabilir.
+
 # Dev Session Notes (2025-12-18)
 
 ## Handoff (CRM: create-from-quote response enrichment) — 2025-12-18
