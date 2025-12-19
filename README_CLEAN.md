@@ -66,9 +66,11 @@ Tam dokümantasyon: Swagger — `http://localhost:3000/api`
 ## 🧪 CRM Smoke (Geliştirme)
 
 - Önerilen (backend kapalıysa otomatik başlatır):
-  - `npm run smoke:crm:with-backend`
-  - `npm run smoke:crm:authz:with-backend`
-- Not: `npm run smoke:crm` / `npm run smoke:crm:authz` komutları backend ayakta değilse `curl` connection refused (exit 7) ile düşebilir.
+  - `npm run smoke:crm`
+  - `npm run smoke:crm:authz`
+- Doğrudan smoke scriptleri (backend ayakta olmalı):
+  - `npm run smoke:crm:raw`
+  - `npm run smoke:crm:authz:raw`
 
 ## 🧩 Planlar ve Limitler (Starter / Pro / Business)
 

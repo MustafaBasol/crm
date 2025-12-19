@@ -38,11 +38,18 @@ bash ./stop-dev.sh
 Backend kapalıyken CRM smoke çalıştırmak için önerilen komutlar:
 
 ```bash
-npm run smoke:crm:with-backend
-npm run smoke:crm:authz:with-backend
+npm run smoke:crm
+npm run smoke:crm:authz
 ```
 
-Not: `npm run smoke:crm` backend ayakta değilse `curl` connection refused (exit 7) ile düşebilir.
+Backend ayakta olmalı (raw smoke scriptleri):
+
+```bash
+npm run smoke:crm:raw
+npm run smoke:crm:authz:raw
+```
+
+Not: `npm run smoke:crm:raw` / `npm run smoke:crm:authz:raw` backend ayakta değilse `curl` connection refused (exit 7) ile düşebilir.
 
 ## 💾 Yedek Almak İsterseniz
 

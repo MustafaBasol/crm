@@ -183,7 +183,7 @@ Amaç: CRM Leads listesinde server-side sorting (`sortBy`/`sortDir`) + UI sort s
   - `npm run smoke:crm`
   - `npm run smoke:crm:authz`
 
-Not: `npm run smoke:crm` backend ayakta değilse `curl` connection refused ile (exit code 7) düşebilir; önce `npm run start:backend` çalıştır.
+Not: `npm run smoke:crm:raw` backend ayakta değilse `curl` connection refused ile (exit code 7) düşebilir; önce `npm run start:backend` çalıştır veya `npm run smoke:crm` kullan.
 
 # Dev Session Notes (2025-12-18)
 

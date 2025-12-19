@@ -56,9 +56,8 @@ API base:
 
 1. Backend ayakta + smoke yeşil
 
-- `npm run start:backend`
-- `npm run smoke:crm`
-- `npm run smoke:crm:authz`
+- `npm run smoke:crm:raw`
+- `npm run smoke:crm:authz:raw`
 
 2. CRM ekranları için minimum veri yüzeyi
 
