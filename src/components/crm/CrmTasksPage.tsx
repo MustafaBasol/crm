@@ -51,6 +51,8 @@ export default function CrmTasksPage(props: {
 
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
 
+  const [query, setQuery] = useState('');
+
   const [limit] = useState(25);
   const [offset, setOffset] = useState(0);
 
@@ -65,12 +67,14 @@ export default function CrmTasksPage(props: {
             ? ('open' as const)
             : undefined;
 
+      const q = query.trim() ? query.trim() : undefined;
+
       const data = await tasksApi.listCrmTasks(
         opportunityId
-          ? { opportunityId, status: statusParam, limit, offset }
+          ? { opportunityId, q, status: statusParam, limit, offset }
           : accountId
-            ? { accountId, status: statusParam, limit, offset }
-            : { status: statusParam, limit, offset },
+            ? { accountId, q, status: statusParam, limit, offset }
+            : { q, status: statusParam, limit, offset },
       );
 
       const nextItems = Array.isArray(data?.items) ? data.items : [];
@@ -85,15 +89,19 @@ export default function CrmTasksPage(props: {
 
   useEffect(() => {
     void reload();
-  }, [opportunityId, accountId, statusFilter, limit, offset]);
+  }, [opportunityId, accountId, statusFilter, query, limit, offset]);
 
   useEffect(() => {
     setStatusFilter('all');
   }, [opportunityId, accountId]);
 
   useEffect(() => {
+    setQuery('');
+  }, [opportunityId, accountId]);
+
+  useEffect(() => {
     setOffset(0);
-  }, [opportunityId, accountId, statusFilter, limit]);
+  }, [opportunityId, accountId, statusFilter, query, limit]);
 
   const parseDateMs = (value: string | null | undefined): number | null => {
     const raw = String(value ?? '').trim();
@@ -252,6 +260,16 @@ export default function CrmTasksPage(props: {
             {t('common.add')}
           </button>
         )}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`${t('common.search')}...`}
+          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+        />
       </div>
 
       {loading && <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>}

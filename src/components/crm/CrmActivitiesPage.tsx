@@ -72,6 +72,8 @@ export default function CrmActivitiesPage(
 
   const [statusFilter, setStatusFilter] = useState<ActivityStatusFilter>('all');
 
+  const [query, setQuery] = useState('');
+
   const [limit] = useState(25);
   const [offset, setOffset] = useState(0);
 
@@ -89,14 +91,16 @@ export default function CrmActivitiesPage(
             ? ('open' as const)
             : undefined;
 
+      const q = query.trim() ? query.trim() : undefined;
+
       const data = await activitiesApi.listCrmActivities(
         scope === 'opportunity'
-          ? { opportunityId: opportunityId as string, status: statusParam, limit, offset }
+          ? { opportunityId: opportunityId as string, q, status: statusParam, limit, offset }
           : scope === 'contact'
-            ? { contactId: contactId as string, status: statusParam, limit, offset }
+            ? { contactId: contactId as string, q, status: statusParam, limit, offset }
             : scope === 'account'
-              ? { accountId: accountId as string, status: statusParam, limit, offset }
-              : { status: statusParam, limit, offset },
+              ? { accountId: accountId as string, q, status: statusParam, limit, offset }
+              : { q, status: statusParam, limit, offset },
       );
 
       const nextItems = Array.isArray(data?.items) ? data.items : [];
@@ -111,15 +115,19 @@ export default function CrmActivitiesPage(
 
   useEffect(() => {
     void reload();
-  }, [opportunityId, contactId, accountId, statusFilter, limit, offset]);
+  }, [opportunityId, contactId, accountId, statusFilter, query, limit, offset]);
 
   useEffect(() => {
     setStatusFilter('all');
   }, [opportunityId, contactId, accountId]);
 
   useEffect(() => {
+    setQuery('');
+  }, [opportunityId, contactId, accountId]);
+
+  useEffect(() => {
     setOffset(0);
-  }, [opportunityId, contactId, accountId, statusFilter, limit]);
+  }, [opportunityId, contactId, accountId, statusFilter, query, limit]);
 
   useEffect(() => {
     if (scope !== 'global') return;
@@ -389,6 +397,16 @@ export default function CrmActivitiesPage(
             {t('common.add')}
           </button>
         </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`${t('common.search')}...`}
+          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+        />
       </div>
 
       {loading && (
