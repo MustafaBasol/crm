@@ -16,10 +16,14 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/health')
-      .expect(200)
-      .expect('Hello World!');
+  it('/health (GET) returns app+db status', async () => {
+    const res = await request(app.getHttpServer()).get('/health').expect(200);
+    expect(res.body).toMatchObject({
+      appStatus: 'ok',
+      dbStatus: 'ok',
+    });
+    expect(typeof res.body.dbLatencyMs).toBe('number');
+    expect(res.body.dbLatencyMs).toBeGreaterThanOrEqual(0);
+    expect(typeof res.body.timestamp).toBe('string');
   });
 });

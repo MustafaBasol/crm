@@ -25,11 +25,26 @@ export type UpdateCrmTaskDto = Partial<Omit<CreateCrmTaskDto, 'opportunityId'>> 
   opportunityId?: string;
 };
 
-export const listCrmTasks = async (options: { opportunityId?: string; accountId?: string }): Promise<CrmTask[]> => {
-  const res = await apiClient.get<CrmTask[]>('/crm/tasks', {
+export const listCrmTasks = async (options?: {
+  opportunityId?: string;
+  accountId?: string;
+  q?: string;
+  sortBy?: 'updatedAt' | 'createdAt' | 'title';
+  sortDir?: 'asc' | 'desc';
+  status?: 'open' | 'completed';
+  limit?: number;
+  offset?: number;
+}): Promise<import('./crm-leads').CrmPagedResponse<CrmTask>> => {
+  const res = await apiClient.get<import('./crm-leads').CrmPagedResponse<CrmTask>>('/crm/tasks', {
     params: {
-      opportunityId: options.opportunityId,
-      accountId: options.accountId,
+      opportunityId: options?.opportunityId,
+      accountId: options?.accountId,
+      q: options?.q,
+      sortBy: options?.sortBy,
+      sortDir: options?.sortDir,
+      status: options?.status,
+      limit: options?.limit,
+      offset: options?.offset,
     },
   });
   return res.data;

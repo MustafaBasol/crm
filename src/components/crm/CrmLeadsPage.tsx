@@ -2,6 +2,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import * as leadsApi from '../../api/crm-leads';
+import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSafe';
+
+type StoredPageState = {
+  query?: string;
+  sortKey?: string;
+  limit?: number;
+  offset?: number;
+};
+
+const PAGE_STATE_KEY = 'crm.leads.pageState.v1';
+
+const readPageState = (): StoredPageState | null => {
+  const raw = safeSessionStorage.getItem(PAGE_STATE_KEY);
+  const parsed = parseLocalObject<StoredPageState>(raw, PAGE_STATE_KEY);
+  if (!parsed) return null;
+  return parsed;
+};
 
 type LeadFormState = {
   name: string;
@@ -19,12 +36,48 @@ const emptyForm: LeadFormState = {
   status: '',
 };
 
+type LeadSortKey =
+  | 'updatedDesc'
+  | 'updatedAsc'
+  | 'createdDesc'
+  | 'createdAsc'
+  | 'nameAsc'
+  | 'nameDesc';
+
 export default function CrmLeadsPage() {
   const { t } = useTranslation('common');
 
   const [items, setItems] = useState<leadsApi.CrmLead[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const restored = useMemo(() => readPageState(), []);
+  const [query, setQuery] = useState(() => (typeof restored?.query === 'string' ? restored.query : ''));
+
+  const [sortKey, setSortKey] = useState<LeadSortKey>(() => {
+    const v = restored?.sortKey;
+    const allowed: LeadSortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'nameAsc', 'nameDesc'];
+    return typeof v === 'string' && (allowed as string[]).includes(v)
+      ? (v as LeadSortKey)
+      : 'updatedDesc';
+  });
+
+  const [limit] = useState(() => {
+    const v = restored?.limit;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 25;
+  });
+  const [offset, setOffset] = useState(() => {
+    const v = restored?.offset;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  });
+
+  useEffect(() => {
+    safeSessionStorage.setItem(
+      PAGE_STATE_KEY,
+      JSON.stringify({ query, sortKey, limit, offset } satisfies StoredPageState),
+    );
+  }, [query, sortKey, limit, offset]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -39,8 +92,25 @@ export default function CrmLeadsPage() {
     setError(null);
     setLoading(true);
     try {
-      const data = await leadsApi.listCrmLeads();
-      setItems(Array.isArray(data) ? data : []);
+      const data = await leadsApi.listCrmLeads({
+        q: query.trim() ? query.trim() : undefined,
+        ...(sortKey === 'updatedAsc'
+          ? { sortBy: 'updatedAt' as const, sortDir: 'asc' as const }
+          : sortKey === 'createdDesc'
+            ? { sortBy: 'createdAt' as const, sortDir: 'desc' as const }
+            : sortKey === 'createdAsc'
+              ? { sortBy: 'createdAt' as const, sortDir: 'asc' as const }
+              : sortKey === 'nameAsc'
+                ? { sortBy: 'name' as const, sortDir: 'asc' as const }
+                : sortKey === 'nameDesc'
+                  ? { sortBy: 'name' as const, sortDir: 'desc' as const }
+                  : { sortBy: 'updatedAt' as const, sortDir: 'desc' as const }),
+        limit,
+        offset,
+      });
+      const nextItems = Array.isArray(data?.items) ? data.items : [];
+      setItems(nextItems);
+      setTotal(typeof data?.total === 'number' ? data.total : nextItems.length);
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -50,7 +120,11 @@ export default function CrmLeadsPage() {
 
   useEffect(() => {
     void reload();
-  }, []);
+  }, [query, sortKey, limit, offset]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [query, sortKey, limit]);
 
   const openCreate = () => {
     setModalError(null);
@@ -137,6 +211,10 @@ export default function CrmLeadsPage() {
   };
 
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
+  const hasActiveQuery = Boolean(query.trim());
+  const hasNoResults = !loading && !error && total > 0 && rows.length === 0;
+  const canPrev = offset > 0;
+  const canNext = offset + rows.length < total;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -154,6 +232,59 @@ export default function CrmLeadsPage() {
         </button>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`${t('common.search')}...`}
+          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+        />
+
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as LeadSortKey)}
+          className="w-full sm:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+          aria-label={t('app.sort.label') as string}
+        >
+          <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
+          <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
+          <option value="createdDesc">{t('app.sort.createdDesc')}</option>
+          <option value="createdAsc">{t('app.sort.createdAsc')}</option>
+          <option value="nameAsc">{t('app.sort.nameAsc')}</option>
+          <option value="nameDesc">{t('app.sort.nameDesc')}</option>
+        </select>
+      </div>
+
+      {!loading && !error && total > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!canPrev}
+            onClick={() => setOffset((v) => Math.max(0, v - limit))}
+            className={
+              canPrev
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.previous')}
+          </button>
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setOffset((v) => v + limit)}
+            className={
+              canNext
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.next')}
+          </button>
+        </div>
+      )}
+
       {loading && (
         <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>
       )}
@@ -161,8 +292,12 @@ export default function CrmLeadsPage() {
         <div className="mt-4 text-sm text-red-600">{error}</div>
       )}
 
-      {!loading && !error && rows.length === 0 && (
+      {!loading && !error && total === 0 && (
         <div className="mt-6 text-sm text-gray-600">{t('crm.leads.empty')}</div>
+      )}
+
+      {!loading && !error && hasNoResults && (
+        <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
       )}
 
       {!loading && !error && rows.length > 0 && (

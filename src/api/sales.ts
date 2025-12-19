@@ -30,6 +30,8 @@ export interface SaleRecord extends CreateSaleDto {
   id: string;
   saleNumber?: string;
   status?: SaleStatus;
+  sourceQuoteNumber?: string | null;
+  sourceOpportunityId?: string | null;
   amount?: number;
   total?: number;
   paymentMethod?: 'cash' | 'card' | 'transfer' | 'check';
@@ -55,6 +57,11 @@ export const getSale = async (id: string): Promise<SaleRecord> => {
 
 export const createSale = async (data: CreateSaleDto): Promise<SaleRecord> => {
   const res = await apiClient.post<SaleRecord>('/sales', data);
+  return res.data;
+};
+
+export const createSaleFromQuote = async (quoteId: string): Promise<SaleRecord> => {
+  const res = await apiClient.post<SaleRecord>(`/sales/from-quote/${encodeURIComponent(String(quoteId))}`);
   return res.data;
 };
 

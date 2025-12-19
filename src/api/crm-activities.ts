@@ -29,12 +29,24 @@ export const listCrmActivities = async (options?: {
   opportunityId?: string;
   accountId?: string;
   contactId?: string;
-}): Promise<CrmActivity[]> => {
-  const res = await apiClient.get<CrmActivity[]>('/crm/activities', {
+  q?: string;
+  sortBy?: 'updatedAt' | 'createdAt' | 'title';
+  sortDir?: 'asc' | 'desc';
+  status?: 'open' | 'completed';
+  limit?: number;
+  offset?: number;
+}): Promise<import('./crm-leads').CrmPagedResponse<CrmActivity>> => {
+  const res = await apiClient.get<import('./crm-leads').CrmPagedResponse<CrmActivity>>('/crm/activities', {
     params: {
       ...(options?.opportunityId ? { opportunityId: options.opportunityId } : {}),
       ...(options?.accountId ? { accountId: options.accountId } : {}),
       ...(options?.contactId ? { contactId: options.contactId } : {}),
+      ...(options?.q ? { q: options.q } : {}),
+      ...(options?.sortBy ? { sortBy: options.sortBy } : {}),
+      ...(options?.sortDir ? { sortDir: options.sortDir } : {}),
+      ...(options?.status ? { status: options.status } : {}),
+      ...(typeof options?.limit === 'number' ? { limit: options.limit } : {}),
+      ...(typeof options?.offset === 'number' ? { offset: options.offset } : {}),
     },
   });
   return res.data;

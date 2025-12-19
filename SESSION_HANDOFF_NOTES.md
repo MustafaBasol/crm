@@ -1,5 +1,261 @@
 # Dev Session Notes (2025-11-24)
 
+# Dev Session Notes (2025-12-19)
+
+## Ana Doküman: Temel CRM Yol Haritası (Faz Tanımları)
+
+Bu doküman (SESSION_HANDOFF_NOTES) **temel seviyede CRM** geliştirmesi için tek “ana” yol haritasıdır.
+
+Amaç: Pipeline odaklı, küçük/orta ölçek ekiplerin günlük operasyonunu taşıyacak **temel CRM**:
+
+- Leads ve Contacts yönetimi
+- Deal/Opportunity (pipeline + stage) yönetimi
+- Deal/Account/Contact üzerinde Activities + Tasks ile “next step” takibi
+- Listelerde arama + server-side sorting + paging
+- Basit ama güvenli yetkilendirme (tenant/admin/owner + görünürlük)
+
+Kapsam dışı (bu “temel CRM” tanımı için): tam raporlama paketi, otomasyon/sequence, gelişmiş izin matrisi, özel entegrasyonlar.
+
+### Fazlar (Tanım + Kabul Kriteri)
+
+**Faz 0 — Dev Stabilizasyonu & Smoke Altyapısı**
+
+- Amaç: Her yeni CRM değişikliğinin hızlıca doğrulanabildiği stabil dev ortamı.
+- Kabul kriteri:
+  - Backend tek komutla ayağa kalkar (Postgres ensure + port cleanup).
+  - CRM smoke ve CRM authz smoke düzenli PASS.
+
+**Faz 1 — CRM Backend MVP (API Parity + Güvenlik)**
+
+- Amaç: CRM çekirdeğinin (leads/contacts/opportunities/pipeline/stages/activities/tasks) NestJS + TypeORM tarafında eksiksiz çalışması.
+- İçerik:
+  - CRUD + list endpointleri (paged response).
+  - Görünürlük kuralları + rol bazlı izinler.
+  - Listeleme kalitesi: `q` search + `sortBy/sortDir` whitelist + stabil tie-break.
+  - Smoke regresyonları: kritik akışlar ve en az 1–2 sorting assertion.
+- Kabul kriteri:
+  - CRM akışlarının tamamı smoke ile doğrulanır.
+
+**Faz 2 — CRM Frontend MVP (Kullanılabilir Ürün)**
+
+- Amaç: Kullanıcı UI’dan deal yaratıp yönetebilsin; temel listeler yönetilebilir olsun.
+- İçerik:
+  - CRM sayfaları: Leads, Contacts, Opportunities list; Pipeline board; Deal detail.
+  - Liste UX standardı: paging + arama + sorting + empty/noResults.
+  - Sayfa state’i: sessionStorage ile basit persist.
+- Kabul kriteri:
+  - Kullanıcı UI’dan deal oluşturur, stage değiştirir, detayda temel alanları günceller.
+
+**Faz 3 — Operasyonel CRM (Activities/Tasks ile Next Step)**
+
+- Amaç: Deal/Account/Contact üzerinde faaliyet ve görevle günlük takip.
+- İçerik:
+  - Global + scoped (deal/contact/account) activities/tasks listeleri.
+  - Filtreler (open/completed), arama, sorting.
+  - Deep-link’ler (CRM sayfalarına hızlı geçiş).
+  - Smoke: activities/tasks için sorting dahil regresyon.
+- Kabul kriteri:
+  - Deal üzerinde “next step” yönetilebiliyor (task + activity ile).
+
+**Faz 4 — (Opsiyonel) Quote/Invoice Entegrasyonu**
+
+- Amaç: “teklif → satış → fatura” zincirini CRM deal ile bağlamak.
+- Kabul kriteri:
+  - Deal’den teklif oluşturma/bağlama, kabul ile deal kapanışı gibi minimum senkron davranış.
+
+### Mevcut Durum (Bu Repo’da Şu An)
+
+Bu repo, CRM tarafında Faz 1–3’ün büyük bölümünü kapsayan bir seviyede.
+
+**Tamamlandı (özet)**
+
+- CRM smoke altyapısı ve authz smoke (Faz 0).
+- CRM backend parity: leads/contacts/opportunities/pipeline/activities/tasks CRUD + list (Faz 1).
+- CRM frontend temel sayfalar + deal detail + deep-link’ler (Faz 2–3).
+- CRM list iyileştirmeleri (Faz 2 kalite): `q` search ve server-side sorting kademeli eklendi.
+- Faz 4 (minimum): Deal’den teklif oluşturma + mevcut teklifi deal’e bağlama + teklif kabulü ile deal kapanışı + satış/fatura bağlı doküman görünümü (smoke ile doğrulandı).
+
+**Şu anki en mantıklı Faz 3 tamamlama adımı**
+
+- Smoke kapsaması “liste kalite” için zaten sorting assertion’larını içeriyor (Activities/Tasks title ASC).
+- Bu noktadan sonra en yüksek değerli sıradaki adım genelde:
+  - Bu branch’i `main`’e PR ile almak (Faz 2–3 kalite iyileştirmeleri tek yerde toplansın)
+  - (Opsiyonel) Faz 4 minimum akış bu branch’te tamamlandı; PR merge sonrası stabilizasyon/iyileştirme döngüsüyle ilerlenebilir.
+
+Not: Faz tanımlarının tek kaynağı burasıdır; diğer roadmap dokümanları referans kabul edilir.
+
+## Handoff (Doğrulama + smoke authz fix) — 2025-12-19
+
+Amaç: CRM paging değişiklikleri sonrası yerel doğrulama yapmak ve smoke authz senaryosunu yeni paged response sözleşmesine uyarlamak.
+
+### Son durum
+
+- `npm run build` → PASS
+- `cd backend && npm run build` → PASS
+- Backend health: `GET /api/health` → 200 OK (port genelde `backend/.env` içindeki `PORT`, pratikte 3000)
+- `npm run smoke:crm` → `== OK ==`
+- `npm run smoke:crm:authz` → `== OK ==`
+
+Ek not (yeniden doğrulama — 2025-12-19):
+
+- Health: `http://127.0.0.1:3000/api/health` → `{"appStatus":"ok","dbStatus":"ok",...}`
+- Backend `nohup` ile başlatıldıysa PID: `.tmp/backend.pid`, log: `.tmp/backend.log`
+
+Faz 2 adımı (küçük ama yüksek değer — 2025-12-19):
+
+- CRM list uçlarına opsiyonel `q` search eklendi:
+  - `GET /api/crm/activities?...&q=...`
+  - `GET /api/crm/tasks?...&q=...`
+- Doğrulama: `npm run smoke:crm` ve `npm run smoke:crm:authz` → `== OK ==`
+
+### Yapılan değişiklik
+
+- Authz smoke script’i `GET /api/crm/contacts?accountId=...` çağrısında artık **paged response** döndüğü için assertion güncellendi:
+  - Önce: `Array.isArray(j) && j.some(...)`
+  - Sonra: `Array.isArray(j.items) && j.items.some(...)`
+
+İlgili dosya:
+
+- `backend/scripts/smoke-crm-authz.sh`
+
+İlgili commit:
+
+- ae2ca91 — `test(smoke): fix authz contacts paging assertion`
+
+### Yeni sohbette hızlı devam
+
+1. Branch:
+
+- `git switch chore/dev-stabilize-backend-smoke`
+
+2. Backend + smoke doğrulama:
+
+- `npm run start:backend`
+- `npm run smoke:crm`
+- `npm run smoke:crm:authz`
+
+Not: Bu oturumda backend `nohup` ile başlatıldıysa PID `.tmp/backend.pid` içinde olabilir.
+
+## Handoff (CRM: Deal ↔ Quote bağlama) — 2025-12-19
+
+Amaç: Deal detaydan mevcut bir teklifi deal’e bağlayabilmek (Quote `opportunityId` update) ve Faz 4 minimum akışı tamamlamak.
+
+### Yapılan değişiklik
+
+- Backend: `PATCH /api/quotes/:id` artık `opportunityId` link/unlink destekliyor (yetki kontrolü + müşteri uyumu).
+- Frontend: Deal detail sayfasına “Teklif bağla” aksiyonu eklendi (quoteId prompt ile).
+- Smoke: Mevcut (unlinked) bir teklif `PATCH` ile fırsata bağlanıyor ve `GET /api/quotes?opportunityId=...` listesinde doğrulanıyor.
+
+### Doğrulama
+
+- `npm run lint` → PASS
+- `npm run smoke:crm:with-backend` → `== OK ==`
+
+## Handoff (CRM: Leads list sorting) — 2025-12-19
+
+Amaç: CRM Leads listesinde server-side sorting (`sortBy`/`sortDir`) + UI sort select + smoke regresyonu.
+
+### Yapılan değişiklik
+
+- Backend: `GET /api/crm/leads` artık `sortBy` + `sortDir` destekliyor.
+  - Whitelist: `updatedAt | createdAt | name`
+  - Default: `updatedAt desc`
+  - Stabilite: tie-break `updatedAt DESC`
+  - `name` için TypeORM güvenli pattern: `addSelect(LOWER(...))` + alias üzerinden `orderBy`
+- Frontend: Leads list UI’ya sort select eklendi; state sessionStorage’da tutuluyor (`crm.leads.pageState.v1`).
+  - Sort değişince pagination `offset` resetleniyor.
+- Smoke: Leads sorting regresyonu eklendi (`sortBy=name&sortDir=asc` ile ilk kayıt “A …” assert).
+
+### İlgili dosyalar
+
+- [backend/src/crm/crm.controller.ts](backend/src/crm/crm.controller.ts)
+- [backend/src/crm/crm.service.ts](backend/src/crm/crm.service.ts)
+- [src/api/crm-leads.ts](src/api/crm-leads.ts)
+- [src/components/crm/CrmLeadsPage.tsx](src/components/crm/CrmLeadsPage.tsx)
+- [backend/scripts/smoke-crm.sh](backend/scripts/smoke-crm.sh)
+
+### Doğrulama
+
+- Frontend: `npm run lint && npm run build`
+- Backend: `npm run lint:backend && npm run build:backend && npm run test:backend`
+- Smoke:
+  - `npm run start:backend`
+  - `npm run smoke:crm`
+  - `npm run smoke:crm:authz`
+
+Not: `npm run smoke:crm` backend ayakta değilse `curl` connection refused ile (exit code 7) düşebilir; önce `npm run start:backend` çalıştır.
+
+# Dev Session Notes (2025-12-18)
+
+## Handoff (CRM: create-from-quote response enrichment) — 2025-12-18
+
+Amaç: Quote → Sale/Invoice dönüşümünde (idempotent create-from-quote) response’ların list/detail ile tutarlı olması.
+
+### Yapılan değişiklik
+
+- `POST /api/sales/from-quote/:quoteId` dönüşüne `sourceQuoteNumber` + `sourceOpportunityId` eklendi.
+- `POST /api/invoices/from-quote/:quoteId` dönüşüne aynı alanlar eklendi (idempotent existing + race fallback path’leri dahil).
+- CRM smoke test kapsamı genişletildi:
+  - Quote create response’undan `quoteNumber` alınıp create-from-quote response’larında doğrulanıyor.
+
+### Doğrulama
+
+- Backend unit test: `cd backend && npm test` → PASS
+- CRM smoke: `cd backend && ./scripts/smoke-crm.sh` → `== OK ==`
+
+İlgili commit:
+
+- 5f6467f — fix(crm): enrich from-quote responses
+
+## Handoff (CRM: Activities deep-link + filtre standardizasyonu) — 2025-12-18
+
+Amaç: Müşteri detayından Activities’e hızlı geçiş (customer scope) + Activities listesinin filtre/boş durum davranışını standartlaştırmak.
+
+### Yapılan değişiklik
+
+- Customer → Activities deep-link eklendi: `#crm-activities:<customerId>`
+  - Hash routing + render desteği: `AppImpl`
+  - Customer modal Quick Actions: “Activities” butonu
+- Contact → Activities deep-link eklendi: `#crm-activities-contact:<contactId>`
+  - Contacts listesinden “Activities” aksiyonu ile geçiş
+- Deal → Activities deep-link eklendi: `#crm-activities-opp:<opportunityId>`
+  - Opportunities listesinden “Activities” aksiyonu ile geçiş
+  - Pipeline board kartından “Activities” aksiyonu ile geçiş
+- Activities filtre UX’i standardize edildi:
+  - Status filtresi (all/open/completed) hem global listede hem scoped timeline’da çalışıyor.
+  - Filtre uygulanmışken sonuç yoksa `common.noResults` gösteriliyor; hiç kayıt yoksa `crm.activities.empty`.
+
+### Doğrulama
+
+- Frontend eslint (hedefli):
+  - `npx eslint src/AppImpl.tsx src/components/Header.tsx src/components/CustomerViewModal.tsx src/components/crm/CrmActivitiesPage.tsx`
+- Frontend build: `npm run build` → PASS
+
+## Handoff (CRM: Tasks deep-link + noResults standardizasyonu) — 2025-12-18
+
+Amaç: Müşteri detayından Tasks sayfasına hızlı geçiş (customer scope) + status filtre uygulandığında boş sonuç durumunu standardize etmek.
+
+### Yapılan değişiklik
+
+- Customer → Tasks deep-link eklendi: `#crm-tasks:<customerId>`
+  - Hash routing + render desteği: `AppImpl`
+  - Customer modal Quick Actions: “Tasks” butonu
+- Deal → Tasks deep-link eklendi: `#crm-tasks-opp:<opportunityId>`
+  - Hash routing + render desteği: `AppImpl`
+- Global CRM Tasks sayfası eklendi: `#crm-tasks`
+  - Sidebar menüsüne eklendi (CRM alanı)
+  - Backend `GET /api/crm/tasks` artık filter olmadan da list dönebiliyor (admin: tüm tenant; non-admin: görünür opp/account kapsamı)
+- Contacts → Tasks quick-link eklendi (account scope): Contacts listesinden ilgili müşterinin task’larına geçiş.
+- Tasks filtre UX’i standardize edildi:
+  - Filtre uygulanmışken sonuç yoksa `common.noResults` gösteriliyor; hiç kayıt yoksa `crm.tasks.empty`.
+
+### Doğrulama
+
+- Frontend eslint (hedefli):
+  - `npx eslint src/AppImpl.tsx src/components/Header.tsx src/components/CustomerViewModal.tsx src/components/crm/CrmTasksPage.tsx`
+- Backend build: `cd backend && npm run build`
+- Frontend build: `npm run build`
+
 # Dev Session Notes (2025-12-15)
 
 ## Handoff (CRM authz: opportunity stage move) — 2025-12-16
@@ -40,7 +296,8 @@ Not: [backend/test/run-e2e.sh](backend/test/run-e2e.sh) `.env` dosyasını sourc
 
 - Opportunity stage taşıma (`POST /api/crm/opportunities/:id/move`) artık **rol bazlı**:
   - İzinli: tenant admin (user.role), opportunity owner, veya (current org içinde) organization `ADMIN/OWNER`.
-  - Team member erişimi (okuma/board görünürlüğü) devam eder; normal `MEMBER` için stage move **403 Forbidden**.
+  - Team member erişimi (okuma/board görünürlüğü) devam eder; ancak **team member olmak stage move yetkisi vermez**.
+  - Karar: **team member stage move asla**. Normal `MEMBER` için stage move **403 Forbidden**.
   - Not: organization `ADMIN/OWNER` için opportunity team üyeliği zorunlu değil.
 
 İlgili commit:
@@ -74,9 +331,10 @@ Not: [backend/test/run-e2e.sh](backend/test/run-e2e.sh) `.env` dosyasını sourc
 
 ### Yeni sohbette devam (kalan işler)
 
-1. (Opsiyonel) Yetki politikasını ürün kararı olarak netleştir: team member stage move asla mı, yoksa belirli rollerle mi? Şu an güvenli varsayılan: owner/admin-only.
-2. (Opsiyonel) Eğer “team member stage move” istenecekse: explicit permission/role model ekleyip smoke’a pozitif senaryo ekle.
-3. CRM authz yüzeyi büyüdükçe smoke’ı küçük parçalara ayırmayı değerlendir (örn. `smoke-crm-authz.sh`), ama şimdilik tek dosya yeterli.
+1. Yetki politikası (ürün kararı): **team member stage move asla**. İzin sadece: tenant admin, opportunity owner, veya current org `ADMIN/OWNER`.
+2. CRM authz yüzeyi büyüdükçe smoke’ı küçük parçalara ayırmayı değerlendir (örn. `smoke-crm-authz.sh`), ama şimdilik tek dosya yeterli.
+
+Not: Artık authz odaklı daha kısa smoke mevcut: `npm run smoke:crm:authz` (script: `backend/scripts/smoke-crm-authz.sh`).
 
 ## Handoff (Backend + Postgres + CRM Smoke) — 2025-12-15
 
@@ -85,10 +343,12 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 - Rehber: [docs/DEV_BACKEND_POSTGRES_SMOKE.md](docs/DEV_BACKEND_POSTGRES_SMOKE.md)
 - Tek komut smoke test: [backend/scripts/smoke-crm.sh](backend/scripts/smoke-crm.sh)
 - NPM script: `npm run smoke:crm` (root)
+- Authz odaklı NPM script: `npm run smoke:crm:authz`
 
 ### Çalışır durum (son doğrulama)
 
-- Backend 3001’de çalışıyor ve `GET /api/health` JSON dönüyor.
+- Backend portu `backend/.env` içindeki `PORT` değişkenine göre çalışır (pratikte genelde **3000** veya **3001**). `npm run start:backend` bu değeri dikkate alır.
+- `GET /api/health` JSON dönüyor.
 - Auth smoke: `POST /api/auth/register` + `POST /api/auth/login` başarıyla token üretiyor.
 - CRM smoke: token ile leads/contacts için create→list→update→delete uçları başarıyla çalışıyor.
 
@@ -96,7 +356,9 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 
 1. Backend ayakta mı?
 
-- `curl -sS http://127.0.0.1:3001/api/health`
+- Önce 3000 dene, değilse 3001:
+  - `curl -sS http://127.0.0.1:3000/api/health`
+  - `curl -sS http://127.0.0.1:3001/api/health`
 
 2. CRM smoke test (backend ayaktayken):
 
@@ -104,7 +366,9 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 
 3. Port çakışması (EADDRINUSE) varsa:
 
-- `lsof -nP -iTCP:3001 -sTCP:LISTEN`
+- İlgili port hangisiyse onu kontrol et (örn. 3000/3001):
+  - `lsof -nP -iTCP:3000 -sTCP:LISTEN`
+  - `lsof -nP -iTCP:3001 -sTCP:LISTEN`
 - Birden fazla `nest start --watch` instance’ı çalışıyorsa fazlasını kapat.
 
 ### Notlar / Bilinen tuzaklar
@@ -112,6 +376,16 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 - `JWT_SECRET` olmadan backend boot etmiyor (dev’de bile gerekli).
 - Stripe/Billing tarafı prod’da `STRIPE_SECRET_KEY` olmadan fail-fast olabilir; dev’de crash etmemesi için soft-fail yaklaşımı var.
 - Smoke script çıktıları ve token dosyaları `/workspaces/crm/.tmp/` altına yazılıyor.
+- `npm run start:backend` port temizliğini sabit bir port üzerinden yapmaz; `.env`’deki `PORT` ile aynı portu temizleyip başlatır (EADDRINUSE flakiness’i azaltır).
+- Devcontainer local Postgres (cluster: `17/main`, port `5432`) “down” olursa DB bağlantısı patlamasın diye:
+  - `start-backend.sh` ve `start-dev.sh` otomatik `backend/scripts/ensure-postgres.sh` çalıştırır.
+  - Script `systemctl` kullanmaz (container’da systemd yok); `sudo -n pg_ctlcluster ...` ile cluster’ı başlatır.
+  - İstersen dev akışında kapat: `ENSURE_POSTGRES=0 npm run start:backend`
+- Smoke script’ler (`npm run smoke:crm`, `npm run smoke:crm:authz`) artık **port sabitlemez**:
+  - `BASE_URL` set edilmediyse önce `backend/.env` içindeki `PORT` okunur.
+  - `PORT` yoksa health probe ile `3000` → `3001` denenir.
+  - Override: `BASE_URL=http://127.0.0.1:XXXX` veya `BACKEND_URL=...`.
+  - (İleri kullanım) `BACKEND_ENV_FILE=...` veya `BACKEND_PORT=...`.
 
 ## Biten işler (CRM)
 
@@ -134,9 +408,69 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 
 ## Yeni sohbette devam (net yapılacaklar)
 
-1. Deal detay ekranındaki aktiviteleri “timeline” gibi göstermek (en basit: tarih alanına göre sıralama + tamamlandı filtresi/etiketi).
-2. `CrmActivity` modelini ileride Account/Contact’a da bağlayabilmek için ilişki tasarımını netleştirmek (şimdilik sadece deal/opportunity).
-3. Bu MVP akışını mock backend’den NestJS backend’e taşıma planı (Faz 1): entity/service/controller setleri.
+1. ✅ Deal detay ekranındaki aktiviteleri “timeline” gibi göstermek (tarih alanına göre sıralama + open/completed filtresi/etiketi).
+
+- Uygulama: [src/components/crm/CrmActivitiesPage.tsx](src/components/crm/CrmActivitiesPage.tsx)
+- Deal detail entegrasyonu: [src/components/crm/CrmDealDetailPage.tsx](src/components/crm/CrmDealDetailPage.tsx)
+
+2. ✅ `CrmActivity` ilişki tasarımı netleştirildi (single relation rule): activity **yalnızca bir** hedefe bağlanır: `opportunityId` **veya** `accountId` **veya** `contactId`.
+
+- Kural (list/create/update): [backend/src/crm/crm.service.ts](backend/src/crm/crm.service.ts)
+- API yüzeyi: [backend/src/crm/crm.controller.ts](backend/src/crm/crm.controller.ts)
+- DB kolon + index: [backend/src/migrations/1770300000000-EnsureCrmActivitiesAndAddContactId.ts](backend/src/migrations/1770300000000-EnsureCrmActivitiesAndAddContactId.ts)
+- Smoke doğrulama: [backend/scripts/smoke-crm.sh](backend/scripts/smoke-crm.sh)
+
+3. Bu MVP akışını mock backend’den NestJS backend’e taşıma planı (Faz 1): **bugün bitirilecek** (backend parity + smoke yeşil).
+
+### Faz 1 hedefi (MVP parity)
+
+- Frontend CRM ekranlarının ihtiyaç duyduğu endpoint seti NestJS backend’de mevcut ve smoke ile doğrulanmış olacak.
+- Minimum doğrulamalar (hepsi PASS):
+  - `npm run build:backend`
+  - `npm run lint:backend`
+  - `npm run start:backend` + `npm run smoke:crm`
+  - `npm run smoke:crm:authz`
+
+### Faz 1 kapsam (API yüzeyi)
+
+- Pipeline/Staging
+  - `POST /api/crm/pipeline/bootstrap`
+  - `GET /api/crm/stages`
+  - (opsiyonel) `GET /api/crm/board` (var; board UI için)
+- Opportunities
+  - `POST /api/crm/opportunities`
+  - `GET /api/crm/opportunities` (pagination + filter)
+  - `GET /api/crm/opportunities/:id`
+  - `PATCH /api/crm/opportunities/:id`
+  - `POST /api/crm/opportunities/:id/team`
+  - `POST /api/crm/opportunities/:id/move` (authz: tenant admin / org ADMIN|OWNER / opp owner)
+  - `GET /api/crm/opportunities/:id/sales`
+  - `GET /api/crm/opportunities/:id/invoices`
+- Leads
+  - `GET/POST/PATCH/DELETE /api/crm/leads`
+- Contacts
+  - `GET/POST/PATCH/DELETE /api/crm/contacts` (+ `accountId` filter)
+- Activities
+  - `GET/POST/PATCH/DELETE /api/crm/activities` (+ `opportunityId|accountId|contactId` filter)
+  - Kural: **single relation** (yalnızca bir filter/id alanı)
+- Tasks
+  - `GET/POST/PATCH/DELETE /api/crm/tasks` (+ `opportunityId|accountId` filter)
+
+### Faz 1 done checklist (sıra)
+
+1. Backend build/lint yeşil: `npm run build:backend` + `npm run lint:backend`
+2. Backend ayakta ve health OK: `npm run start:backend` + `GET /api/health`
+3. CRM smoke yeşil: `npm run smoke:crm`
+4. Authz smoke yeşil: `npm run smoke:crm:authz`
+5. Çıktılar/komutlar bu dokümana eklenir (bugün: timestamp + kısa özet)
+
+### Faz 1 doğrulama (2025-12-18)
+
+- Backend: `npm run start:backend` (PORT: 3000)
+- Health: `curl -sS http://127.0.0.1:3000/api/health` → 200 OK
+- CRM smoke: `npm run smoke:crm` → `== OK ==`
+  - Not: Login `EMAIL_NOT_VERIFIED` nedeniyle register token fallback ile ilerliyor (beklenen).
+- Authz smoke: `npm run smoke:crm:authz` → `== OK ==`
 
 ## Biten işler
 
@@ -191,6 +525,55 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 # Dev Session Notes (2025-11-23)
 
 ## Biten işler
+
+# Dev Session Notes (2025-12-17)
+
+## Handoff (Dev stabilize: backend port + Postgres ensure + CRM smoke) — 2025-12-17
+
+Bu sohbet sıfırlanırsa devam noktası burası.
+
+### Son durum (yeşil doğrulamalar)
+
+- `npm run lint` PASS
+- `npm run start:backend` ile backend kalkıyor, `GET /api/health` 200 dönüyor
+- `npm run smoke:crm` PASS
+- `npm run smoke:crm:authz` PASS
+
+### Git durumu (devam etmek için)
+
+- Çalışma branch’i: `chore/dev-stabilize-backend-smoke`
+- Bu branch’teki commit’ler:
+  - `0344427` — dev stabilizasyonu (port auto-detect, Postgres ensure, docs/handoff güncellemeleri)
+  - `a83bd09` — smoke kapsamı genişletme (CRM tasks CRUD + accountId activity)
+
+Devam etmek için:
+
+1. Branch’e geç:
+
+- `git switch chore/dev-stabilize-backend-smoke`
+
+2. Backend + smoke hızlı doğrulama:
+
+- `npm run start:backend`
+- `npm run smoke:crm`
+- `npm run smoke:crm:authz`
+
+3. PR’a gitmek istersen:
+
+- `git push -u origin chore/dev-stabilize-backend-smoke`
+- GitHub UI’dan `main`’e PR aç
+
+### Neler değişti? (özet)
+
+- Backend portu/URL sabitleme kaldırıldı: smoke script’leri `backend/.env` içindeki `PORT`’u okuyor; yoksa health probe ile `3000 → 3001` deniyor.
+- Devcontainer local Postgres `5432` cluster “down” olursa otomatik ayağa kaldırma eklendi:
+  - `backend/scripts/ensure-postgres.sh`
+  - `start-backend.sh` ve `start-dev.sh` içinden çağrılır
+  - Kapatma override: `ENSURE_POSTGRES=0 npm run start:backend`
+- Smoke kapsamı genişledi:
+
+  - Activity `accountId` filter/create/delete kapsandı (CustomerViewModal path)
+  - CRM tasks CRUD (create/list filter by opportunityId/patch/delete) kapsandı
 
 - `ExpenseList`, `SimpleSalesPage` ve `ArchivePage` paginasyon/saklanan görünüm ayarları `safeLocalStorage` helper'larına geçirildi; page-size whitelist'leri tek yerden yönetiliyor ve hatalı değerler `logger` ile raporlanıyor.
 - `SettingsPage` içindeki billing/portal bekleme bayrakları artık doğrudan `safeLocalStorage` API'sini kullanıyor; custom `window.localStorage` sarmalayıcısı kaldırıldı.
@@ -279,3 +662,71 @@ Bu sohbet sıfırlanırsa hızlıca devam etmek için önce şunlara bak:
 5. **Dokümantasyon güncellemesi**
    - Bu dosyayı yeni oturumda açıp checklist olarak kullan.
    - İşler bittiğinde ilgili `README_CLEAN.md` veya spesifik özellik dokümanlarını (ör. `NOTIFICATION_PREFS.md` yoksa oluştur) güncelle.
+
+# Dev Session Notes (2025-12-18)
+
+## Handoff (CRM: quote→sale/invoice izlenebilirliği + linked docs + CI E2E fix) — 2025-12-18
+
+Bu sohbet sıfırlanırsa devam noktası burası.
+
+### Son durum
+
+- Branch: `chore/dev-stabilize-backend-smoke`
+- Son commit’ler:
+  - `5f6467f` — `fix(crm): enrich from-quote responses`
+    - Sale/Invoice `createFromQuote` response’larına `sourceQuoteNumber` + `sourceOpportunityId` eklendi.
+  - `9dd41c1` — `fix(crm): include sourceOpportunityId in linked docs`
+    - CRM opportunity linked sales/invoices endpoint’leri `sourceOpportunityId` döndürüyor (smoke assert’leri eklendi).
+  - `45aec19` — `test(e2e): assert health endpoint JSON`
+    - Backend E2E’de `/health` artık JSON döndüğü için test güncellendi (CI fail mailini kesmesi gereken fix).
+
+### Hızlı doğrulama
+
+- Backend: `npm run start:backend`
+- CRM smoke: `npm run smoke:crm`
+
+Not: `backend npm run test:e2e` yerel DB port/şifre ayarına duyarlı. CI tarafında workflow Postgres’ı `localhost:5432` ile ayağa kaldırıyor.
+
+### CI / Mail
+
+- Push sonrası gelen mail “push bildirimi” değil; GitHub Actions `Backend E2E` workflow’u fail olursa mail geliyor.
+- `45aec19` sonrası `Backend E2E / e2e` job’ı yeşil olmalı.
+
+### Sıradaki geliştirme (CRM)
+
+- ✅ Frontend’de Opportunity/Deal ekranına “Linked Docs” paneli eklendi:
+  - Opportunity’ye bağlı sales/invoices listeleri backend CRM endpoint’lerinden çekiliyor.
+  - Satıra tıklayınca ilgili modal deep-link/hash ile açılıyor (`sales-edit` / `invoices-edit`).
+- ✅ Opportunities list pagination/search eklendi (UI’da `GET /api/crm/opportunities` ile server-side sayfalama + arama).
+
+  - Doğrulama (2025-12-18): `npm run lint` PASS, `npm run build` PASS
+
+- ✅ Opportunities listesinde müşteri (account) filtresi eklendi (UI select + `accountId` parametresi).
+
+  - i18n: TR/EN/FR/DE `crm.opportunities.filters.account` + `crm.opportunities.filters.allAccounts`
+  - Doğrulama (2025-12-18): `npm run lint` PASS, `npm run build` PASS (Vite chunk uyarıları mevcut)
+
+- ✅ Leads ve Contacts listelerine arama eklendi; Contacts sayfasına müşteri filtresi eklendi.
+
+  - Leads/Contacts: client-side arama (`common.search`)
+  - Contacts: server-side `accountId` filtresi (`listCrmContacts({ accountId })`)
+  - i18n: TR/EN/FR/DE `common.noResults` + Lead/Contact subtitle metinleri güncellendi
+  - Doğrulama (2025-12-18): `npx eslint src/components/crm/CrmLeadsPage.tsx src/components/crm/CrmContactsPage.tsx` PASS, `npm run build` PASS
+
+- ✅ CRM liste UX iyileştirmeleri (kalite):
+
+  - Leads/Contacts/Opportunities: arama/filtre state'i sayfadan çıkıp dönünce korunuyor (sessionStorage).
+  - Contacts: müşteri adı tıklanınca `customer-history:<accountId>` ile hızlı geçiş.
+  - Opportunities: filtre aktifken boş sonuçta `common.noResults`, filtre yokken `empty` mesajı.
+  - Doğrulama (2025-12-18): `npx eslint src/components/crm/CrmLeadsPage.tsx src/components/crm/CrmContactsPage.tsx src/components/crm/CrmOpportunitiesPage.tsx` PASS, `npm run build` PASS
+
+- ✅ Customers → CRM Contacts deep-link eklendi.
+
+  - Hash rota: `#crm-contacts:<customerId>` (App routing + hash sync)
+  - Customer modal Quick Action ile tek tıkla geçiş
+  - Contacts sayfası `initialAccountId` ile otomatik müşteri filtresi
+
+- ✅ Customers → CRM Opportunities deep-link eklendi.
+  - Hash rota: `#crm-opportunities:<customerId>` (App routing + hash sync)
+  - Customer modal Quick Action ile tek tıkla geçiş
+  - Opportunities sayfası `initialAccountId` ile otomatik müşteri filtresi

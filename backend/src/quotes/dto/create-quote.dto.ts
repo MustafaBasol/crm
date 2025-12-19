@@ -12,19 +12,17 @@ import {
 import { QuoteStatus } from '../entities/quote.entity';
 
 export class CreateQuoteDto {
-  @ApiPropertyOptional({
-    description: 'Quote number, if omitted server will generate',
-    maxLength: 32,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(32)
-  quoteNumber?: string;
-
   @ApiPropertyOptional({ description: 'Customer ID (UUID)' })
   @IsOptional()
   @IsString()
   customerId?: string;
+
+  @ApiPropertyOptional({
+    description: 'CRM opportunity ID (UUID) to link this quote to a deal',
+  })
+  @IsOptional()
+  @IsString()
+  opportunityId?: string;
 
   @ApiProperty({ description: 'Issue date (YYYY-MM-DD)' })
   @IsDateString()

@@ -3,13 +3,61 @@
 # 🔒 Security Hardening Quick Test Script
 # Test Date: $(date)
 
-BASE_URL="http://localhost:3001"
-echo "🧪 Testing Security Hardening Features on $BASE_URL"
+resolve_backend_port() {
+    local env_file="${BACKEND_ENV_FILE:-/workspaces/crm/backend/.env}"
+
+    if [[ -n "${BACKEND_PORT:-}" ]]; then
+        echo "${BACKEND_PORT}"
+        return 0
+    fi
+
+    if [[ -f "$env_file" ]]; then
+        local port
+        port="$(grep -E '^\s*PORT\s*=' "$env_file" | tail -n 1 | sed -E 's/^\s*PORT\s*=\s*//; s/\s*$//; s/^"|"$//g; s/^\x27|\x27$//g')"
+        if [[ "$port" =~ ^[0-9]+$ ]]; then
+            echo "$port"
+            return 0
+        fi
+    fi
+
+    echo ""
+}
+
+resolve_origin() {
+    if [[ -n "${BACKEND_URL:-}" ]]; then
+        echo "${BACKEND_URL}"
+        return 0
+    fi
+
+    local port
+    port="$(resolve_backend_port)"
+    if [[ -n "$port" ]]; then
+        echo "http://localhost:${port}"
+        return 0
+    fi
+
+    if curl -sS --max-time 1 "http://localhost:3000/api/health" >/dev/null 2>&1; then
+        echo "http://localhost:3000"
+        return 0
+    fi
+    if curl -sS --max-time 1 "http://localhost:3001/api/health" >/dev/null 2>&1; then
+        echo "http://localhost:3001"
+        return 0
+    fi
+
+    echo "http://localhost:3000"
+}
+
+ORIGIN="${BASE_URL:-$(resolve_origin)}"
+API_PREFIX="${API_PREFIX:-/api}"
+API_BASE="$ORIGIN$API_PREFIX"
+
+echo "🧪 Testing Security Hardening Features on $API_BASE"
 echo "=================================================="
 
 # Test 1: Health Check
 echo "1️⃣ Testing Basic Connectivity..."
-HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health" 2>/dev/null || echo "FAILED")
+HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_BASE/health" 2>/dev/null || echo "FAILED")
 if [ "$HEALTH_STATUS" = "200" ]; then
     echo "✅ Health check: PASSED (200)"
 else
@@ -22,7 +70,7 @@ echo "Sending 6 rapid requests to auth endpoint..."
 
 RATE_LIMIT_EXCEEDED=false
 for i in {1..6}; do
-    STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/auth/login" \
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_BASE/auth/login" \
         -H "Content-Type: application/json" \
         -d '{"email":"test@test.com","password":"wrong"}' 2>/dev/null || echo "FAILED")
     
@@ -42,7 +90,7 @@ fi
 
 # Test 3: Security Headers
 echo -e "\n3️⃣ Testing Security Headers..."
-HEADERS=$(curl -s -I "$BASE_URL/" 2>/dev/null || echo "FAILED")
+HEADERS=$(curl -s -I "$ORIGIN/" 2>/dev/null || echo "FAILED")
 
 if echo "$HEADERS" | grep -qi "x-content-type-options"; then
     echo "✅ X-Content-Type-Options header: PRESENT"
@@ -58,7 +106,7 @@ fi
 
 # Test 4: CSRF Protection
 echo -e "\n4️⃣ Testing CSRF Protection..."
-CSRF_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/admin/retention/dry-run" \
+CSRF_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_BASE/admin/retention/dry-run" \
     -H "Content-Type: application/json" \
     -d '{}' 2>/dev/null || echo "FAILED")
 
@@ -71,7 +119,7 @@ fi
 # Test 5: Admin Login (SecurityService bcrypt cost 12)
 echo -e "\n5️⃣ Testing Admin Login (Enhanced Security)..."
 # Note: This would need valid admin credentials to test properly
-ADMIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/admin/login" \
+ADMIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_BASE/admin/login" \
     -H "Content-Type: application/json" \
     -d '{"username":"admin","password":"wrong"}' 2>/dev/null || echo "FAILED")
 
@@ -82,7 +130,7 @@ echo -e "\n6️⃣ Testing 2FA Endpoints..."
 ENDPOINTS=("users/2fa/setup" "users/2fa/enable" "users/2fa/verify" "users/2fa/status")
 
 for endpoint in "${ENDPOINTS[@]}"; do
-    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/$endpoint" 2>/dev/null || echo "FAILED")
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_BASE/$endpoint" 2>/dev/null || echo "FAILED")
     if [ "$STATUS" = "401" ] || [ "$STATUS" = "403" ]; then
         echo "✅ /$endpoint: Available (needs auth - $STATUS)"
     else
@@ -92,7 +140,7 @@ done
 
 # Test 7: SQL Injection Protection
 echo -e "\n7️⃣ Testing SQL Injection Protection..."
-SQL_INJECTION_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/auth/login" \
+SQL_INJECTION_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_BASE/auth/login" \
     -H "Content-Type: application/json" \
     -d '{"email":"admin'\'' OR 1=1--","password":"anything"}' 2>/dev/null || echo "FAILED")
 

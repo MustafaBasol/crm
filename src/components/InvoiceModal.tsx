@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { X, Plus, Trash2, Calculator, Search, Check, Loader2 } from 'lucide-react';
+import { X, Plus, Trash2, Calculator, Search, Check, Loader2, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { resolveStatusLabel } from '../utils/status';
 import type {
@@ -756,6 +756,67 @@ export default function InvoiceModal({ onClose, onSave, invoice, customers = [],
                 <option value="return">↩ {t('invoices.returnInvoice')}</option>
               </select>
             </div>
+
+            {(invoice as any)?.sourceQuoteId && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <FileText className="w-4 h-4 inline mr-2" />
+                  {t('invoices.table.sourceQuote', { defaultValue: 'Kaynak Teklif' }) as string}
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-indigo-600 hover:text-indigo-800 text-left"
+                    onClick={() => {
+                      try {
+                        const id = String((invoice as any).sourceQuoteId || '').trim();
+                        if (!id) return;
+                        onClose();
+                        setTimeout(() => {
+                          try {
+                            window.location.hash = `quotes-edit:${id}`;
+                          } catch {
+                            // ignore
+                          }
+                        }, 100);
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                  >
+                    {String((invoice as any)?.sourceQuoteNumber || '').trim() ||
+                      (t('common.open', { defaultValue: 'Aç' }) as string)}
+                  </button>
+
+                  {String((invoice as any)?.sourceOpportunityId || '').trim() && (
+                    <button
+                      type="button"
+                      className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
+                      onClick={() => {
+                        try {
+                          const oppId = String((invoice as any).sourceOpportunityId || '').trim();
+                          if (!oppId) return;
+                          onClose();
+                          setTimeout(() => {
+                            try {
+                              window.location.hash = `crm-deal:${oppId}`;
+                            } catch {
+                              // ignore
+                            }
+                          }, 100);
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      title={t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                    >
+                      {t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {invoiceData.type === 'return' && (

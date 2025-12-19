@@ -1,12 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { json, urlencoded, raw } from 'express';
 import type {
+  Request,
   Response,
   ErrorRequestHandler,
   RequestHandler,
   CookieOptions,
 } from 'express';
-import { ValidationPipe, RequestMethod } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -279,14 +280,16 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   // KESİN ÇÖZÜM: Tüm istekleri yakalayıp /admin/login olanları /api/admin/login'e yönlendiriyoruz
   // Bu, frontend'in yanlış adres isteğini düzeltir
-  app.use((req, res, next) => {
+  const adminLoginRewriteMiddleware: RequestHandler = (req, _res, next) => {
     // req.url, /admin/login?query gibi gelecektir.
     // Eğer /api/ ile başlamıyorsa VE /admin/login ile başlıyorsa, /api ön ekini ekle
     if (!req.url.startsWith('/api') && req.url.startsWith('/admin/login')) {
       req.url = `/api${req.url}`;
     }
     next();
-  });
+  };
+
+  app.use(adminLoginRewriteMiddleware);
 
   app.setGlobalPrefix('api');
 

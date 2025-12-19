@@ -10,6 +10,7 @@ import Pagination from './Pagination';
 import SavedViewsBar from './SavedViewsBar';
 import { useSavedListViews } from '../hooks/useSavedListViews';
 import { safeLocalStorage } from '../utils/localStorageSafe';
+import { readLegacyTenantId, readTenantScopedArray } from '../utils/localStorageSafe';
 import { logger } from '../utils/logger';
 // preset etiketleri i18n'den alınır
 
@@ -30,6 +31,7 @@ interface Invoice {
   issueDate: string;
   dueDate: string;
   items: any[];
+  sourceQuoteId?: string;
   isVoided?: boolean;
   voidReason?: string;
   voidedAt?: string;
@@ -93,6 +95,24 @@ export default function InvoiceList({
   const { formatCurrency } = useCurrency();
   const { t, i18n } = useTranslation('common');
   const { tenant } = useAuth();
+
+  const sourceQuoteNumberById = useMemo(() => {
+    try {
+      const tenantId = (tenant as any)?.id || readLegacyTenantId() || undefined;
+      const quotes = readTenantScopedArray<any>('quotes_cache', { tenantId, fallbackToBase: true }) ?? [];
+      const map = new Map<string, string>();
+      for (const q of quotes) {
+        const id = q?.id;
+        const num = q?.quoteNumber;
+        if (id != null && num != null && String(num).trim()) {
+          map.set(String(id), String(num));
+        }
+      }
+      return map;
+    } catch {
+      return new Map<string, string>();
+    }
+  }, [(tenant as any)?.id]);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -533,6 +553,9 @@ export default function InvoiceList({
                   <th onClick={() => toggleSort('invoiceNumber')} className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none w-full md:w-40">
                     {t('invoices.invoiceNumber')}<SortIndicator active={sort.by==='invoiceNumber'} />
                   </th>
+                  <th className="hidden lg:table-cell px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">
+                    {t('invoices.table.sourceQuote', { defaultValue: 'Kaynak Teklif' })}
+                  </th>
                   <th onClick={() => toggleSort('customer')} className="hidden md:table-cell px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none w-56">
                     {t('invoices.customer')}<SortIndicator active={sort.by==='customer'} />
                   </th>
@@ -578,6 +601,29 @@ export default function InvoiceList({
                         </div>
                       </div>
                       <div className="mt-3 space-y-2 text-xs text-gray-600 md:hidden">
+                        {invoice.sourceQuoteId && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-gray-500 font-medium">{t('invoices.table.sourceQuote', { defaultValue: 'Kaynak Teklif' })}:</span>
+                            <button
+                              type="button"
+                              className="text-indigo-600 hover:text-indigo-800"
+                              onClick={() => {
+                                try {
+                                  window.location.hash = `quotes-edit:${String(invoice.sourceQuoteId)}`;
+                                } catch {
+                                  // ignore
+                                }
+                              }}
+                              title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                            >
+                              {(
+                                (invoice as any)?.sourceQuoteNumber ||
+                                sourceQuoteNumberById.get(String(invoice.sourceQuoteId)) ||
+                                (t('common.open', { defaultValue: 'Aç' }) as string)
+                              )}
+                            </button>
+                          </div>
+                        )}
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-gray-500 font-medium">{t('invoices.customer')}:</span>
                           <span className="text-gray-900">{invoice.customer?.name || t('invoices.noCustomer', { defaultValue: 'Müşteri Yok' })}</span>
@@ -649,6 +695,30 @@ export default function InvoiceList({
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
+                    </td>
+                    <td className="hidden lg:table-cell px-4 md:px-6 py-4 whitespace-nowrap">
+                      {invoice.sourceQuoteId ? (
+                        <button
+                          type="button"
+                          className="text-indigo-600 hover:text-indigo-800"
+                          onClick={() => {
+                            try {
+                              window.location.hash = `quotes-edit:${String(invoice.sourceQuoteId)}`;
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                          title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                        >
+                          {(
+                            (invoice as any)?.sourceQuoteNumber ||
+                            sourceQuoteNumberById.get(String(invoice.sourceQuoteId)) ||
+                            (t('common.open', { defaultValue: 'Aç' }) as string)
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="hidden md:table-cell px-4 md:px-6 py-4 whitespace-nowrap">
                       <div>

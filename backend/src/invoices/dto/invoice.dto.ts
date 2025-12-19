@@ -31,6 +31,7 @@ export interface BaseInvoiceDto extends InvoiceAuditMetadata {
   status?: InvoiceStatus;
   notes?: string | null;
   saleId?: string | null;
+  sourceQuoteId?: string | null;
   type?: string;
   refundedInvoiceId?: string | null;
   lineItems?: InvoiceLineItemInput[];

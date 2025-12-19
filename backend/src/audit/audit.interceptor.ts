@@ -181,12 +181,12 @@ export class AuditInterceptor implements NestInterceptor {
     controller: Type<unknown>,
     handler: (...args: unknown[]) => unknown,
   ): AuditMetadata | null {
-    const handlerAudit = Reflect.getMetadata('audit', handler);
+    const handlerAudit: unknown = Reflect.getMetadata('audit', handler);
     if (this.isAuditMetadata(handlerAudit)) {
       return handlerAudit;
     }
 
-    const controllerAudit = Reflect.getMetadata('audit', controller);
+    const controllerAudit: unknown = Reflect.getMetadata('audit', controller);
     if (this.isAuditMetadata(controllerAudit)) {
       return controllerAudit;
     }

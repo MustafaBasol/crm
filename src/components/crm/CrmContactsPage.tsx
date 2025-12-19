@@ -3,6 +3,30 @@ import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import * as contactsApi from '../../api/crm-contacts';
 import * as customersApi from '../../api/customers';
+import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSafe';
+
+type Props = {
+  initialAccountId?: string;
+};
+
+type StoredPageState = {
+  query?: string;
+  accountFilterId?: string;
+  sortKey?: string;
+  limit?: number;
+  offset?: number;
+};
+
+const PAGE_STATE_KEY = 'crm.contacts.pageState.v1';
+
+const readPageState = (): StoredPageState | null => {
+  const raw = safeSessionStorage.getItem(PAGE_STATE_KEY);
+  const parsed = parseLocalObject<StoredPageState>(raw, PAGE_STATE_KEY);
+  if (!parsed) return null;
+  return parsed;
+};
+
+type ContactSortKey = 'updatedDesc' | 'updatedAsc' | 'createdDesc' | 'createdAsc' | 'nameAsc' | 'nameDesc';
 
 type ContactFormState = {
   name: string;
@@ -20,10 +44,13 @@ const emptyForm: ContactFormState = {
   accountId: '',
 };
 
-export default function CrmContactsPage() {
+export default function CrmContactsPage({ initialAccountId }: Props) {
   const { t } = useTranslation('common');
 
+  const restored = useMemo(() => readPageState(), []);
+
   const [items, setItems] = useState<contactsApi.CrmContact[]>([]);
+  const [total, setTotal] = useState(0);
   const [customers, setCustomers] = useState<customersApi.Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +61,26 @@ export default function CrmContactsPage() {
   const [editing, setEditing] = useState<contactsApi.CrmContact | null>(null);
   const [form, setForm] = useState<ContactFormState>(emptyForm);
 
+  const [query, setQuery] = useState(() => (typeof restored?.query === 'string' ? restored.query : ''));
+  const [accountFilterId, setAccountFilterId] = useState(() => {
+    if (initialAccountId) return initialAccountId;
+    return typeof restored?.accountFilterId === 'string' ? restored.accountFilterId : '';
+  });
+  const [limit] = useState(() => {
+    const v = restored?.limit;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 25;
+  });
+  const [offset, setOffset] = useState(() => {
+    const v = restored?.offset;
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  });
+
+  const [sortKey, setSortKey] = useState<ContactSortKey>(() => {
+    const v = restored?.sortKey;
+    const allowed: ContactSortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'nameAsc', 'nameDesc'];
+    return typeof v === 'string' && (allowed as string[]).includes(v) ? (v as ContactSortKey) : 'updatedDesc';
+  });
+
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<contactsApi.CrmContact | null>(null);
 
@@ -41,8 +88,27 @@ export default function CrmContactsPage() {
     setError(null);
     setLoading(true);
     try {
-      const data = await contactsApi.listCrmContacts();
-      setItems(Array.isArray(data) ? data : []);
+      const data = await contactsApi.listCrmContacts({
+        accountId: accountFilterId.trim() ? accountFilterId.trim() : undefined,
+        q: query.trim() ? query.trim() : undefined,
+        ...(sortKey === 'updatedAsc'
+          ? { sortBy: 'updatedAt' as const, sortDir: 'asc' as const }
+          : sortKey === 'createdDesc'
+            ? { sortBy: 'createdAt' as const, sortDir: 'desc' as const }
+            : sortKey === 'createdAsc'
+              ? { sortBy: 'createdAt' as const, sortDir: 'asc' as const }
+              : sortKey === 'nameAsc'
+                ? { sortBy: 'name' as const, sortDir: 'asc' as const }
+                : sortKey === 'nameDesc'
+                  ? { sortBy: 'name' as const, sortDir: 'desc' as const }
+                  : { sortBy: 'updatedAt' as const, sortDir: 'desc' as const }),
+        limit,
+        offset,
+      });
+
+      const nextItems = Array.isArray(data?.items) ? data.items : [];
+      setItems(nextItems);
+      setTotal(typeof data?.total === 'number' ? data.total : nextItems.length);
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -61,9 +127,31 @@ export default function CrmContactsPage() {
   };
 
   useEffect(() => {
+    if (!initialAccountId) return;
+    setAccountFilterId((prev) => (prev === initialAccountId ? prev : initialAccountId));
+  }, [initialAccountId]);
+
+  useEffect(() => {
+    safeSessionStorage.setItem(
+      PAGE_STATE_KEY,
+      JSON.stringify({
+        query,
+        accountFilterId,
+        sortKey,
+        limit,
+        offset,
+      } satisfies StoredPageState),
+    );
+  }, [query, accountFilterId, sortKey, limit, offset]);
+
+  useEffect(() => {
     void reload();
     void loadCustomers();
-  }, []);
+  }, [accountFilterId, query, sortKey, limit, offset]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [accountFilterId, query, sortKey, limit]);
 
   const openCreate = () => {
     setModalError(null);
@@ -150,16 +238,9 @@ export default function CrmContactsPage() {
   };
 
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
-
-  const customerNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of customers) {
-      if (c?.id) {
-        map.set(c.id, c.name);
-      }
-    }
-    return map;
-  }, [customers]);
+  const hasNoResults = !loading && !error && total > 0 && rows.length === 0;
+  const canPrev = offset > 0;
+  const canNext = offset + rows.length < total;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -177,6 +258,72 @@ export default function CrmContactsPage() {
         </button>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`${t('common.search')}...`}
+          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+        />
+
+        <select
+          value={accountFilterId}
+          onChange={(e) => setAccountFilterId(e.target.value)}
+          className="w-full sm:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+        >
+          <option value="">{t('crm.opportunities.filters.allAccounts')}</option>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as ContactSortKey)}
+          className="w-full sm:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+          aria-label={t('app.sort.label') as string}
+        >
+          <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
+          <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
+          <option value="createdDesc">{t('app.sort.createdDesc')}</option>
+          <option value="createdAsc">{t('app.sort.createdAsc')}</option>
+          <option value="nameAsc">{t('app.sort.nameAsc')}</option>
+          <option value="nameDesc">{t('app.sort.nameDesc')}</option>
+        </select>
+      </div>
+
+      {!loading && !error && total > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!canPrev}
+            onClick={() => setOffset((v) => Math.max(0, v - limit))}
+            className={
+              canPrev
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.previous')}
+          </button>
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setOffset((v) => v + limit)}
+            className={
+              canNext
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.next')}
+          </button>
+        </div>
+      )}
+
       {loading && (
         <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>
       )}
@@ -184,8 +331,12 @@ export default function CrmContactsPage() {
         <div className="mt-4 text-sm text-red-600">{error}</div>
       )}
 
-      {!loading && !error && rows.length === 0 && (
+      {!loading && !error && total === 0 && (
         <div className="mt-6 text-sm text-gray-600">{t('crm.contacts.empty')}</div>
+      )}
+
+      {!loading && !error && hasNoResults && (
+        <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
       )}
 
       {!loading && !error && rows.length > 0 && (
@@ -208,7 +359,19 @@ export default function CrmContactsPage() {
                   <td className="py-2 pr-4 text-gray-700">{contact.email || '-'}</td>
                   <td className="py-2 pr-4 text-gray-700">{contact.phone || '-'}</td>
                   <td className="py-2 pr-4 text-gray-700">
-                    {contact.accountId ? customerNameById.get(contact.accountId) || '-' : '-'}
+                    {contact.accountId ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `customer-history:${contact.accountId}`;
+                        }}
+                        className="text-blue-600 hover:underline text-left"
+                      >
+                        {customerNameById.get(contact.accountId) || contact.accountId}
+                      </button>
+                    ) : (
+                      '-'
+                    )}
                   </td>
                   <td className="py-2 pr-4 text-gray-700">{contact.company || '-'}</td>
                   <td className="py-2">
@@ -220,6 +383,26 @@ export default function CrmContactsPage() {
                       >
                         {t('common.edit')}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `crm-activities-contact:${contact.id}`;
+                        }}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {t('sidebar.crmActivities')}
+                      </button>
+                      {contact.accountId ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.location.hash = `crm-tasks:${contact.accountId}`;
+                          }}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {t('sidebar.crmTasks')}
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => startDelete(contact)}

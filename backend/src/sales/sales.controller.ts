@@ -25,6 +25,16 @@ import { AuditAction } from '../audit/entities/audit-log.entity';
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
+  @Post('from-quote/:quoteId')
+  @ApiOperation({ summary: 'Create sale from an accepted quote (idempotent)' })
+  @Audit('Sale', AuditAction.CREATE)
+  async createFromQuote(
+    @Param('quoteId') quoteId: string,
+    @User() user: CurrentUser,
+  ) {
+    return this.salesService.createFromQuote(user.tenantId, quoteId);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create sale' })
   @Audit('Sale', AuditAction.CREATE)

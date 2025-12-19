@@ -136,7 +136,9 @@ export class EnsureTenantColumns1770100000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "tenants" DROP COLUMN IF EXISTS "businessLicenseNumber"`,
     );
-    await queryRunner.query(`ALTER TABLE "tenants" DROP COLUMN IF EXISTS "taxId"`);
+    await queryRunner.query(
+      `ALTER TABLE "tenants" DROP COLUMN IF EXISTS "taxId"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "tenants" DROP COLUMN IF EXISTS "einNumber"`,
     );

@@ -16,6 +16,7 @@ export interface CreateQuoteDto {
   quoteNumber?: string;
   customerId?: string;
   customerName?: string;
+  opportunityId?: string;
   issueDate: string; // YYYY-MM-DD
   validUntil?: string; // YYYY-MM-DD
   currency: 'TRY' | 'USD' | 'EUR' | 'GBP';
@@ -89,8 +90,8 @@ export interface QuotePublic extends Quote {
   tenantPublicProfile?: TenantPublicProfile;
 }
 
-export const getQuotes = async (): Promise<Quote[]> => {
-  const res = await apiClient.get<Quote[]>('/quotes');
+export const getQuotes = async (params?: { opportunityId?: string }): Promise<Quote[]> => {
+  const res = await apiClient.get<Quote[]>('/quotes', { params });
   return res.data;
 };
 

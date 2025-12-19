@@ -62,9 +62,32 @@
         "lost": "Verloren"
       }
     },
+    "opportunities": {
+      "title": "Chancen",
+      "subtitle": "Durchsuchen und filtern Sie Ihre Chancen.",
+      "searchPlaceholder": "Chancen suchen...",
+      "empty": "Noch keine Chancen.",
+      "filters": {
+        "search": "Suche",
+        "account": "Kunde",
+        "status": "Status",
+        "stage": "Phase",
+        "allAccounts": "Alle Kunden",
+        "allStages": "Alle Phasen"
+      },
+      "status": {
+        "all": "Alle",
+        "open": "Offen",
+        "won": "Gewonnen",
+        "lost": "Verloren"
+      },
+      "actions": {
+        "open": "Öffnen"
+      }
+    },
     "leads": {
       "title": "Leads",
-      "subtitle": "Die MVP-Integration für diese Seite folgt als Nächstes.",
+      "subtitle": "Leads auflisten und verwalten.",
       "empty": "Noch keine Leads.",
       "modal": {
         "createTitle": "Lead hinzufügen",
@@ -73,7 +96,7 @@
     },
     "contacts": {
       "title": "Kontakte",
-      "subtitle": "Die MVP-Integration für diese Seite folgt als Nächstes.",
+      "subtitle": "Kontakte auflisten und verwalten.",
       "empty": "Noch keine Kontakte.",
       "modal": {
         "createTitle": "Kontakt hinzufügen",
@@ -87,8 +110,10 @@
       "subtitleForAccount": "Aktivitäten für \"{{accountName}}\"",
       "subtitleForContact": "Aktivitäten für \"{{contactName}}\"",
       "empty": "Noch keine Aktivitäten.",
+        "account": "Kunde",
       "dueAtPlaceholder": "z. B. 2025-12-15",
       "filters": {
+        "allAccounts": "Alle Kunden",
         "all": "Alle",
         "open": "Offen",
         "completed": "Erledigt"
@@ -266,6 +291,17 @@
     }
   },
   "app": {
+    "sort": {
+      "label": "Sortierung",
+      "updatedDesc": "Aktualisiert (neueste)",
+      "updatedAsc": "Aktualisiert (älteste)",
+      "createdDesc": "Erstellt (neueste)",
+      "createdAsc": "Erstellt (älteste)",
+      "nameAsc": "Name (A–Z)",
+      "nameDesc": "Name (Z–A)",
+      "titleAsc": "Titel (A–Z)",
+      "titleDesc": "Titel (Z–A)"
+    },
     "name": "comptario",
     "subtitle": "Buchhaltungssystem"
   },
@@ -922,6 +958,7 @@
     "update": "Aktualisieren",
     "add": "Hinzufügen",
     "search": "Suchen",
+    "noResults": "Keine Ergebnisse.",
     "close": "Schließen",
     "back": "Zurück",
     "backToHome": "Zurück zur Startseite",
@@ -1129,9 +1166,11 @@
     "crm": "CRM",
     "crmDashboard": "CRM-Übersicht",
     "crmPipeline": "Vertriebspipeline",
+    "crmOpportunities": "Chancen",
     "crmLeads": "Interessenten",
     "crmContacts": "Kontakte",
     "crmActivities": "Aktivitäten",
+    "crmTasks": "Aufgaben",
     "quotes": "Angebote",
     "reports": "Berichte",
     "accounting": "Buchhaltung",

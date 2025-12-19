@@ -7,10 +7,18 @@ import { Sale } from '../sales/entities/sale.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { Product } from '../products/entities/product.entity';
 import { ProductCategory } from '../products/entities/product-category.entity';
+import { Quote } from '../quotes/entities/quote.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Invoice, Tenant, Sale, Product, ProductCategory]),
+    TypeOrmModule.forFeature([
+      Invoice,
+      Tenant,
+      Sale,
+      Product,
+      ProductCategory,
+      Quote,
+    ]),
   ],
   controllers: [InvoicesController],
   providers: [InvoicesService],

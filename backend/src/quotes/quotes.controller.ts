@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -30,15 +31,18 @@ export class QuotesController {
   @ApiOperation({ summary: 'Create quote' })
   @Audit('Quote', AuditAction.CREATE)
   async create(@Body() dto: CreateQuoteDto, @User() user: CurrentUser) {
-    return this.service.create(user.tenantId, dto);
+    return this.service.create(user.tenantId, dto, user);
   }
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Get('quotes')
   @ApiOperation({ summary: 'List quotes (tenant scoped)' })
-  async findAll(@User() user: CurrentUser) {
-    return this.service.findAll(user.tenantId);
+  async findAll(
+    @User() user: CurrentUser,
+    @Query('opportunityId') opportunityId?: string,
+  ) {
+    return this.service.findAll(user.tenantId, user, { opportunityId });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -59,7 +63,7 @@ export class QuotesController {
     @Body() dto: UpdateQuoteDto,
     @User() user: CurrentUser,
   ) {
-    return this.service.update(user.tenantId, id, dto);
+    return this.service.update(user.tenantId, id, dto, user);
   }
 
   @UseGuards(JwtAuthGuard)

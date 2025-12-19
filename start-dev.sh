@@ -24,12 +24,36 @@ elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1
     COMPOSE_CMD="docker compose"
 fi
 
+# .env dosyasını bash olarak "source" etme: .env bash-syntax garantisi vermez (örn. MAIL_FROM içinde '<' ve boşluk).
+# Bunun yerine satır-satır KEY=VALUE parse edip export et.
+load_dotenv_file() {
+    local file="$1"
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        # CRLF uyumu
+        line="${line%$'\r'}"
+
+        # Yorum/boş satırları atla
+        case "$line" in
+            '' ) continue ;;
+            \#* ) continue ;;
+        esac
+
+        # KEY=VALUE olmayan satırları atla
+        case "$line" in
+            [A-Za-z_]*=*)
+                local key="${line%%=*}"
+                local val="${line#*=}"
+                export "$key=$val"
+                ;;
+        esac
+    done < "$file"
+}
+
 # .env yükle (varsa)
 if [ -f ".env" ]; then
     echo -e "${BLUE}🔐 .env dosyası yükleniyor...${NC}"
-    set -a
-    . ./.env
-    set +a
+    load_dotenv_file ".env"
 else
     echo -e "${YELLOW}ℹ️  .env bulunamadı, varsayılan değerler kullanılacak (MAIL_PROVIDER=log).${NC}"
 fi
@@ -37,19 +61,20 @@ fi
 # backend/.env yükle (varsa) — DB/JWT gibi backend ayarları için kritik
 if [ -f "$BACKEND_DIR/.env" ]; then
     echo -e "${BLUE}🔐 backend/.env dosyası yükleniyor...${NC}"
-    set -a
-    . "$BACKEND_DIR/.env"
-    set +a
+    load_dotenv_file "$BACKEND_DIR/.env"
 fi
+
+# PORT'u erken belirle ki doğru port çakışmasını temizleyelim
+export PORT=${PORT:-3001}
 
 # Mevcut process'leri temizle
 echo -e "${YELLOW}🧹 Mevcut process'ler temizleniyor...${NC}"
 pkill -f "nest start|vite|dist/main|dist/src/main.js" 2>/dev/null || true
-# Port 3001 dinleyen kalmış süreç varsa öldür
+# Port dinleyen kalmış süreç varsa öldür
 if command -v lsof >/dev/null 2>&1; then
-    PIDS=$(lsof -t -i:3001 2>/dev/null || true)
+    PIDS=$(lsof -t -i:"$PORT" 2>/dev/null || true)
     if [ -n "$PIDS" ]; then
-        echo -e "${YELLOW}🔪 Port 3001 kullanan süreçler sonlandırılıyor: $PIDS${NC}"
+        echo -e "${YELLOW}🔪 Port $PORT kullanan süreçler sonlandırılıyor: $PIDS${NC}"
         kill $PIDS 2>/dev/null || true
         sleep 1
         kill -9 $PIDS 2>/dev/null || true
@@ -74,8 +99,18 @@ else
     echo -e "${YELLOW}ℹ️  Docker yok/erişilemiyor; docker-compose adımı atlandı.${NC}"
 fi
 
+# Devcontainer local Postgres (127.0.0.1:5432) kullanılıyorsa cluster'ı ayakta tut.
+# Not: container'da systemd yok; pg_ctlcluster ile yönetilir.
+if [ "${ENSURE_POSTGRES:-1}" != "0" ] \
+    && { [ "${DATABASE_HOST:-}" = "127.0.0.1" ] || [ "${DATABASE_HOST:-}" = "localhost" ]; } \
+    && [ "${DATABASE_PORT:-}" = "5432" ] \
+    && [ -f "$BACKEND_DIR/scripts/ensure-postgres.sh" ]; then
+    echo -e "${BLUE}🐘 Local Postgres (5432) kontrol ediliyor...${NC}"
+    bash "$BACKEND_DIR/scripts/ensure-postgres.sh"
+fi
+
 # Backend başlat
-echo -e "${BLUE}🔧 Backend başlatılıyor (Port 3001 - development)...${NC}"
+echo -e "${BLUE}🔧 Backend başlatılıyor (Port $PORT - development)...${NC}"
 cd "$BACKEND_DIR"
 
 # Dependencies check
@@ -86,7 +121,6 @@ fi
 
 # Backend loglarını dosyaya yaz
 export NODE_ENV=${NODE_ENV:-development}
-export PORT=${PORT:-3001}
 
 # JWT: Dev ortamında .env yoksa backend'in çökmesini önle.
 # Prod'da zaten env zorunlu; burada sadece local/dev için varsayılan veriyoruz.
@@ -163,9 +197,9 @@ echo ""
 echo "✅ All services started!"
 echo ""
 echo "📊 Services:"
-echo "  - Backend:  http://localhost:3001"
+echo "  - Backend:  http://localhost:${PORT}"
 echo "  - Frontend: http://localhost:5174"
-echo "  - Swagger:  http://localhost:3001/api/docs"
+echo "  - Swagger:  http://localhost:${PORT}/api/docs"
 echo "  - pgAdmin:  http://localhost:5051"
 echo ""
 echo "📝 Logs:"

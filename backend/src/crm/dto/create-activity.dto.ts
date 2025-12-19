@@ -5,8 +5,14 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { AtMostOneOf } from '../../common/validators/at-most-one-of.validator';
 
 export class CreateActivityDto {
+  @AtMostOneOf(['opportunityId', 'accountId', 'contactId'], {
+    message: 'Provide only one of opportunityId, accountId, contactId',
+  })
+  relationGuard?: unknown;
+
   @IsString()
   @IsNotEmpty()
   title: string;

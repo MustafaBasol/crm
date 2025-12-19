@@ -6,6 +6,17 @@
     "range": "{{start}}-{{end}} / {{total}}"
   },
   "app": {
+    "sort": {
+      "label": "Tri",
+      "updatedDesc": "Modifié (récent)",
+      "updatedAsc": "Modifié (ancien)",
+      "createdDesc": "Créé (récent)",
+      "createdAsc": "Créé (ancien)",
+      "nameAsc": "Nom (A–Z)",
+      "nameDesc": "Nom (Z–A)",
+      "titleAsc": "Titre (A–Z)",
+      "titleDesc": "Titre (Z–A)"
+    },
     "name": "comptario",
     "subtitle": "Système de Comptabilité"
   },
@@ -15,6 +26,7 @@
       "email": "E-mail",
       "phone": "Téléphone",
       "company": "Société",
+      "account": "Client (Compte)",
       "status": "Statut",
       "contact": "Contact",
       "title": "Titre",
@@ -71,9 +83,32 @@
         "lost": "Perdu"
       }
     },
+    "opportunities": {
+      "title": "Opportunités",
+      "subtitle": "Recherchez et filtrez vos opportunités.",
+      "searchPlaceholder": "Rechercher des opportunités...",
+      "empty": "Aucune opportunité pour l’instant.",
+      "filters": {
+        "search": "Recherche",
+        "account": "Client",
+        "status": "Statut",
+        "stage": "Étape",
+        "allAccounts": "Tous les clients",
+        "allStages": "Toutes les étapes"
+      },
+      "status": {
+        "all": "Toutes",
+        "open": "Ouvertes",
+        "won": "Gagnées",
+        "lost": "Perdues"
+      },
+      "actions": {
+        "open": "Ouvrir"
+      }
+    },
     "leads": {
       "title": "Prospects",
-      "subtitle": "L’intégration MVP de cette page arrive ensuite.",
+      "subtitle": "Listez et gérez vos prospects.",
       "empty": "Aucun prospect pour l’instant.",
       "modal": {
         "createTitle": "Ajouter un prospect",
@@ -82,7 +117,7 @@
     },
     "contacts": {
       "title": "Contacts",
-      "subtitle": "L’intégration MVP de cette page arrive ensuite.",
+      "subtitle": "Listez et gérez vos contacts.",
       "empty": "Aucun contact pour l’instant.",
       "modal": {
         "createTitle": "Ajouter un contact",
@@ -102,7 +137,6 @@
         "open": "Ouvert",
         "completed": "Terminé"
       },
-        "account": "Client (Account)",
       "modal": {
         "createTitle": "Ajouter une activité",
         "editTitle": "Modifier l’activité"
@@ -182,7 +216,23 @@
     "cta.watchDemo": "Regarder la démo",
     "hero.title": "Gérez factures, dépenses et devis depuis un seul endroit.",
     "hero.sub": "Gérez vos factures, dépenses et devis dans un espace de travail simple et unique. Gardez votre pré‑comptabilité organisée grâce au support multi‑devises (EUR, USD, TRY), au suivi des taxes par catégorie et à la génération de factures/devis PDF. Avec des liens de devis partageables, vos clients peuvent consulter les devis en ligne et les accepter ou les refuser en un clic.",
-    "hero.features.pdf": "Factures et devis PDF",
+      "tasks": {
+        "title": "Tâches",
+        "subtitleForDeal": "Tâches pour \"{{dealName}}\"",
+        "subtitleForAccount": "Tâches pour \"{{accountName}}\"",
+        "empty": "Aucune tâche pour l’instant.",
+        "dueAtPlaceholder": "ex. 2025-12-15",
+        "unassigned": "Non assigné",
+        "filters": {
+          "all": "Toutes",
+          "open": "Ouvertes",
+          "completed": "Terminées"
+        },
+        "modal": {
+          "createTitle": "Ajouter une tâche",
+          "editTitle": "Modifier la tâche"
+        }
+      },
     "hero.features.currency": "Multi‑devises (EUR / USD / TRY)",
     "hero.features.vat": "Gestion TVA / Taxes",
     "features.title": "Tout ce dont vous avez besoin pour maîtriser la pré-comptabilité",
@@ -1044,6 +1094,7 @@
     "update": "Mettre à jour",
     "add": "Ajouter",
     "search": "Rechercher",
+    "noResults": "Aucun résultat.",
     "close": "Fermer",
     "back": "Retour",
     "backToHome": "Retour à l'accueil",
@@ -1283,9 +1334,11 @@
     "crm": "CRM",
     "crmDashboard": "Tableau de bord CRM",
     "crmPipeline": "Pipeline commercial",
+    "crmOpportunities": "Opportunités",
     "crmLeads": "Prospects",
     "crmContacts": "Contacts",
     "crmActivities": "Activités",
+    "crmTasks": "Tâches",
     "quotes": "Devis",
     "reports": "Rapports",
     "accounting": "Comptabilité",

@@ -5,6 +5,8 @@ import * as tasksApi from '../../api/crm-tasks';
 
 type TaskStatusFilter = 'all' | 'open' | 'completed';
 
+type TaskSortKey = 'updatedDesc' | 'updatedAsc' | 'createdDesc' | 'createdAsc' | 'titleAsc' | 'titleDesc';
+
 type TaskFormState = {
   title: string;
   dueAt: string;
@@ -33,7 +35,10 @@ export default function CrmTasksPage(props: {
   const dealName = props.dealName;
   const accountName = props.accountName;
 
+  const globalMode = !opportunityId && !accountId;
+
   const [items, setItems] = useState<tasksApi.CrmTask[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,15 +53,55 @@ export default function CrmTasksPage(props: {
 
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
 
+  const [sortKey, setSortKey] = useState<TaskSortKey>('updatedDesc');
+
+  const [query, setQuery] = useState('');
+
+  const [limit] = useState(25);
+  const [offset, setOffset] = useState(0);
+
   const reload = async () => {
     setError(null);
     setLoading(true);
     try {
-      const data = await tasksApi.listCrmTasks({
-        opportunityId: opportunityId || undefined,
-        accountId: accountId || undefined,
-      });
-      setItems(Array.isArray(data) ? data : []);
+      const statusParam =
+        statusFilter === 'completed'
+          ? ('completed' as const)
+          : statusFilter === 'open'
+            ? ('open' as const)
+            : undefined;
+
+      const q = query.trim() ? query.trim() : undefined;
+
+      const sort = (() => {
+        switch (sortKey) {
+          case 'updatedAsc':
+            return { sortBy: 'updatedAt' as const, sortDir: 'asc' as const };
+          case 'createdDesc':
+            return { sortBy: 'createdAt' as const, sortDir: 'desc' as const };
+          case 'createdAsc':
+            return { sortBy: 'createdAt' as const, sortDir: 'asc' as const };
+          case 'titleAsc':
+            return { sortBy: 'title' as const, sortDir: 'asc' as const };
+          case 'titleDesc':
+            return { sortBy: 'title' as const, sortDir: 'desc' as const };
+          case 'updatedDesc':
+          default:
+            return { sortBy: 'updatedAt' as const, sortDir: 'desc' as const };
+        }
+      })();
+
+      const data = await tasksApi.listCrmTasks(
+        opportunityId
+          ? { opportunityId, q, sortBy: sort.sortBy, sortDir: sort.sortDir, status: statusParam, limit, offset }
+          : accountId
+            ? { accountId, q, sortBy: sort.sortBy, sortDir: sort.sortDir, status: statusParam, limit, offset }
+            : { q, sortBy: sort.sortBy, sortDir: sort.sortDir, status: statusParam, limit, offset },
+      );
+
+      const nextItems = Array.isArray(data?.items) ? data.items : [];
+      setItems(nextItems);
+      setTotal(typeof data?.total === 'number' ? data.total : nextItems.length);
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -65,18 +110,20 @@ export default function CrmTasksPage(props: {
   };
 
   useEffect(() => {
-    if (!opportunityId && !accountId) {
-      setLoading(false);
-      setItems([]);
-      setError(t('common.error') as string);
-      return;
-    }
     void reload();
-  }, [opportunityId, accountId]);
+  }, [opportunityId, accountId, statusFilter, query, sortKey, limit, offset]);
 
   useEffect(() => {
     setStatusFilter('all');
   }, [opportunityId, accountId]);
+
+  useEffect(() => {
+    setQuery('');
+  }, [opportunityId, accountId]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [opportunityId, accountId, statusFilter, query, sortKey, limit]);
 
   const parseDateMs = (value: string | null | undefined): number | null => {
     const raw = String(value ?? '').trim();
@@ -128,14 +175,13 @@ export default function CrmTasksPage(props: {
     return '';
   };
 
-  const rows = useMemo(() => {
-    const base = Array.isArray(items) ? items : [];
-    if (statusFilter === 'all') return base;
-    const wantCompleted = statusFilter === 'completed';
-    return base.filter((t) => !!t.completed === wantCompleted);
-  }, [items, statusFilter]);
+  const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
+  const hasNoResults = !loading && !error && total > 0 && rows.length === 0;
+  const canPrev = offset > 0;
+  const canNext = offset + rows.length < total;
 
   const openCreate = () => {
+    if (globalMode) return;
     setModalError(null);
     setEditing(null);
     setForm(emptyForm);
@@ -227,17 +273,58 @@ export default function CrmTasksPage(props: {
             <div className="mt-2 text-sm text-gray-500">{t('crm.tasks.subtitleForAccount', { accountName: accountName || '' })}</div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
-        >
-          {t('common.add')}
-        </button>
+        {!globalMode && (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
+          >
+            {t('common.add')}
+          </button>
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`${t('common.search')}...`}
+          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+        />
       </div>
 
       {loading && <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>}
       {error && <div className="mt-4 text-sm text-red-600">{error}</div>}
+
+      {!loading && !error && total > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!canPrev}
+            onClick={() => setOffset((v) => Math.max(0, v - limit))}
+            className={
+              canPrev
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.previous')}
+          </button>
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setOffset((v) => v + limit)}
+            className={
+              canNext
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.next')}
+          </button>
+        </div>
+      )}
 
       {!loading && !error && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -264,10 +351,28 @@ export default function CrmTasksPage(props: {
               </button>
             );
           })}
+
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as TaskSortKey)}
+            className="border rounded-lg px-3 py-2 text-sm border-gray-300 text-gray-700"
+             aria-label={t('app.sort.label') as string}
+          >
+              <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
+              <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
+              <option value="createdDesc">{t('app.sort.createdDesc')}</option>
+              <option value="createdAsc">{t('app.sort.createdAsc')}</option>
+              <option value="titleAsc">{t('app.sort.titleAsc')}</option>
+              <option value="titleDesc">{t('app.sort.titleDesc')}</option>
+          </select>
         </div>
       )}
 
-      {!loading && !error && rows.length === 0 && (
+      {!loading && !error && hasNoResults && (
+        <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
+      )}
+
+      {!loading && !error && !hasNoResults && total === 0 && (
         <div className="mt-6 text-sm text-gray-600">{t('crm.tasks.empty')}</div>
       )}
 

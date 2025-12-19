@@ -13,6 +13,30 @@ export default function CrmPipelineBoardPage() {
   const { formatCurrency, currency: defaultCurrency } = useCurrency();
   const { user } = useAuth();
 
+  const openDeal = (id: string) => {
+    try {
+      window.location.hash = `crm-deal:${id}`;
+    } catch {
+      // ignore
+    }
+  };
+
+  const openOppActivities = (id: string) => {
+    try {
+      window.location.hash = `crm-activities-opp:${id}`;
+    } catch {
+      // ignore
+    }
+  };
+
+  const openOppTasks = (id: string) => {
+    try {
+      window.location.hash = `crm-tasks-opp:${id}`;
+    } catch {
+      // ignore
+    }
+  };
+
   const stageLabel = (stage: crmApi.CrmStage): string => {
     const normalizedName = String(stage?.name || '').trim().toLowerCase();
     const defaultStageKey =
@@ -35,15 +59,12 @@ export default function CrmPipelineBoardPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [board, setBoard] = useState<crmApi.CrmBoardResponse | null>(null);
+  const [stages, setStages] = useState<crmApi.CrmStage[]>([]);
+  const [opportunities, setOpportunities] = useState<crmApi.CrmOpportunity[]>([]);
 
   const pipelineLabel = useMemo(() => {
-    const name = board?.pipeline?.name;
-    if (!name) return t('crm.pipeline.title') as string;
-    const normalized = String(name).trim().toLowerCase();
-    if (normalized === 'default pipeline') return t('crm.pipeline.defaultName') as string;
-    return name;
-  }, [board?.pipeline?.name, t]);
+    return (t('crm.pipeline.defaultName') as string) || (t('crm.pipeline.title') as string);
+  }, [t]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -78,8 +99,32 @@ export default function CrmPipelineBoardPage() {
       try {
         // tek pipeline şimdilik: yoksa bootstrap et
         await crmApi.bootstrapPipeline();
-        const data = await crmApi.getBoard();
-        if (!cancelled) setBoard(data);
+
+        const stageData = await crmApi.getStages();
+        const nextStages = Array.isArray(stageData) ? stageData : [];
+
+        const fetchAllOpportunities = async (): Promise<crmApi.CrmOpportunity[]> => {
+          const limit = 200;
+          let offset = 0;
+          const items: crmApi.CrmOpportunity[] = [];
+
+          for (let i = 0; i < 100; i += 1) {
+            const page = await crmApi.listOpportunities({ limit, offset });
+            const pageItems = Array.isArray(page?.items) ? page.items : [];
+            items.push(...pageItems);
+            offset += pageItems.length;
+            if (pageItems.length === 0) break;
+            if (typeof page?.total === 'number' && items.length >= page.total) break;
+          }
+
+          return items;
+        };
+
+        const opps = await fetchAllOpportunities();
+        if (!cancelled) {
+          setStages(nextStages);
+          setOpportunities(opps);
+        }
       } catch (e) {
         const msg = getErrorMessage(e);
         logger.error('crm.board.loadFailed', e);
@@ -93,13 +138,27 @@ export default function CrmPipelineBoardPage() {
     };
   }, []);
 
-  const reloadBoard = async () => {
-    const data = await crmApi.getBoard();
-    setBoard(data);
-  };
+  const reloadOpportunities = async () => {
+    try {
+      setError(null);
+      const limit = 200;
+      let offset = 0;
+      const items: crmApi.CrmOpportunity[] = [];
 
-  const stages: crmApi.CrmStage[] = board?.stages ?? [];
-  const opportunities: crmApi.CrmOpportunity[] = board?.opportunities ?? [];
+      for (let i = 0; i < 100; i += 1) {
+        const page = await crmApi.listOpportunities({ limit, offset });
+        const pageItems = Array.isArray(page?.items) ? page.items : [];
+        items.push(...pageItems);
+        offset += pageItems.length;
+        if (pageItems.length === 0) break;
+        if (typeof page?.total === 'number' && items.length >= page.total) break;
+      }
+
+      setOpportunities(items);
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
 
   useEffect(() => {
     if (!showCreateModal) return;
@@ -147,6 +206,20 @@ export default function CrmPipelineBoardPage() {
       const list = map.get(o.stageId) ?? [];
       list.push(o);
       map.set(o.stageId, list);
+    }
+
+    const ms = (iso: string | null | undefined) => {
+      if (!iso) return 0;
+      const t = new Date(iso).getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
+
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        const diff = ms(b.updatedAt) - ms(a.updatedAt);
+        if (diff !== 0) return diff;
+        return String(a.name ?? '').localeCompare(String(b.name ?? ''));
+      });
     }
     return map;
   }, [stages, opportunities]);
@@ -213,7 +286,7 @@ export default function CrmPipelineBoardPage() {
         stageId: createForm.stageId || undefined,
         teamUserIds: ensuredOwnerTeam,
       });
-      await reloadBoard();
+      await reloadOpportunities();
       closeCreate();
     } catch (e) {
       setCreateError(getErrorMessage(e));
@@ -423,11 +496,7 @@ export default function CrmPipelineBoardPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        try {
-                          window.location.hash = `crm-deal:${opp.id}`;
-                        } catch {
-                          // ignore
-                        }
+                        openDeal(opp.id);
                       }}
                       className="text-sm font-medium truncate text-left w-full text-blue-600 hover:underline"
                     >
@@ -437,6 +506,23 @@ export default function CrmPipelineBoardPage() {
                       {formatCurrency(Number(opp.amount ?? 0), (opp.currency as any) ?? 'TRY')}
                     </div>
                     <div className="text-[11px] text-gray-500">Takım: {opp.teamUserIds?.length ?? 0}</div>
+
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => openOppActivities(opp.id)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {t('sidebar.crmActivities')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openOppTasks(opp.id)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {t('sidebar.crmTasks')}
+                      </button>
+                    </div>
 
                     <div className="mt-2">
                       <label className="block text-[11px] text-gray-500 mb-1">{t('crm.pipeline.fields.stage')}</label>
@@ -450,7 +536,7 @@ export default function CrmPipelineBoardPage() {
                           try {
                             setMovingOppId(opp.id);
                             await crmApi.moveOpportunity(opp.id, nextStageId);
-                            await reloadBoard();
+                            await reloadOpportunities();
                           } catch (err) {
                             setError(getErrorMessage(err));
                           } finally {

@@ -26,6 +26,7 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
+import { CrmOpportunityStatus } from './entities/crm-opportunity.entity';
 
 @ApiTags('crm')
 @Controller('crm')
@@ -36,8 +37,21 @@ export class CrmController {
 
   @Get('leads')
   @ApiOperation({ summary: 'List CRM leads' })
-  async listLeads(@User() user: CurrentUser) {
-    return this.crmService.listLeads(user.tenantId);
+  async listLeads(
+    @User() user: CurrentUser,
+    @Query('q') q?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.crmService.listLeads(user.tenantId, {
+      q,
+      sortBy,
+      sortDir,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
   }
 
   @Post('leads')
@@ -67,8 +81,20 @@ export class CrmController {
   async listContacts(
     @User() user: CurrentUser,
     @Query('accountId') accountId?: string,
+    @Query('q') q?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.crmService.listContacts(user.tenantId, user, { accountId });
+    return this.crmService.listContacts(user.tenantId, user, {
+      accountId,
+      q,
+      sortBy,
+      sortDir,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
   }
 
   @Post('contacts')
@@ -104,6 +130,12 @@ export class CrmController {
     return this.crmService.bootstrapDefaultPipeline(user.tenantId);
   }
 
+  @Get('stages')
+  @ApiOperation({ summary: 'List default pipeline stages' })
+  async listStages(@User() user: CurrentUser) {
+    return this.crmService.listStages(user.tenantId);
+  }
+
   @Get('board')
   @ApiOperation({
     summary: 'Get pipeline board (stages + opportunities) scoped by visibility',
@@ -119,6 +151,70 @@ export class CrmController {
     @Body() dto: CreateOpportunityDto,
   ) {
     return this.crmService.createOpportunity(user.tenantId, user, dto);
+  }
+
+  @Get('opportunities')
+  @ApiOperation({
+    summary: 'List opportunities (scoped by visibility; supports pagination)',
+  })
+  async listOpportunities(
+    @User() user: CurrentUser,
+    @Query('q') q?: string,
+    @Query('stageId') stageId?: string,
+    @Query('accountId') accountId?: string,
+    @Query('status') status?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const statusValue: CrmOpportunityStatus | undefined =
+      status === CrmOpportunityStatus.OPEN ||
+      status === CrmOpportunityStatus.WON ||
+      status === CrmOpportunityStatus.LOST
+        ? (status as CrmOpportunityStatus)
+        : undefined;
+
+    return this.crmService.listOpportunities(user.tenantId, user, {
+      q,
+      stageId,
+      accountId,
+      status: statusValue,
+      sortBy,
+      sortDir,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
+  }
+
+  @Get('opportunities/:id')
+  @ApiOperation({ summary: 'Get opportunity by id (scoped by visibility)' })
+  async getOpportunity(@User() user: CurrentUser, @Param('id') id: string) {
+    return this.crmService.getOpportunity(user.tenantId, user, id);
+  }
+
+  @Get('opportunities/:id/sales')
+  @ApiOperation({
+    summary:
+      'List sales linked to an opportunity (via quotes.sourceQuoteId; scoped by visibility)',
+  })
+  async getOpportunitySales(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+  ) {
+    return this.crmService.listOpportunitySales(user.tenantId, user, id);
+  }
+
+  @Get('opportunities/:id/invoices')
+  @ApiOperation({
+    summary:
+      'List invoices linked to an opportunity (via quotes.sourceQuoteId; scoped by visibility)',
+  })
+  async getOpportunityInvoices(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+  ) {
+    return this.crmService.listOpportunityInvoices(user.tenantId, user, id);
   }
 
   @Post('opportunities/:id/move')
@@ -163,11 +259,23 @@ export class CrmController {
     @Query('opportunityId') opportunityId?: string,
     @Query('accountId') accountId?: string,
     @Query('contactId') contactId?: string,
+    @Query('q') q?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
     return this.crmService.listActivities(user.tenantId, user, {
       opportunityId,
       accountId,
       contactId,
+      q,
+      sortBy,
+      sortDir,
+      status,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
     });
   }
 
@@ -198,16 +306,29 @@ export class CrmController {
 
   @Get('tasks')
   @ApiOperation({
-    summary: 'List CRM tasks (filtered by opportunityId or accountId)',
+    summary:
+      'List CRM tasks (optionally filtered by opportunityId or accountId)',
   })
   async listTasks(
     @User() user: CurrentUser,
     @Query('opportunityId') opportunityId?: string,
     @Query('accountId') accountId?: string,
+    @Query('q') q?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
     return this.crmService.listTasks(user.tenantId, user, {
       opportunityId,
       accountId,
+      q,
+      sortBy,
+      sortDir,
+      status,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
     });
   }
 

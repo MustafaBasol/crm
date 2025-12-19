@@ -36,13 +36,31 @@ export function CrmDashboardCard() {
         setIsLoading(true);
         setError(null);
 
-        const board = await crmApi.getBoard();
-        const opportunities = Array.isArray(board?.opportunities) ? board.opportunities : [];
-        const stages = Array.isArray(board?.stages) ? board.stages : [];
+        await crmApi.bootstrapPipeline();
+        const stages = await crmApi.getStages();
 
-        const openOpps = opportunities.filter(o => (o.status || 'open') === 'open');
+        const fetchAllOpenOpportunities = async (): Promise<crmApi.CrmOpportunity[]> => {
+          const limit = 200;
+          let offset = 0;
+          const items: crmApi.CrmOpportunity[] = [];
 
-        const stageNameById = new Map<string, string>(stages.map(s => [s.id, s.name]));
+          for (let i = 0; i < 100; i += 1) {
+            const page = await crmApi.listOpportunities({ status: 'open', limit, offset });
+            const pageItems = Array.isArray(page?.items) ? page.items : [];
+            items.push(...pageItems);
+            offset += pageItems.length;
+            if (pageItems.length === 0) break;
+            if (typeof page?.total === 'number' && items.length >= page.total) break;
+          }
+
+          return items;
+        };
+
+        const openOpps = await fetchAllOpenOpportunities();
+
+        const stageNameById = new Map<string, string>(
+          (Array.isArray(stages) ? stages : []).map(s => [s.id, s.name]),
+        );
         const counts = new Map<string, number>();
         for (const opp of openOpps) {
           const stageName = stageNameById.get(opp.stageId) || t('summary.crm.unknownStage');

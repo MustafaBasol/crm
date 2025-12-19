@@ -26,6 +26,16 @@ import type { CreateInvoiceDto, UpdateInvoiceDto } from './dto/invoice.dto';
 export class InvoicesController {
   constructor(private readonly invoicesService: InvoicesService) {}
 
+  @Post('from-quote/:quoteId')
+  @UseGuards(PeriodLockGuard)
+  @Audit('Invoice', AuditAction.CREATE)
+  createFromQuote(
+    @Req() req: AuthenticatedRequest,
+    @Param('quoteId') quoteId: string,
+  ) {
+    return this.invoicesService.createFromQuote(req.user.tenantId, quoteId);
+  }
+
   @Post()
   @UseGuards(PeriodLockGuard)
   @Audit('Invoice', AuditAction.CREATE)

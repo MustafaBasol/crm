@@ -59,14 +59,18 @@ export const patchTypeOrmMetadataForTests = () => {
   if (!shouldPatch()) {
     return;
   }
-  const validator =
-    EntityMetadataValidator.prototype as EntityMetadataValidator & {
-      __patchedForTests?: boolean;
-    };
+  const validatorPrototype: unknown = EntityMetadataValidator.prototype;
+  const validator = validatorPrototype as EntityMetadataValidator & {
+    __patchedForTests?: boolean;
+  };
   if (validator.__patchedForTests) {
     return;
   }
-  const originalValidate = validator.validate.bind(validator);
+  const originalValidate: (
+    entityMetadata: EntityMetadata,
+    allEntityMetadatas: EntityMetadata[],
+    currentDriver: Driver,
+  ) => void = validator.validate.bind(validator);
   validator.validate = function patchedValidate(
     entityMetadata: EntityMetadata,
     allEntityMetadatas: EntityMetadata[],
@@ -75,12 +79,7 @@ export const patchTypeOrmMetadataForTests = () => {
     if (entityMetadata?.columns?.length) {
       normalizeColumnTypes(entityMetadata.columns, currentDriver);
     }
-    return originalValidate.call(
-      this,
-      entityMetadata,
-      allEntityMetadatas,
-      currentDriver,
-    );
+    return originalValidate(entityMetadata, allEntityMetadatas, currentDriver);
   };
   validator.__patchedForTests = true;
 };

@@ -21,8 +21,29 @@ export type CreateCrmLeadDto = {
 
 export type UpdateCrmLeadDto = Partial<CreateCrmLeadDto>;
 
-export const listCrmLeads = async (): Promise<CrmLead[]> => {
-  const res = await apiClient.get<CrmLead[]>('/crm/leads');
+export type CrmPagedResponse<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export const listCrmLeads = async (options?: {
+  q?: string;
+  sortBy?: 'updatedAt' | 'createdAt' | 'name';
+  sortDir?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}): Promise<CrmPagedResponse<CrmLead>> => {
+  const res = await apiClient.get<CrmPagedResponse<CrmLead>>('/crm/leads', {
+    params: {
+      q: options?.q,
+      sortBy: options?.sortBy,
+      sortDir: options?.sortDir,
+      limit: options?.limit,
+      offset: options?.offset,
+    },
+  });
   return res.data;
 };
 

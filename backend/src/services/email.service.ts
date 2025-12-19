@@ -173,10 +173,29 @@ export class EmailService {
             },
             body: JSON.stringify(payload),
           });
-          const body = await res.json().catch(() => null);
+          type UnknownRecord = Record<string, unknown>;
+          const isRecord = (value: unknown): value is UnknownRecord =>
+            typeof value === 'object' && value !== null;
+
+          const body: unknown = await res.json().catch(() => null);
           if (!res.ok) {
-            const code = body?.error?.code || res.status;
-            const detail = body?.error?.message || res.statusText;
+            const errorValue = isRecord(body) ? body['error'] : undefined;
+            const errorCodeValue = isRecord(errorValue)
+              ? errorValue['code']
+              : undefined;
+            const errorMessageValue = isRecord(errorValue)
+              ? errorValue['message']
+              : undefined;
+
+            const code =
+              typeof errorCodeValue === 'string' ||
+              typeof errorCodeValue === 'number'
+                ? errorCodeValue
+                : res.status;
+            const detail =
+              typeof errorMessageValue === 'string'
+                ? errorMessageValue
+                : res.statusText;
             const error = new Error(
               `MailerSend API error code=${code} detail=${detail}`,
             );
@@ -186,12 +205,20 @@ export class EmailService {
             }
             throw error;
           }
-          const msgId =
-            typeof body?.message_id === 'string'
-              ? body.message_id
-              : typeof body?.data?.id === 'string'
-                ? body.data.id
-                : undefined;
+          const msgId = (() => {
+            if (!isRecord(body)) {
+              return undefined;
+            }
+            const direct = body['message_id'];
+            if (typeof direct === 'string') {
+              return direct;
+            }
+            const data = body['data'];
+            if (isRecord(data) && typeof data['id'] === 'string') {
+              return data['id'];
+            }
+            return undefined;
+          })();
           const metaStr = options.meta
             ? ` meta=${JSON.stringify(options.meta)}`
             : '';

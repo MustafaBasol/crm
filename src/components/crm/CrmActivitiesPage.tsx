@@ -6,6 +6,8 @@ import * as contactsApi from '../../api/crm-contacts';
 
 type ActivityStatusFilter = 'all' | 'open' | 'completed';
 
+type ActivitySortKey = 'updatedDesc' | 'updatedAsc' | 'createdDesc' | 'createdAsc' | 'titleAsc' | 'titleDesc';
+
 type ActivityFormState = {
   title: string;
   type: string;
@@ -23,7 +25,14 @@ const emptyForm: ActivityFormState = {
 };
 
 export default function CrmActivitiesPage(
-  props: { opportunityId?: string; dealName?: string; contactId?: string; contactName?: string } = {},
+  props: {
+    opportunityId?: string;
+    dealName?: string;
+    contactId?: string;
+    contactName?: string;
+    accountId?: string;
+    accountName?: string;
+  } = {},
 ) {
   const { t, i18n } = useTranslation('common');
 
@@ -31,15 +40,28 @@ export default function CrmActivitiesPage(
   const dealName = props?.dealName;
   const contactId = props?.contactId;
   const contactName = props?.contactName;
+  const accountId = props?.accountId;
+  const accountName = props?.accountName;
 
-  const isScopedTimeline = !!opportunityId || !!contactId;
+  const scope: 'opportunity' | 'contact' | 'account' | 'global' = opportunityId
+    ? 'opportunity'
+    : contactId
+      ? 'contact'
+      : accountId
+        ? 'account'
+        : 'global';
+
+  const isScopedTimeline = scope !== 'global';
 
   const [items, setItems] = useState<activitiesApi.CrmActivity[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [contacts, setContacts] = useState<contactsApi.CrmContact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
+
+  const [resolvedContactName, setResolvedContactName] = useState<string>('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -52,18 +74,70 @@ export default function CrmActivitiesPage(
 
   const [statusFilter, setStatusFilter] = useState<ActivityStatusFilter>('all');
 
+  const [sortKey, setSortKey] = useState<ActivitySortKey>('updatedDesc');
+
+  const [query, setQuery] = useState('');
+
+  const [limit] = useState(25);
+  const [offset, setOffset] = useState(0);
+
+  const canPickContactInModal =
+    scope === 'global' && !(editing?.opportunityId || editing?.accountId);
+
   const reload = async () => {
     setError(null);
     setLoading(true);
     try {
+      const statusParam =
+        statusFilter === 'completed'
+          ? ('completed' as const)
+          : statusFilter === 'open'
+            ? ('open' as const)
+            : undefined;
+
+      const q = query.trim() ? query.trim() : undefined;
+
+      const sort = !isScopedTimeline
+        ? (() => {
+            switch (sortKey) {
+              case 'updatedAsc':
+                return { sortBy: 'updatedAt' as const, sortDir: 'asc' as const };
+              case 'createdDesc':
+                return { sortBy: 'createdAt' as const, sortDir: 'desc' as const };
+              case 'createdAsc':
+                return { sortBy: 'createdAt' as const, sortDir: 'asc' as const };
+              case 'titleAsc':
+                return { sortBy: 'title' as const, sortDir: 'asc' as const };
+              case 'titleDesc':
+                return { sortBy: 'title' as const, sortDir: 'desc' as const };
+              case 'updatedDesc':
+              default:
+                return { sortBy: 'updatedAt' as const, sortDir: 'desc' as const };
+            }
+          })()
+        : undefined;
+
+      const baseParams = {
+        q,
+        status: statusParam,
+        limit,
+        offset,
+        ...(sort ? { sortBy: sort.sortBy, sortDir: sort.sortDir } : {}),
+      };
+
       const data = await activitiesApi.listCrmActivities(
-        opportunityId
-          ? { opportunityId }
-          : contactId
-            ? { contactId }
-            : undefined,
+        scope === 'opportunity'
+          ? { opportunityId: opportunityId as string, ...baseParams }
+          : scope === 'contact'
+            ? { contactId: contactId as string, ...baseParams }
+            : scope === 'account'
+              ? { accountId: accountId as string, ...baseParams }
+              : { ...baseParams },
       );
-      setItems(Array.isArray(data) ? data : []);
+
+      const nextItems = Array.isArray(data?.items) ? data.items : [];
+      setItems(nextItems);
+      setTotal(typeof data?.total === 'number' ? data.total : nextItems.length);
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -73,20 +147,29 @@ export default function CrmActivitiesPage(
 
   useEffect(() => {
     void reload();
-  }, [opportunityId, contactId]);
+  }, [opportunityId, contactId, accountId, isScopedTimeline, statusFilter, query, sortKey, limit, offset]);
 
   useEffect(() => {
     setStatusFilter('all');
-  }, [opportunityId, contactId]);
+  }, [opportunityId, contactId, accountId]);
 
   useEffect(() => {
-    if (opportunityId || contactId) return;
+    setQuery('');
+  }, [opportunityId, contactId, accountId]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [opportunityId, contactId, accountId, isScopedTimeline, statusFilter, query, sortKey, limit]);
+
+  useEffect(() => {
+    if (scope !== 'global') return;
     let cancelled = false;
     const loadContacts = async () => {
       try {
         setContactsLoading(true);
-        const data = await contactsApi.listCrmContacts();
-        if (!cancelled) setContacts(Array.isArray(data) ? data : []);
+        const data = await contactsApi.listCrmContacts({ limit: 200, offset: 0 });
+        const list = Array.isArray(data?.items) ? data.items : [];
+        if (!cancelled) setContacts(list);
       } catch {
         if (!cancelled) setContacts([]);
       } finally {
@@ -97,7 +180,38 @@ export default function CrmActivitiesPage(
     return () => {
       cancelled = true;
     };
-  }, [opportunityId, contactId]);
+  }, [scope]);
+
+  useEffect(() => {
+    if (scope !== 'contact') {
+      setResolvedContactName('');
+      return;
+    }
+    const id = String(contactId ?? '').trim();
+    if (!id) {
+      setResolvedContactName('');
+      return;
+    }
+    if (String(contactName ?? '').trim()) {
+      setResolvedContactName('');
+      return;
+    }
+    let cancelled = false;
+    const loadContactLabel = async () => {
+      try {
+        const data = await contactsApi.listCrmContacts({ limit: 200, offset: 0 });
+        const list = Array.isArray(data?.items) ? data.items : [];
+        const found = list.find((c) => String(c.id) === id);
+        if (!cancelled) setResolvedContactName(found?.name ?? '');
+      } catch {
+        if (!cancelled) setResolvedContactName('');
+      }
+    };
+    void loadContactLabel();
+    return () => {
+      cancelled = true;
+    };
+  }, [scope, contactId, contactName]);
 
   const parseDateMs = (value: string | null | undefined): number | null => {
     const raw = String(value ?? '').trim();
@@ -188,14 +302,20 @@ export default function CrmActivitiesPage(
     const payload: activitiesApi.CreateCrmActivityDto = {
       title,
       type: form.type.trim() || undefined,
-      opportunityId: opportunityId || undefined,
-      contactId: contactId
-        ? contactId
-        : opportunityId
-          ? undefined
-          : form.contactId
-            ? form.contactId
-            : null,
+      opportunityId: scope === 'opportunity' ? (opportunityId as string) : undefined,
+      accountId: scope === 'account' ? (accountId as string) : undefined,
+      contactId:
+        scope === 'contact'
+          ? (contactId as string)
+          : scope === 'opportunity'
+            ? undefined
+            : scope === 'account'
+              ? null
+              : canPickContactInModal
+                ? form.contactId
+                  ? form.contactId
+                  : null
+                : null,
       dueAt: form.dueAt.trim() ? form.dueAt.trim() : null,
       completed: !!form.completed,
     };
@@ -241,28 +361,22 @@ export default function CrmActivitiesPage(
 
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
 
-  const timelineRows = useMemo(() => {
-    const base = Array.isArray(rows) ? [...rows] : [];
-    const filtered = isScopedTimeline
-      ? base.filter((a) => {
-          if (statusFilter === 'completed') return !!a.completed;
-          if (statusFilter === 'open') return !a.completed;
-          return true;
-        })
-      : base;
+  const filteredRows = useMemo(() => {
+    if (!isScopedTimeline) return rows;
 
-    const sortKey = (a: activitiesApi.CrmActivity): number => {
+    const base = Array.isArray(rows) ? [...rows] : [];
+    const sortKeyMs = (a: activitiesApi.CrmActivity): number => {
       return parseDateMs(a.dueAt) ?? parseDateMs(a.createdAt) ?? 0;
     };
 
-    filtered.sort((a, b) => sortKey(b) - sortKey(a));
-    return filtered;
-  }, [isScopedTimeline, rows, statusFilter]);
+    base.sort((a, b) => sortKeyMs(b) - sortKeyMs(a));
+    return base;
+  }, [rows, isScopedTimeline]);
 
   const timelineGroups = useMemo(() => {
     const groups = new Map<string, { header: string; ms: number; items: activitiesApi.CrmActivity[] }>();
 
-    for (const activity of timelineRows) {
+    for (const activity of filteredRows) {
       const ms = parseDateMs(activity.dueAt) ?? parseDateMs(activity.createdAt) ?? 0;
       const header = formatDateLabel(activity.dueAt, activity.createdAt) || '-';
       const key = `${ms}:${header}`;
@@ -277,7 +391,12 @@ export default function CrmActivitiesPage(
     const arr = Array.from(groups.values());
     arr.sort((a, b) => b.ms - a.ms);
     return arr;
-  }, [timelineRows]);
+  }, [filteredRows]);
+
+  const hasNoResults = !loading && !error && total > 0 && filteredRows.length === 0;
+
+  const canPrev = offset > 0;
+  const canNext = offset + rows.length < total;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -285,25 +404,40 @@ export default function CrmActivitiesPage(
         <div>
           <div className="text-sm font-semibold text-gray-900">{t('crm.activities.title')}</div>
           <div className="mt-2 text-sm text-gray-500">
-            {opportunityId
+            {scope === 'opportunity'
               ? t('crm.activities.subtitleForDeal', { dealName: dealName || '' })
-              : contactId
-                ? t('crm.activities.subtitleForContact', { contactName: contactName || '' })
-                : t('crm.activities.subtitle')}
+              : scope === 'contact'
+                ? t('crm.activities.subtitleForContact', { contactName: (contactName || resolvedContactName) || '' })
+                : scope === 'account'
+                  ? t('crm.activities.subtitleForAccount', { accountName: accountName || '' })
+                  : t('crm.activities.subtitle')}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isScopedTimeline && (
+          {!isScopedTimeline && (
             <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as ActivityStatusFilter)}
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as ActivitySortKey)}
               className="border rounded-lg px-3 py-2 text-sm border-gray-300 text-gray-700"
+                aria-label={t('app.sort.label') as string}
             >
-              <option value="all">{t('crm.activities.filters.all')}</option>
-              <option value="open">{t('crm.activities.filters.open')}</option>
-              <option value="completed">{t('crm.activities.filters.completed')}</option>
+                <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
+                <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
+                <option value="createdDesc">{t('app.sort.createdDesc')}</option>
+                <option value="createdAsc">{t('app.sort.createdAsc')}</option>
+                <option value="titleAsc">{t('app.sort.titleAsc')}</option>
+                <option value="titleDesc">{t('app.sort.titleDesc')}</option>
             </select>
           )}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as ActivityStatusFilter)}
+            className="border rounded-lg px-3 py-2 text-sm border-gray-300 text-gray-700"
+          >
+            <option value="all">{t('crm.activities.filters.all')}</option>
+            <option value="open">{t('crm.activities.filters.open')}</option>
+            <option value="completed">{t('crm.activities.filters.completed')}</option>
+          </select>
           <button
             type="button"
             onClick={openCreate}
@@ -314,6 +448,16 @@ export default function CrmActivitiesPage(
         </div>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`${t('common.search')}...`}
+          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+        />
+      </div>
+
       {loading && (
         <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>
       )}
@@ -321,11 +465,44 @@ export default function CrmActivitiesPage(
         <div className="mt-4 text-sm text-red-600">{error}</div>
       )}
 
-      {!loading && !error && rows.length === 0 && (
+      {!loading && !error && total > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!canPrev}
+            onClick={() => setOffset((v) => Math.max(0, v - limit))}
+            className={
+              canPrev
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.previous')}
+          </button>
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setOffset((v) => v + limit)}
+            className={
+              canNext
+                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
+                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
+            }
+          >
+            {t('common.next')}
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && total === 0 && (
         <div className="mt-6 text-sm text-gray-600">{t('crm.activities.empty')}</div>
       )}
 
-      {!loading && !error && rows.length > 0 && isScopedTimeline && (
+      {!loading && !error && hasNoResults && (
+        <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
+      )}
+
+      {!loading && !error && rows.length > 0 && !hasNoResults && isScopedTimeline && (
         <div className="mt-6 space-y-6">
           {timelineGroups.map((group) => (
             <div key={`${group.ms}:${group.header}`} className="space-y-3">
@@ -369,7 +546,7 @@ export default function CrmActivitiesPage(
         </div>
       )}
 
-      {!loading && !error && rows.length > 0 && !isScopedTimeline && (
+      {!loading && !error && rows.length > 0 && !hasNoResults && !isScopedTimeline && (
         <div className="mt-6 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -382,7 +559,7 @@ export default function CrmActivitiesPage(
               </tr>
             </thead>
             <tbody>
-              {rows.map((activity) => (
+              {filteredRows.map((activity) => (
                 <tr key={activity.id} className="border-b last:border-b-0">
                   <td className="py-2 pr-4 text-gray-900">{activity.title}</td>
                   <td className="py-2 pr-4 text-gray-700">{activity.type || '-'}</td>
@@ -423,7 +600,7 @@ export default function CrmActivitiesPage(
             {modalError && <div className="mb-4 text-sm text-red-600">{modalError}</div>}
 
             <div className="space-y-4">
-              {!opportunityId && !contactId && (
+              {canPickContactInModal && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('crm.fields.contact')}</label>
                   <select

@@ -1,5 +1,16 @@
 {
   "app": {
+    "sort": {
+      "label": "Sıralama",
+      "updatedDesc": "Güncellenme (yeniden eskiye)",
+      "updatedAsc": "Güncellenme (eskiden yeniye)",
+      "createdDesc": "Oluşturulma (yeniden eskiye)",
+      "createdAsc": "Oluşturulma (eskiden yeniye)",
+      "nameAsc": "İsim (A–Z)",
+      "nameDesc": "İsim (Z–A)",
+      "titleAsc": "Başlık (A–Z)",
+      "titleDesc": "Başlık (Z–A)"
+    },
     "name": "comptario",
     "subtitle": "Muhasebe Sistemi"
   },
@@ -66,9 +77,32 @@
         "lost": "Lost"
       }
     },
+    "opportunities": {
+      "title": "Fırsatlar",
+      "subtitle": "Arama ve filtrelerle fırsatları listeleyin.",
+      "searchPlaceholder": "Fırsat ara...",
+      "empty": "Henüz fırsat yok.",
+      "filters": {
+        "search": "Arama",
+        "account": "Müşteri",
+        "status": "Durum",
+        "stage": "Aşama",
+        "allAccounts": "Tüm müşteriler",
+        "allStages": "Tüm aşamalar"
+      },
+      "status": {
+        "all": "Tümü",
+        "open": "Açık",
+        "won": "Kazanıldı",
+        "lost": "Kaybedildi"
+      },
+      "actions": {
+        "open": "Aç"
+      }
+    },
     "leads": {
       "title": "Potansiyeller",
-      "subtitle": "Bu sayfa için MVP entegrasyonu sırada.",
+      "subtitle": "Potansiyel kayıtlarını listeleyin ve yönetin.",
       "empty": "Henüz lead yok.",
       "modal": {
         "createTitle": "Lead Ekle",
@@ -77,7 +111,7 @@
     },
     "contacts": {
       "title": "Kişiler",
-      "subtitle": "Bu sayfa için MVP entegrasyonu sırada.",
+      "subtitle": "Kişi kayıtlarını listeleyin ve yönetin.",
       "empty": "Henüz kişi yok.",
       "modal": {
         "createTitle": "Kişi Ekle",
@@ -577,6 +611,7 @@
     "update": "Güncelle",
     "add": "Ekle",
     "search": "Ara",
+    "noResults": "Sonuç bulunamadı",
     "close": "Kapat",
     "backToHome": "Anasayfaya Dön",
     "yes": "Evet",
@@ -775,9 +810,11 @@
     "crm": "CRM",
     "crmDashboard": "CRM Özeti",
     "crmPipeline": "Satış Süreci",
+    "crmOpportunities": "Fırsatlar",
     "crmLeads": "Potansiyeller",
     "crmContacts": "Kişiler",
     "crmActivities": "Aktiviteler",
+    "crmTasks": "Görevler",
     "quotes": "Teklifler",
     "reports": "Raporlar",
     "accounting": "Muhasebe",

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, Eye, Edit, Trash2, FileText, Calendar, Check, X, FileDown, Copy } from 'lucide-react';
+import { Search, Plus, Eye, Edit, Trash2, FileText, Calendar, Check, X, FileDown, Copy, TrendingUp } from 'lucide-react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import QuoteViewModal, { type Quote as QuoteModel } from './QuoteViewModal';
 import QuoteEditModal from './QuoteEditModal';
@@ -22,6 +22,8 @@ interface QuotesPageProps {
   onAddQuote?: () => void;
   customers?: Customer[];
   products?: Product[];
+  initialOpenQuoteId?: string;
+  initialOpenMode?: 'view' | 'edit';
 }
 
 type QuoteLineItem = QuoteItemDto & { id: string };
@@ -93,6 +95,7 @@ const mapQuoteFromApi = (quote: QuoteApiRecord): QuoteListItem => ({
   quoteNumber: quote.quoteNumber,
   customerName: quote.customer?.name || quote.customerName || '',
   customerId: quote.customerId,
+  opportunityId: quote.opportunityId,
   issueDate: String(quote.issueDate).slice(0, 10),
   validUntil: quote.validUntil ? String(quote.validUntil).slice(0, 10) : undefined,
   currency: quote.currency,
@@ -109,7 +112,12 @@ const mapQuoteFromApi = (quote: QuoteApiRecord): QuoteListItem => ({
   updatedByName: quote.updatedByName,
 });
 
-const QuotesPage: React.FC<QuotesPageProps> = ({ customers = [], products = [] }) => {
+const QuotesPage: React.FC<QuotesPageProps> = ({
+  customers = [],
+  products = [],
+  initialOpenQuoteId,
+  initialOpenMode = 'view',
+}) => {
   const { t } = useTranslation();
   const { formatCurrency, currency: defaultCurrency } = useCurrency();
   const { tenant, user: authUser } = useAuth();
@@ -168,6 +176,7 @@ const QuotesPage: React.FC<QuotesPageProps> = ({ customers = [], products = [] }
   const iso = (d: Date) => d.toISOString().slice(0,10);
   const [quotes, setQuotes] = useState<QuoteListItem[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState<boolean>(true);
+  const [initialOpenHandled, setInitialOpenHandled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -195,6 +204,23 @@ const QuotesPage: React.FC<QuotesPageProps> = ({ customers = [], products = [] }
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (initialOpenHandled) return;
+    const id = String(initialOpenQuoteId || '').trim();
+    if (!id) return;
+    if (isLoadingQuotes) return;
+
+    const target = quotes.find((q) => String(q.id) === id) || null;
+    if (target) {
+      if (initialOpenMode === 'edit') {
+        openEdit(target);
+      } else {
+        openView(target);
+      }
+    }
+    setInitialOpenHandled(true);
+  }, [initialOpenHandled, initialOpenMode, initialOpenQuoteId, isLoadingQuotes, quotes]);
 
   const filtered = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
@@ -706,6 +732,27 @@ const QuotesPage: React.FC<QuotesPageProps> = ({ customers = [], products = [] }
                               <Calendar className="w-3 h-3 mr-1" />
                               {formatDate(item.issueDate)}
                             </div>
+                            {item.opportunityId && (
+                              <div className="mt-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    try {
+                                      window.location.hash = `crm-deal:${String(item.opportunityId)}`;
+                                    } catch {
+                                      // ignore
+                                    }
+                                  }}
+                                  className="inline-flex items-center text-xs text-gray-500 hover:text-indigo-700"
+                                  title={t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                                >
+                                  <TrendingUp className="w-3 h-3 mr-1" />
+                                  {t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -843,6 +890,22 @@ const QuotesPage: React.FC<QuotesPageProps> = ({ customers = [], products = [] }
                     <tr className="sm:hidden">
                       <td className="px-6 pb-4" colSpan={6}>
                         <div className="flex items-center justify-start gap-3">
+                          {item.opportunityId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                try {
+                                  window.location.hash = `crm-deal:${String(item.opportunityId)}`;
+                                } catch {
+                                  // ignore
+                                }
+                              }}
+                              className="px-2 py-1 text-gray-700 bg-gray-100 rounded hover:bg-gray-200 text-xs"
+                              title={t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                            >
+                              <span className="inline-flex items-center gap-1"><TrendingUp className="w-3 h-3" /> {t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}</span>
+                            </button>
+                          )}
                           <button 
                             onClick={() => openView(item)}
                             className="px-2 py-1 text-gray-700 bg-gray-100 rounded hover:bg-gray-200 text-xs"

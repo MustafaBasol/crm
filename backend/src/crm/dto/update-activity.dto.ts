@@ -1,6 +1,12 @@
 import { IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
+import { AtMostOneOf } from '../../common/validators/at-most-one-of.validator';
 
 export class UpdateActivityDto {
+  @AtMostOneOf(['opportunityId', 'accountId', 'contactId'], {
+    message: 'Provide only one of opportunityId, accountId, contactId',
+  })
+  relationGuard?: unknown;
+
   @IsOptional()
   @IsString()
   title?: string;

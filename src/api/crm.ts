@@ -1,4 +1,14 @@
 import apiClient from './client';
+import type { SaleRecord } from './sales';
+import type { Invoice } from './invoices';
+
+export type CrmOpportunityLinkedSale = SaleRecord & {
+  sourceQuoteNumber?: string | null;
+};
+
+export type CrmOpportunityLinkedInvoice = Invoice & {
+  sourceQuoteNumber?: string | null;
+};
 
 export type CrmStage = {
   id: string;
@@ -16,15 +26,18 @@ export type CrmOpportunity = {
   stageId: string;
   accountId: string;
   ownerUserId: string;
+  createdAt: string;
+  updatedAt: string;
   expectedCloseDate: string | null;
   status: 'open' | 'won' | 'lost';
   teamUserIds: string[];
 };
 
-export type CrmBoardResponse = {
-  pipeline: { id: string; name: string } | null;
-  stages: CrmStage[];
-  opportunities: CrmOpportunity[];
+export type CrmOpportunityListResponse = {
+  items: CrmOpportunity[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type CreateOpportunityRequest = {
@@ -44,8 +57,38 @@ export const bootstrapPipeline = async () => {
   return res.data;
 };
 
-export const getBoard = async (): Promise<CrmBoardResponse> => {
-  const res = await apiClient.get<CrmBoardResponse>('/crm/board');
+export const getStages = async (): Promise<CrmStage[]> => {
+  const res = await apiClient.get<CrmStage[]>('/crm/stages');
+  return res.data;
+};
+
+export const getOpportunity = async (opportunityId: string): Promise<CrmOpportunity> => {
+  const res = await apiClient.get<CrmOpportunity>(`/crm/opportunities/${opportunityId}`);
+  return res.data;
+};
+
+export const listOpportunities = async (params?: {
+  q?: string;
+  stageId?: string;
+  accountId?: string;
+  status?: 'open' | 'won' | 'lost';
+  sortBy?: 'updatedAt' | 'createdAt' | 'name';
+  sortDir?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}): Promise<CrmOpportunityListResponse> => {
+  const search = new URLSearchParams();
+  if (params?.q) search.set('q', params.q);
+  if (params?.stageId) search.set('stageId', params.stageId);
+  if (params?.accountId) search.set('accountId', params.accountId);
+  if (params?.status) search.set('status', params.status);
+  if (params?.sortBy) search.set('sortBy', params.sortBy);
+  if (params?.sortDir) search.set('sortDir', params.sortDir);
+  if (typeof params?.limit === 'number') search.set('limit', String(params.limit));
+  if (typeof params?.offset === 'number') search.set('offset', String(params.offset));
+
+  const suffix = search.toString();
+  const res = await apiClient.get<CrmOpportunityListResponse>(`/crm/opportunities${suffix ? `?${suffix}` : ''}`);
   return res.data;
 };
 
@@ -66,5 +109,19 @@ export const setOpportunityTeam = async (opportunityId: string, userIds: string[
 
 export const updateOpportunity = async (opportunityId: string, data: UpdateOpportunityRequest): Promise<CrmOpportunity> => {
   const res = await apiClient.patch<CrmOpportunity>(`/crm/opportunities/${opportunityId}`, data);
+  return res.data;
+};
+
+export const getOpportunitySales = async (opportunityId: string): Promise<CrmOpportunityLinkedSale[]> => {
+  const res = await apiClient.get<CrmOpportunityLinkedSale[]>(
+    `/crm/opportunities/${encodeURIComponent(String(opportunityId))}/sales`
+  );
+  return res.data;
+};
+
+export const getOpportunityInvoices = async (opportunityId: string): Promise<CrmOpportunityLinkedInvoice[]> => {
+  const res = await apiClient.get<CrmOpportunityLinkedInvoice[]>(
+    `/crm/opportunities/${encodeURIComponent(String(opportunityId))}/invoices`
+  );
   return res.data;
 };

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { X, Download, Edit, Calendar, Mail, MapPin } from 'lucide-react';
+import { X, Download, Edit, Calendar, Mail, MapPin, FileText } from 'lucide-react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useTranslation } from 'react-i18next';
 import { normalizeStatusKey, resolveStatusLabel } from '../utils/status';
@@ -37,6 +37,9 @@ interface Invoice {
   items?: InvoiceLineItem[];
   notes?: string;
   type?: 'product' | 'service';
+  sourceQuoteId?: string;
+  sourceQuoteNumber?: string | null;
+  sourceOpportunityId?: string | null;
   createdByName?: string;
   createdByUser?: InvoiceContact | null;
   createdBy?: string;
@@ -275,6 +278,66 @@ export default function InvoiceViewModal({
                   <span className="text-gray-600">{t('invoice.dueDate')}:</span>
                   <span className="ml-2 font-medium">{formatDate(invoice.dueDate)}</span>
                 </div>
+                {invoice.sourceQuoteId && (
+                  <div className="flex items-center text-sm">
+                    <FileText className="w-4 h-4 text-gray-400 mr-2" />
+                    <span className="text-gray-600">
+                      {t('invoices.table.sourceQuote', { defaultValue: 'Kaynak Teklif' })}:
+                    </span>
+                    <button
+                      type="button"
+                      className="ml-2 font-medium text-indigo-600 hover:text-indigo-800"
+                      onClick={() => {
+                        try {
+                          const id = String(invoice.sourceQuoteId || '').trim();
+                          if (!id) return;
+                          onClose();
+                          setTimeout(() => {
+                            try {
+                              window.location.hash = `quotes-edit:${id}`;
+                            } catch {
+                              // ignore
+                            }
+                          }, 100);
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      title={t('quotes.editModal.title', { defaultValue: 'Teklifi Düzenle' }) as string}
+                    >
+                      {String(invoice.sourceQuoteNumber || '').trim() ||
+                        (t('common.open', { defaultValue: 'Aç' }) as string)}
+                    </button>
+                    {String(invoice.sourceOpportunityId || '').trim() && (
+                      <>
+                        <span className="mx-2 text-gray-300">|</span>
+                        <button
+                          type="button"
+                          className="font-medium text-indigo-600 hover:text-indigo-800"
+                          onClick={() => {
+                            try {
+                              const oppId = String(invoice.sourceOpportunityId || '').trim();
+                              if (!oppId) return;
+                              onClose();
+                              setTimeout(() => {
+                                try {
+                                  window.location.hash = `crm-deal:${oppId}`;
+                                } catch {
+                                  // ignore
+                                }
+                              }, 100);
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                          title={t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                        >
+                          {t('crm.dealDetail.openDeal', { defaultValue: 'Anlaşmayı Aç' }) as string}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

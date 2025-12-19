@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
+import { In, Like, Repository } from 'typeorm';
 import type { DeepPartial } from 'typeorm';
 import { Sale, SaleStatus } from './entities/sale.entity';
 import { CreateSaleDto, SaleItemDto } from './dto/create-sale.dto';
@@ -13,6 +13,7 @@ import { UpdateSaleDto } from './dto/update-sale.dto';
 import { Customer } from '../customers/entities/customer.entity';
 import { Product } from '../products/entities/product.entity';
 import { ProductCategory } from '../products/entities/product-category.entity';
+import { Quote, QuoteStatus } from '../quotes/entities/quote.entity';
 
 @Injectable()
 export class SalesService {
@@ -27,7 +28,130 @@ export class SalesService {
     private readonly productsRepository: Repository<Product>,
     @InjectRepository(ProductCategory)
     private readonly categoriesRepository: Repository<ProductCategory>,
+    @InjectRepository(Quote)
+    private readonly quotesRepository: Repository<Quote>,
   ) {}
+
+  private isUuid(val?: string | null) {
+    if (!val) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      val,
+    );
+  }
+
+  private formatDateISO(date: Date): string {
+    return new Date(date).toISOString().slice(0, 10);
+  }
+
+  async createFromQuote(tenantId: string, quoteId: string): Promise<Sale> {
+    const qid = String(quoteId || '').trim();
+    if (!this.isUuid(qid)) {
+      throw new BadRequestException('Invalid quoteId');
+    }
+
+    const quote = await this.quotesRepository.findOne({
+      where: { tenantId, id: qid },
+    });
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    if (quote.status !== QuoteStatus.ACCEPTED) {
+      throw new BadRequestException('Only accepted quotes can be converted');
+    }
+
+    type UnknownRecord = Record<string, unknown>;
+    const isRecord = (value: unknown): value is UnknownRecord =>
+      typeof value === 'object' && value !== null;
+
+    const toSaleItem = (value: unknown): SaleItemDto | null => {
+      if (!isRecord(value)) {
+        return null;
+      }
+
+      const quantityRaw = value['quantity'] ?? value['qty'] ?? 0;
+      const unitPriceRaw =
+        value['unitPrice'] ?? value['price'] ?? value['unit_price'] ?? 0;
+      const quantity = Math.max(0, Number(quantityRaw) || 0);
+      const unitPrice = Math.max(0, Number(unitPriceRaw) || 0);
+
+      const productIdRaw = value['productId'];
+      const productId =
+        typeof productIdRaw === 'string' && this.isUuid(productIdRaw)
+          ? productIdRaw
+          : undefined;
+
+      const productName = (() => {
+        const pn = value['productName'];
+        if (typeof pn === 'string' && pn.trim()) {
+          return pn.trim();
+        }
+        const desc = value['description'];
+        if (typeof desc === 'string' && desc.trim()) {
+          return desc.trim();
+        }
+        return undefined;
+      })();
+
+      const taxRateRaw = value['taxRate'];
+      const parsedTaxRate = (() => {
+        if (taxRateRaw === undefined || taxRateRaw === null) {
+          return undefined;
+        }
+        if (typeof taxRateRaw === 'number') {
+          return taxRateRaw;
+        }
+        if (typeof taxRateRaw === 'string') {
+          if (!taxRateRaw.trim()) {
+            return undefined;
+          }
+          return Number(taxRateRaw);
+        }
+        return undefined;
+      })();
+
+      return {
+        productId,
+        productName,
+        quantity,
+        unitPrice,
+        taxRate:
+          parsedTaxRate !== undefined && Number.isFinite(parsedTaxRate)
+            ? parsedTaxRate
+            : undefined,
+      };
+    };
+
+    const rawItems = Array.isArray(quote.items) ? quote.items : [];
+    const items: SaleItemDto[] = rawItems
+      .map(toSaleItem)
+      .filter((it): it is SaleItemDto => Boolean(it));
+
+    const dto: CreateSaleDto = {
+      customerId: quote.customerId || undefined,
+      customerName: quote.customerName || undefined,
+      saleDate: this.formatDateISO(quote.issueDate || new Date()),
+      items,
+      discountAmount: 0,
+      notes: quote.quoteNumber
+        ? `From quote ${quote.quoteNumber}`
+        : 'From quote',
+      sourceQuoteId: quote.id,
+    };
+
+    const sale = await this.create(tenantId, dto);
+    const enriched = sale as Sale & {
+      sourceQuoteNumber?: string | null;
+      sourceOpportunityId?: string | null;
+    };
+    enriched.sourceQuoteNumber = quote.quoteNumber
+      ? String(quote.quoteNumber)
+      : null;
+    enriched.sourceOpportunityId = quote.opportunityId
+      ? String(quote.opportunityId)
+      : null;
+    return enriched;
+  }
 
   private logStockOrCustomerFailure(
     event: string,
@@ -277,10 +401,56 @@ export class SalesService {
     );
   }
 
-  async findAll(tenantId: string): Promise<Sale[]> {
-    return this.salesRepository.find({
+  async findAll(tenantId: string): Promise<
+    Array<
+      Sale & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      }
+    >
+  > {
+    const sales = await this.salesRepository.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
+    });
+
+    const sourceIds = Array.from(
+      new Set(
+        sales
+          .map((s) => (s?.sourceQuoteId ? String(s.sourceQuoteId) : ''))
+          .filter(Boolean),
+      ),
+    );
+    if (sourceIds.length === 0) {
+      return sales;
+    }
+
+    const quotes = await this.quotesRepository.find({
+      where: { tenantId, id: In(sourceIds) },
+      select: { id: true, quoteNumber: true, opportunityId: true },
+    });
+    const byId = new Map<string, string | null>();
+    const oppById = new Map<string, string | null>();
+    for (const q of quotes) {
+      byId.set(String(q.id), q.quoteNumber ? String(q.quoteNumber) : null);
+      oppById.set(
+        String(q.id),
+        q.opportunityId ? String(q.opportunityId) : null,
+      );
+    }
+
+    return sales.map((s) => {
+      const enriched = s as Sale & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      };
+      enriched.sourceQuoteNumber = s.sourceQuoteId
+        ? (byId.get(String(s.sourceQuoteId)) ?? null)
+        : null;
+      enriched.sourceOpportunityId = s.sourceQuoteId
+        ? (oppById.get(String(s.sourceQuoteId)) ?? null)
+        : null;
+      return enriched;
     });
   }
 
@@ -291,6 +461,33 @@ export class SalesService {
     if (!sale) {
       throw new NotFoundException(`Sale with ID ${id} not found`);
     }
+
+    if (sale.sourceQuoteId) {
+      try {
+        const q = await this.quotesRepository.findOne({
+          where: { tenantId, id: String(sale.sourceQuoteId) },
+          select: { id: true, quoteNumber: true, opportunityId: true },
+        });
+        const enriched = sale as Sale & {
+          sourceQuoteNumber?: string | null;
+          sourceOpportunityId?: string | null;
+        };
+        enriched.sourceQuoteNumber = q?.quoteNumber
+          ? String(q.quoteNumber)
+          : null;
+        enriched.sourceOpportunityId = q?.opportunityId
+          ? String(q.opportunityId)
+          : null;
+      } catch {
+        const enriched = sale as Sale & {
+          sourceQuoteNumber?: string | null;
+          sourceOpportunityId?: string | null;
+        };
+        enriched.sourceQuoteNumber = null;
+        enriched.sourceOpportunityId = null;
+      }
+    }
+
     return sale;
   }
 

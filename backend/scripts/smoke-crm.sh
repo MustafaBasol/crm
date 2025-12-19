@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://127.0.0.1:3001}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/smoke-lib.sh"
+smoke_ensure_base_url
+
 API_PREFIX="${API_PREFIX:-/api}"
 API_BASE="$BASE_URL$API_PREFIX"
 
@@ -249,6 +253,26 @@ LEAD_ID="$(json_get "$LEAD_CREATED_JSON" "j.id")"
 echo "Lead ID: $LEAD_ID"
 http_json GET "$API_BASE/crm/leads" "" "$TOKEN" | tee "$TMP_DIR/smoke.leads.list.json" >/dev/null
 
+echo "== CRM: leads sorting (sortBy=name&sortDir=asc) =="
+LEAD_SORT_CREATE_A="$TMP_DIR/smoke.lead.sort.a.create.json"
+LEAD_SORT_CREATE_B="$TMP_DIR/smoke.lead.sort.b.create.json"
+cat > "$LEAD_SORT_CREATE_A" <<JSON
+{"name":"A Lead Sort $TS","email":"lead.sort.a.$TS@example.com","phone":"+90504$TS","company":"ACME","status":"new"}
+JSON
+cat > "$LEAD_SORT_CREATE_B" <<JSON
+{"name":"B Lead Sort $TS","email":"lead.sort.b.$TS@example.com","phone":"+90505$TS","company":"ACME","status":"new"}
+JSON
+
+LEAD_SORT_CREATED_A_JSON="$TMP_DIR/smoke.lead.sort.a.created.json"
+LEAD_SORT_CREATED_B_JSON="$TMP_DIR/smoke.lead.sort.b.created.json"
+http_json POST "$API_BASE/crm/leads" "$LEAD_SORT_CREATE_A" "$TOKEN" | tee "$LEAD_SORT_CREATED_A_JSON" >/dev/null
+http_json POST "$API_BASE/crm/leads" "$LEAD_SORT_CREATE_B" "$TOKEN" | tee "$LEAD_SORT_CREATED_B_JSON" >/dev/null
+
+LEADS_SORTED_JSON="$TMP_DIR/smoke.leads.sorted.json"
+http_json GET "$API_BASE/crm/leads?q=Lead%20Sort%20$TS&sortBy=name&sortDir=asc" "" "$TOKEN" | tee "$LEADS_SORTED_JSON" >/dev/null
+LEADS_SORTED_FIRST_NAME="$(json_get "$LEADS_SORTED_JSON" "Array.isArray(j.items) && j.items[0] && j.items[0].name")"
+[[ "$LEADS_SORTED_FIRST_NAME" == "A Lead Sort $TS" ]] || fail "Expected leads sorted first name to be 'A Lead Sort $TS', got '$LEADS_SORTED_FIRST_NAME'. Response: $LEADS_SORTED_JSON"
+
 cat > "$LEAD_UPDATE" <<JSON
 {"status":"qualified"}
 JSON
@@ -264,6 +288,12 @@ http_json POST "$API_BASE/crm/pipeline/bootstrap" "" "$TOKEN" | tee "$CRM_BOOTST
 STAGE_0_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.stageIds[0]")"
 STAGE_1_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.stageIds[1]")"
 STAGE_2_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.stageIds[2]")"
+
+echo "== CRM: stages-only endpoint (/crm/stages) =="
+STAGES_JSON="$TMP_DIR/smoke.crm.stages.json"
+http_json GET "$API_BASE/crm/stages" "" "$TOKEN" | tee "$STAGES_JSON" >/dev/null
+STAGES_HAS_STAGE0="$(json_get "$STAGES_JSON" "Array.isArray(j) && j.some(s => s && s.id === '$STAGE_0_ID')")"
+[[ "$STAGES_HAS_STAGE0" == "true" ]] || fail "Stages list missing bootstrap stageId: $STAGES_JSON"
 
 echo "== Customers: create (for contact accountId) =="
 CUSTOMER_CREATE="$TMP_DIR/smoke.customer.create.json"
@@ -287,6 +317,31 @@ CONTACT_ID="$(json_get "$CONTACT_CREATED_JSON" "j.id")"
 [[ -n "$CONTACT_ID" ]] || fail "Contact id missing in create response: $CONTACT_CREATED_JSON"
 
 echo "Contact ID: $CONTACT_ID"
+
+echo "== CRM: contacts sorting (sortBy=name&sortDir=asc) =="
+CONTACT_SORT_CREATE_A="$TMP_DIR/smoke.contact.sort.a.create.json"
+CONTACT_SORT_CREATE_B="$TMP_DIR/smoke.contact.sort.b.create.json"
+cat > "$CONTACT_SORT_CREATE_A" <<JSON
+{"name":"A Contact Sort $TS","email":"contact.sort.a.$TS@example.com","phone":"+90502$TS","company":"ACME"}
+JSON
+cat > "$CONTACT_SORT_CREATE_B" <<JSON
+{"name":"B Contact Sort $TS","email":"contact.sort.b.$TS@example.com","phone":"+90503$TS","company":"ACME"}
+JSON
+
+CONTACT_SORT_A_JSON="$TMP_DIR/smoke.contact.sort.a.created.json"
+CONTACT_SORT_B_JSON="$TMP_DIR/smoke.contact.sort.b.created.json"
+http_json POST "$API_BASE/crm/contacts" "$CONTACT_SORT_CREATE_A" "$TOKEN" | tee "$CONTACT_SORT_A_JSON" >/dev/null
+http_json POST "$API_BASE/crm/contacts" "$CONTACT_SORT_CREATE_B" "$TOKEN" | tee "$CONTACT_SORT_B_JSON" >/dev/null
+
+CONTACT_SORT_A_ID="$(json_get "$CONTACT_SORT_A_JSON" "j.id")"
+CONTACT_SORT_B_ID="$(json_get "$CONTACT_SORT_B_JSON" "j.id")"
+[[ -n "$CONTACT_SORT_A_ID" ]] || fail "Contact sort A id missing in create response: $CONTACT_SORT_A_JSON"
+[[ -n "$CONTACT_SORT_B_ID" ]] || fail "Contact sort B id missing in create response: $CONTACT_SORT_B_JSON"
+
+CONTACTS_SORTED_JSON="$TMP_DIR/smoke.contacts.sorted.by-name.json"
+http_json GET "$API_BASE/crm/contacts?q=Contact%20Sort%20$TS&sortBy=name&sortDir=asc" "" "$TOKEN" | tee "$CONTACTS_SORTED_JSON" >/dev/null
+FIRST_CONTACT_NAME="$(json_get "$CONTACTS_SORTED_JSON" "Array.isArray(j.items) && j.items[0] && j.items[0].name")"
+[[ "$FIRST_CONTACT_NAME" == "A Contact Sort $TS" ]] || fail "Expected first contact name to be 'A Contact Sort $TS' for sortBy=name&sortDir=asc, got '$FIRST_CONTACT_NAME': $CONTACTS_SORTED_JSON"
 
 echo "== CRM: contact accountId update before opportunity visibility =="
 CONTACT_FORBIDDEN_PATCH="$TMP_DIR/smoke.contact.forbidden.patch.json"
@@ -337,6 +392,159 @@ OPP_STAGE_ID="$(json_get "$OPP_CREATED_JSON" "j.stageId")"
 [[ -n "$OPP_ID" ]] || fail "Opportunity id missing in create response: $OPP_CREATED_JSON"
 echo "Opportunity ID: $OPP_ID"
 
+echo "== CRM: opportunity detail endpoint (/crm/opportunities/:id) =="
+OPP_DETAIL_JSON="$TMP_DIR/smoke.crm.opp.detail.json"
+http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OPP_DETAIL_JSON" >/dev/null
+OPP_DETAIL_ID_MATCH="$(json_get "$OPP_DETAIL_JSON" "j && j.id === '$OPP_ID'")"
+[[ "$OPP_DETAIL_ID_MATCH" == "true" ]] || fail "Opportunity detail id mismatch: $OPP_DETAIL_JSON"
+
+echo "== Quotes: create (linked to opportunity) =="
+QUOTE_CREATE_JSON="$TMP_DIR/smoke.quote.create.json"
+QUOTE_CREATED_JSON="$TMP_DIR/smoke.quote.created.json"
+cat > "$QUOTE_CREATE_JSON" <<JSON
+{"opportunityId":"$OPP_ID","customerId":"$CUSTOMER_ID","issueDate":"$(date +%F)","validUntil":"$(date -d '+30 days' +%F)","currency":"TRY","total":0,"items":[],"scopeOfWorkHtml":""}
+JSON
+http_json POST "$API_BASE/quotes" "$QUOTE_CREATE_JSON" "$TOKEN" | tee "$QUOTE_CREATED_JSON" >/dev/null
+QUOTE_ID="$(json_get "$QUOTE_CREATED_JSON" "j.id")"
+[[ -n "$QUOTE_ID" ]] || fail "Quote id missing in create response: $QUOTE_CREATED_JSON"
+
+QUOTE_NUMBER="$(json_get "$QUOTE_CREATED_JSON" "j.quoteNumber")"
+[[ -n "$QUOTE_NUMBER" ]] || fail "Quote quoteNumber missing in create response: $QUOTE_CREATED_JSON"
+
+QUOTE_PUBLIC_ID="$(json_get "$QUOTE_CREATED_JSON" "j.publicId")"
+[[ -n "$QUOTE_PUBLIC_ID" ]] || fail "Quote publicId missing in create response: $QUOTE_CREATED_JSON"
+
+echo "== Quotes: link existing quote to opportunity (PATCH /quotes/:id) =="
+QUOTE2_CREATE_JSON="$TMP_DIR/smoke.quote2.create.json"
+QUOTE2_CREATED_JSON="$TMP_DIR/smoke.quote2.created.json"
+cat > "$QUOTE2_CREATE_JSON" <<JSON
+{"customerId":"$CUSTOMER_ID","issueDate":"$(date +%F)","validUntil":"$(date -d '+30 days' +%F)","currency":"TRY","total":0,"items":[],"scopeOfWorkHtml":""}
+JSON
+http_json POST "$API_BASE/quotes" "$QUOTE2_CREATE_JSON" "$TOKEN" | tee "$QUOTE2_CREATED_JSON" >/dev/null
+QUOTE2_ID="$(json_get "$QUOTE2_CREATED_JSON" "j.id")"
+[[ -n "$QUOTE2_ID" ]] || fail "Quote2 id missing in create response: $QUOTE2_CREATED_JSON"
+
+QUOTE2_LINK_JSON="$TMP_DIR/smoke.quote2.link.json"
+QUOTE2_LINK_RES="$TMP_DIR/smoke.quote2.link.res.json"
+cat > "$QUOTE2_LINK_JSON" <<JSON
+{"opportunityId":"$OPP_ID"}
+JSON
+http_json PATCH "$API_BASE/quotes/$QUOTE2_ID" "$QUOTE2_LINK_JSON" "$TOKEN" | tee "$QUOTE2_LINK_RES" >/dev/null
+QUOTE2_LINKED_MATCH="$(json_get "$QUOTE2_LINK_RES" "j && String(j.opportunityId||'') === '$OPP_ID'")"
+[[ "$QUOTE2_LINKED_MATCH" == "true" ]] || fail "Expected quote2.opportunityId to match opportunityId after patch: $QUOTE2_LINK_RES"
+
+echo "== Quotes: public accept triggers opportunity won =="
+QUOTE_ACCEPTED_JSON="$TMP_DIR/smoke.quote.accepted.json"
+http_json POST "$API_BASE/public/quotes/$QUOTE_PUBLIC_ID/accept" "" "" | tee "$QUOTE_ACCEPTED_JSON" >/dev/null
+QUOTE_ACCEPTED_STATUS="$(json_get "$QUOTE_ACCEPTED_JSON" "j.status")"
+[[ "$QUOTE_ACCEPTED_STATUS" == "accepted" ]] || fail "Expected accepted status after public accept, got '$QUOTE_ACCEPTED_STATUS': $QUOTE_ACCEPTED_JSON"
+
+echo "== Sales: create from accepted quote (idempotent) =="
+SALE_FROM_QUOTE_JSON="$TMP_DIR/smoke.sale.from.quote.json"
+http_json POST "$API_BASE/sales/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$SALE_FROM_QUOTE_JSON" >/dev/null
+SALE_ID="$(json_get "$SALE_FROM_QUOTE_JSON" "j.id")"
+[[ -n "$SALE_ID" ]] || fail "Sale id missing in create-from-quote response: $SALE_FROM_QUOTE_JSON"
+SALE_SRC_MATCH="$(json_get "$SALE_FROM_QUOTE_JSON" "j && String(j.sourceQuoteId||'') === '$QUOTE_ID'")"
+[[ "$SALE_SRC_MATCH" == "true" ]] || fail "Expected sale.sourceQuoteId to match quote id: $SALE_FROM_QUOTE_JSON"
+
+SALE_SRC_NO_MATCH="$(json_get "$SALE_FROM_QUOTE_JSON" "j && String(j.sourceQuoteNumber||'') === '$QUOTE_NUMBER'")"
+[[ "$SALE_SRC_NO_MATCH" == "true" ]] || fail "Expected sale.sourceQuoteNumber to match quoteNumber: $SALE_FROM_QUOTE_JSON"
+SALE_SRC_OPP_MATCH="$(json_get "$SALE_FROM_QUOTE_JSON" "j && String(j.sourceOpportunityId||'') === '$OPP_ID'")"
+[[ "$SALE_SRC_OPP_MATCH" == "true" ]] || fail "Expected sale.sourceOpportunityId to match opportunityId: $SALE_FROM_QUOTE_JSON"
+
+SALE_FROM_QUOTE_2_JSON="$TMP_DIR/smoke.sale.from.quote.2.json"
+http_json POST "$API_BASE/sales/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$SALE_FROM_QUOTE_2_JSON" >/dev/null
+SALE_ID_2="$(json_get "$SALE_FROM_QUOTE_2_JSON" "j.id")"
+[[ "$SALE_ID_2" == "$SALE_ID" ]] || fail "Expected idempotent create-from-quote to return same sale id; got $SALE_ID then $SALE_ID_2"
+
+echo "== Invoices: create from accepted quote (idempotent) =="
+INVOICE_FROM_QUOTE_JSON="$TMP_DIR/smoke.invoice.from.quote.json"
+http_json POST "$API_BASE/invoices/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$INVOICE_FROM_QUOTE_JSON" >/dev/null
+INVOICE_ID="$(json_get "$INVOICE_FROM_QUOTE_JSON" "j.id")"
+[[ -n "$INVOICE_ID" ]] || fail "Invoice id missing in create-from-quote response: $INVOICE_FROM_QUOTE_JSON"
+INVOICE_SRC_MATCH="$(json_get "$INVOICE_FROM_QUOTE_JSON" "j && String(j.sourceQuoteId||'') === '$QUOTE_ID'")"
+[[ "$INVOICE_SRC_MATCH" == "true" ]] || fail "Expected invoice.sourceQuoteId to match quote id: $INVOICE_FROM_QUOTE_JSON"
+
+INVOICE_SRC_NO_MATCH="$(json_get "$INVOICE_FROM_QUOTE_JSON" "j && String(j.sourceQuoteNumber||'') === '$QUOTE_NUMBER'")"
+[[ "$INVOICE_SRC_NO_MATCH" == "true" ]] || fail "Expected invoice.sourceQuoteNumber to match quoteNumber: $INVOICE_FROM_QUOTE_JSON"
+INVOICE_SRC_OPP_MATCH="$(json_get "$INVOICE_FROM_QUOTE_JSON" "j && String(j.sourceOpportunityId||'') === '$OPP_ID'")"
+[[ "$INVOICE_SRC_OPP_MATCH" == "true" ]] || fail "Expected invoice.sourceOpportunityId to match opportunityId: $INVOICE_FROM_QUOTE_JSON"
+
+INVOICE_FROM_QUOTE_2_JSON="$TMP_DIR/smoke.invoice.from.quote.2.json"
+http_json POST "$API_BASE/invoices/from-quote/$QUOTE_ID" "" "$TOKEN" | tee "$INVOICE_FROM_QUOTE_2_JSON" >/dev/null
+INVOICE_ID_2="$(json_get "$INVOICE_FROM_QUOTE_2_JSON" "j.id")"
+[[ "$INVOICE_ID_2" == "$INVOICE_ID" ]] || fail "Expected idempotent invoice-from-quote to return same invoice id; got $INVOICE_ID then $INVOICE_ID_2"
+
+echo "== CRM: linked sales/invoices endpoints (by opportunity) =="
+CRM_OPP_SALES_JSON="$TMP_DIR/smoke.crm.opp.sales.json"
+http_json GET "$API_BASE/crm/opportunities/$OPP_ID/sales" "" "$TOKEN" | tee "$CRM_OPP_SALES_JSON" >/dev/null
+CRM_OPP_SALES_HAS_SALE="$(json_get "$CRM_OPP_SALES_JSON" "Array.isArray(j) && j.some(s => s && s.id === '$SALE_ID')")"
+[[ "$CRM_OPP_SALES_HAS_SALE" == "true" ]] || fail "CRM opportunity sales endpoint missing sale: $CRM_OPP_SALES_JSON"
+CRM_OPP_SALES_HAS_SRC_NO="$(json_get "$CRM_OPP_SALES_JSON" "Array.isArray(j) && j.some(s => s && s.id === '$SALE_ID' && String(s.sourceQuoteNumber||'').length > 0)")"
+[[ "$CRM_OPP_SALES_HAS_SRC_NO" == "true" ]] || fail "CRM opportunity sales endpoint missing sourceQuoteNumber: $CRM_OPP_SALES_JSON"
+
+CRM_OPP_SALES_HAS_SRC_OPP="$(json_get "$CRM_OPP_SALES_JSON" "Array.isArray(j) && j.some(s => s && s.id === '$SALE_ID' && String(s.sourceOpportunityId||'') === '$OPP_ID')")"
+[[ "$CRM_OPP_SALES_HAS_SRC_OPP" == "true" ]] || fail "CRM opportunity sales endpoint missing sourceOpportunityId: $CRM_OPP_SALES_JSON"
+
+CRM_OPP_INVOICES_JSON="$TMP_DIR/smoke.crm.opp.invoices.json"
+http_json GET "$API_BASE/crm/opportunities/$OPP_ID/invoices" "" "$TOKEN" | tee "$CRM_OPP_INVOICES_JSON" >/dev/null
+CRM_OPP_INVOICES_HAS_INV="$(json_get "$CRM_OPP_INVOICES_JSON" "Array.isArray(j) && j.some(inv => inv && inv.id === '$INVOICE_ID')")"
+[[ "$CRM_OPP_INVOICES_HAS_INV" == "true" ]] || fail "CRM opportunity invoices endpoint missing invoice: $CRM_OPP_INVOICES_JSON"
+CRM_OPP_INVOICES_HAS_SRC_NO="$(json_get "$CRM_OPP_INVOICES_JSON" "Array.isArray(j) && j.some(inv => inv && inv.id === '$INVOICE_ID' && String(inv.sourceQuoteNumber||'').length > 0)")"
+[[ "$CRM_OPP_INVOICES_HAS_SRC_NO" == "true" ]] || fail "CRM opportunity invoices endpoint missing sourceQuoteNumber: $CRM_OPP_INVOICES_JSON"
+
+CRM_OPP_INVOICES_HAS_SRC_OPP="$(json_get "$CRM_OPP_INVOICES_JSON" "Array.isArray(j) && j.some(inv => inv && inv.id === '$INVOICE_ID' && String(inv.sourceOpportunityId||'') === '$OPP_ID')")"
+[[ "$CRM_OPP_INVOICES_HAS_SRC_OPP" == "true" ]] || fail "CRM opportunity invoices endpoint missing sourceOpportunityId: $CRM_OPP_INVOICES_JSON"
+
+OPP_DETAIL_AFTER_ACCEPT_JSON="$TMP_DIR/smoke.crm.opp.detail.after.accept.json"
+http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OPP_DETAIL_AFTER_ACCEPT_JSON" >/dev/null
+OPP_AFTER_STATUS_WON="$(json_get "$OPP_DETAIL_AFTER_ACCEPT_JSON" "j && j.status === 'won'")"
+[[ "$OPP_AFTER_STATUS_WON" == "true" ]] || fail "Expected opportunity status won after quote accept: $OPP_DETAIL_AFTER_ACCEPT_JSON"
+
+echo "== Quotes: list by opportunityId filter =="
+QUOTES_BY_OPP_JSON="$TMP_DIR/smoke.quotes.by-opp.json"
+http_json GET "$API_BASE/quotes?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$QUOTES_BY_OPP_JSON" >/dev/null
+QUOTES_BY_OPP_HAS_QUOTE="$(json_get "$QUOTES_BY_OPP_JSON" "Array.isArray(j) && j.some(q => q && q.id === '$QUOTE_ID')")"
+[[ "$QUOTES_BY_OPP_HAS_QUOTE" == "true" ]] || fail "Quotes list by opportunityId missing created quote: $QUOTES_BY_OPP_JSON"
+
+QUOTES_BY_OPP_HAS_QUOTE2="$(json_get "$QUOTES_BY_OPP_JSON" "Array.isArray(j) && j.some(q => q && q.id === '$QUOTE2_ID')")"
+[[ "$QUOTES_BY_OPP_HAS_QUOTE2" == "true" ]] || fail "Quotes list by opportunityId missing patched quote2: $QUOTES_BY_OPP_JSON"
+
+echo "== CRM: opportunities list endpoint (/crm/opportunities) =="
+OPPS_LIST_JSON="$TMP_DIR/smoke.crm.opps.list.json"
+http_json GET "$API_BASE/crm/opportunities?limit=50&offset=0" "" "$TOKEN" | tee "$OPPS_LIST_JSON" >/dev/null
+OPPS_LIST_HAS_OPP="$(json_get "$OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID')")"
+[[ "$OPPS_LIST_HAS_OPP" == "true" ]] || fail "Owner opportunities list missing created opportunity: $OPPS_LIST_JSON"
+
+OPPS_LIST_HAS_TS_FIELDS="$(json_get "$OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID' && String(o.createdAt||'').length > 0 && String(o.updatedAt||'').length > 0)")"
+[[ "$OPPS_LIST_HAS_TS_FIELDS" == "true" ]] || fail "Owner opportunities list missing createdAt/updatedAt fields: $OPPS_LIST_JSON"
+
+echo "== CRM: opportunities list sorting (name ASC) =="
+OPP_SORT_Q="OppSort$TS"
+OPP_SORT_A_CREATE="$TMP_DIR/smoke.opportunity.sort.a.create.json"
+OPP_SORT_B_CREATE="$TMP_DIR/smoke.opportunity.sort.b.create.json"
+cat > "$OPP_SORT_A_CREATE" <<JSON
+{"accountId":"$CUSTOMER_ID","name":"A $OPP_SORT_Q","amount":0,"currency":"TRY"}
+JSON
+cat > "$OPP_SORT_B_CREATE" <<JSON
+{"accountId":"$CUSTOMER_ID","name":"B $OPP_SORT_Q","amount":0,"currency":"TRY"}
+JSON
+
+OPP_SORT_A_CREATED_JSON="$TMP_DIR/smoke.opportunity.sort.a.created.json"
+OPP_SORT_B_CREATED_JSON="$TMP_DIR/smoke.opportunity.sort.b.created.json"
+http_json POST "$API_BASE/crm/opportunities" "$OPP_SORT_A_CREATE" "$TOKEN" | tee "$OPP_SORT_A_CREATED_JSON" >/dev/null
+http_json POST "$API_BASE/crm/opportunities" "$OPP_SORT_B_CREATE" "$TOKEN" | tee "$OPP_SORT_B_CREATED_JSON" >/dev/null
+
+OPPS_SORT_LIST_JSON="$TMP_DIR/smoke.crm.opps.sort.list.json"
+http_json GET "$API_BASE/crm/opportunities?q=$OPP_SORT_Q&sortBy=name&sortDir=asc&limit=50&offset=0" "" "$TOKEN" | tee "$OPPS_SORT_LIST_JSON" >/dev/null
+OPPS_SORT_FIRST_NAME="$(json_get "$OPPS_SORT_LIST_JSON" "Array.isArray(j?.items) && j.items[0] ? String(j.items[0].name||'') : ''")"
+[[ "${OPPS_SORT_FIRST_NAME}" == "A ${OPP_SORT_Q}" ]] || fail "Expected first opportunity name to be 'A ${OPP_SORT_Q}', got '${OPPS_SORT_FIRST_NAME}': $OPPS_SORT_LIST_JSON"
+
+OPPS_LIST_TOTAL="$(json_get "$OPPS_LIST_JSON" "typeof j.total === 'number' ? String(j.total) : ''")"
+OPPS_LIST_LIMIT="$(json_get "$OPPS_LIST_JSON" "typeof j.limit === 'number' ? String(j.limit) : ''")"
+OPPS_LIST_OFFSET="$(json_get "$OPPS_LIST_JSON" "typeof j.offset === 'number' ? String(j.offset) : ''")"
+[[ -n "$OPPS_LIST_TOTAL" && -n "$OPPS_LIST_LIMIT" && -n "$OPPS_LIST_OFFSET" ]] || fail "Opportunities list missing pagination fields: $OPPS_LIST_JSON"
+
 MOVE_STAGE_ID=""
 if [[ -n "$STAGE_1_ID" && "$STAGE_1_ID" != "$OPP_STAGE_ID" ]]; then
   MOVE_STAGE_ID="$STAGE_1_ID"
@@ -345,12 +553,12 @@ elif [[ -n "$STAGE_2_ID" && "$STAGE_2_ID" != "$OPP_STAGE_ID" ]]; then
 fi
 
 if [[ -n "$MEMBER_TOKEN" ]]; then
-  echo "== CRM: board visibility (member can see team opportunity) =="
-  MEMBER_BOARD_JSON="$TMP_DIR/smoke.member.board.json"
-  MEMBER_BOARD_STATUS="$(http_status GET "$API_BASE/crm/board" "" "$MEMBER_TOKEN" "$MEMBER_BOARD_JSON")"
-  [[ "$MEMBER_BOARD_STATUS" == "200" ]] || fail "Expected 200 for member board, got $MEMBER_BOARD_STATUS: $MEMBER_BOARD_JSON"
-  MEMBER_BOARD_HAS_OPP="$(json_get "$MEMBER_BOARD_JSON" "Array.isArray(j?.opportunities) && j.opportunities.some(o => o && o.id === '$OPP_ID')")"
-  [[ "$MEMBER_BOARD_HAS_OPP" == "true" ]] || fail "Member board does not include team opportunity: $MEMBER_BOARD_JSON"
+  echo "== CRM: opportunities visibility (member can see team opportunity) =="
+  MEMBER_OPPS_LIST_JSON="$TMP_DIR/smoke.member.opps.list.json"
+  MEMBER_OPPS_LIST_STATUS="$(http_status GET "$API_BASE/crm/opportunities?limit=50&offset=0" "" "$MEMBER_TOKEN" "$MEMBER_OPPS_LIST_JSON")"
+  [[ "$MEMBER_OPPS_LIST_STATUS" == "200" ]] || fail "Expected 200 for member opportunities list, got $MEMBER_OPPS_LIST_STATUS: $MEMBER_OPPS_LIST_JSON"
+  MEMBER_OPPS_LIST_HAS_OPP="$(json_get "$MEMBER_OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID')")"
+  [[ "$MEMBER_OPPS_LIST_HAS_OPP" == "true" ]] || fail "Member opportunities list does not include team opportunity: $MEMBER_OPPS_LIST_JSON"
 
   echo "== CRM: authz (member cannot update team opportunity) =="
   MEMBER_OPP_PATCH="$TMP_DIR/smoke.member.opp.patch.json"
@@ -391,6 +599,13 @@ JSON
   else
     echo "Move-stage test skipped (no alternate stageId available)."
   fi
+
+  echo "== Quotes: member can list quotes by team opportunityId =="
+  MEMBER_QUOTES_BY_OPP_JSON="$TMP_DIR/smoke.member.quotes.by-opp.json"
+  MEMBER_QUOTES_BY_OPP_STATUS="$(http_status GET "$API_BASE/quotes?opportunityId=$OPP_ID" "" "$MEMBER_TOKEN" "$MEMBER_QUOTES_BY_OPP_JSON")"
+  [[ "$MEMBER_QUOTES_BY_OPP_STATUS" == "200" ]] || fail "Expected 200 for member quotes by opportunityId, got $MEMBER_QUOTES_BY_OPP_STATUS: $MEMBER_QUOTES_BY_OPP_JSON"
+  MEMBER_QUOTES_BY_OPP_HAS_QUOTE="$(json_get "$MEMBER_QUOTES_BY_OPP_JSON" "Array.isArray(j) && j.some(q => q && q.id === '$QUOTE_ID')")"
+  [[ "$MEMBER_QUOTES_BY_OPP_HAS_QUOTE" == "true" ]] || fail "Member quotes by opportunityId missing quote: $MEMBER_QUOTES_BY_OPP_JSON"
 fi
 
 echo "== CRM: contact accountId (allowed update after visibility) =="
@@ -403,7 +618,7 @@ if [[ -n "$MEMBER_TOKEN" ]]; then
   MEMBER_CONTACTS_BY_ACCOUNT_JSON="$TMP_DIR/smoke.member.contacts.by-account.json"
   MEMBER_CONTACTS_BY_ACCOUNT_STATUS="$(http_status GET "$API_BASE/crm/contacts?accountId=$CUSTOMER_ID" "" "$MEMBER_TOKEN" "$MEMBER_CONTACTS_BY_ACCOUNT_JSON")"
   [[ "$MEMBER_CONTACTS_BY_ACCOUNT_STATUS" == "200" ]] || fail "Expected 200 for member contacts list by accountId, got $MEMBER_CONTACTS_BY_ACCOUNT_STATUS: $MEMBER_CONTACTS_BY_ACCOUNT_JSON"
-  MEMBER_FOUND_CONTACT_IN_FILTER="$(json_get "$MEMBER_CONTACTS_BY_ACCOUNT_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$CONTACT_ID')")"
+  MEMBER_FOUND_CONTACT_IN_FILTER="$(json_get "$MEMBER_CONTACTS_BY_ACCOUNT_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$CONTACT_ID')")"
   [[ "$MEMBER_FOUND_CONTACT_IN_FILTER" == "true" ]] || fail "Member could not see contact in accountId filtered list: $MEMBER_CONTACTS_BY_ACCOUNT_JSON"
 
   echo "== CRM: authz (member cannot update owner's contact) =="
@@ -436,20 +651,62 @@ http_json GET "$API_BASE/crm/contacts" "" "$TOKEN" | tee "$TMP_DIR/smoke.contact
 
 CONTACTS_FILTERED_BY_ACCOUNT_JSON="$TMP_DIR/smoke.contacts.filtered.by-account.json"
 http_json GET "$API_BASE/crm/contacts?accountId=$CUSTOMER_ID" "" "$TOKEN" | tee "$CONTACTS_FILTERED_BY_ACCOUNT_JSON" >/dev/null
-FOUND_CONTACT_IN_FILTER="$(json_get "$CONTACTS_FILTERED_BY_ACCOUNT_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$CONTACT_ID')")"
+FOUND_CONTACT_IN_FILTER="$(json_get "$CONTACTS_FILTERED_BY_ACCOUNT_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$CONTACT_ID')")"
 [[ "$FOUND_CONTACT_IN_FILTER" == "true" ]] || fail "Created contact not found in accountId filtered list: $CONTACTS_FILTERED_BY_ACCOUNT_JSON"
 
 # Activities: contactId filter
 echo "== CRM: activities (contactId filter) =="
 ACTIVITY_CREATE="$TMP_DIR/smoke.activity.create.json"
 cat > "$ACTIVITY_CREATE" <<JSON
-{"title":"Contact Activity Smoke $TS","type":"call","contactId":"$CONTACT_ID","completed":false}
+{"title":"Contact Activity Smoke $TS","type":"call","contactId":"$CONTACT_ID","dueAt":"2025-12-15","completed":false}
 JSON
 ACTIVITY_CREATED_JSON="$TMP_DIR/smoke.activity.created.json"
 http_json POST "$API_BASE/crm/activities" "$ACTIVITY_CREATE" "$TOKEN" | tee "$ACTIVITY_CREATED_JSON" >/dev/null
 ACTIVITY_ID="$(json_get "$ACTIVITY_CREATED_JSON" "j.id")"
 [[ -n "$ACTIVITY_ID" ]] || fail "Activity id missing in create response: $ACTIVITY_CREATED_JSON"
 echo "Activity ID: $ACTIVITY_ID"
+
+ACTIVITY_CREATE2="$TMP_DIR/smoke.activity2.create.json"
+cat > "$ACTIVITY_CREATE2" <<JSON
+{"title":"A Contact Activity Smoke $TS","type":"call","contactId":"$CONTACT_ID","dueAt":"2025-12-01","completed":false}
+JSON
+ACTIVITY_CREATED2_JSON="$TMP_DIR/smoke.activity2.created.json"
+http_json POST "$API_BASE/crm/activities" "$ACTIVITY_CREATE2" "$TOKEN" | tee "$ACTIVITY_CREATED2_JSON" >/dev/null
+ACTIVITY2_ID="$(json_get "$ACTIVITY_CREATED2_JSON" "j.id")"
+[[ -n "$ACTIVITY2_ID" ]] || fail "Activity2 id missing in create response: $ACTIVITY_CREATED2_JSON"
+
+ACTIVITIES_SORTED_JSON="$TMP_DIR/smoke.activities.sorted.by-title.json"
+http_json GET "$API_BASE/crm/activities?contactId=$CONTACT_ID&sortBy=title&sortDir=asc" "" "$TOKEN" | tee "$ACTIVITIES_SORTED_JSON" >/dev/null
+FIRST_ACTIVITY_TITLE="$(json_get "$ACTIVITIES_SORTED_JSON" "Array.isArray(j.items) && j.items[0] && j.items[0].title")"
+[[ "$FIRST_ACTIVITY_TITLE" == "A Contact Activity Smoke $TS" ]] || fail "Expected first activity title to be 'A Contact Activity Smoke $TS' for sortBy=title&sortDir=asc, got '$FIRST_ACTIVITY_TITLE': $ACTIVITIES_SORTED_JSON"
+
+ACTIVITIES_FILTERED_BY_Q_JSON="$TMP_DIR/smoke.activities.filtered.by-contact.q.json"
+http_json GET "$API_BASE/crm/activities?contactId=$CONTACT_ID&q=Contact%20Activity%20Smoke%20$TS" "" "$TOKEN" | tee "$ACTIVITIES_FILTERED_BY_Q_JSON" >/dev/null
+FOUND_IN_FILTER_Q="$(json_get "$ACTIVITIES_FILTERED_BY_Q_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$ACTIVITY_ID')")"
+[[ "$FOUND_IN_FILTER_Q" == "true" ]] || fail "Created activity not found in contactId+q filtered list: $ACTIVITIES_FILTERED_BY_Q_JSON"
+
+# Activities: accountId filter (CustomerViewModal path)
+echo "== CRM: activities (accountId filter) =="
+ACCOUNT_ACTIVITY_CREATE="$TMP_DIR/smoke.activity.account.create.json"
+cat > "$ACCOUNT_ACTIVITY_CREATE" <<JSON
+{"title":"Account Activity Smoke $TS","type":"note","accountId":"$CUSTOMER_ID","completed":false}
+JSON
+ACCOUNT_ACTIVITY_CREATED_JSON="$TMP_DIR/smoke.activity.account.created.json"
+http_json POST "$API_BASE/crm/activities" "$ACCOUNT_ACTIVITY_CREATE" "$TOKEN" | tee "$ACCOUNT_ACTIVITY_CREATED_JSON" >/dev/null
+ACCOUNT_ACTIVITY_ID="$(json_get "$ACCOUNT_ACTIVITY_CREATED_JSON" "j.id")"
+[[ -n "$ACCOUNT_ACTIVITY_ID" ]] || fail "Account activity id missing in create response: $ACCOUNT_ACTIVITY_CREATED_JSON"
+
+ACCOUNT_ACTIVITIES_FILTERED_JSON="$TMP_DIR/smoke.activities.filtered.by-account.json"
+http_json GET "$API_BASE/crm/activities?accountId=$CUSTOMER_ID" "" "$TOKEN" | tee "$ACCOUNT_ACTIVITIES_FILTERED_JSON" >/dev/null
+FOUND_ACCOUNT_ACTIVITY_IN_FILTER="$(json_get "$ACCOUNT_ACTIVITIES_FILTERED_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$ACCOUNT_ACTIVITY_ID')")"
+[[ "$FOUND_ACCOUNT_ACTIVITY_IN_FILTER" == "true" ]] || fail "Created account activity not found in accountId filtered list: $ACCOUNT_ACTIVITIES_FILTERED_JSON"
+
+ACCOUNT_ACTIVITIES_FILTERED_BY_Q_JSON="$TMP_DIR/smoke.activities.filtered.by-account.q.json"
+http_json GET "$API_BASE/crm/activities?accountId=$CUSTOMER_ID&q=Account%20Activity%20Smoke%20$TS" "" "$TOKEN" | tee "$ACCOUNT_ACTIVITIES_FILTERED_BY_Q_JSON" >/dev/null
+FOUND_ACCOUNT_ACTIVITY_IN_FILTER_Q="$(json_get "$ACCOUNT_ACTIVITIES_FILTERED_BY_Q_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$ACCOUNT_ACTIVITY_ID')")"
+[[ "$FOUND_ACCOUNT_ACTIVITY_IN_FILTER_Q" == "true" ]] || fail "Created account activity not found in accountId+q filtered list: $ACCOUNT_ACTIVITIES_FILTERED_BY_Q_JSON"
+
+http_json DELETE "$API_BASE/crm/activities/$ACCOUNT_ACTIVITY_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.activity.account.deleted.json" >/dev/null
 
 echo "== CRM: activities (single relation rule) =="
 ACTIVITY_INVALID_CREATE="$TMP_DIR/smoke.activity.invalid.create.json"
@@ -470,16 +727,63 @@ INVALID_PATCH_STATUS="$(http_status PATCH "$API_BASE/crm/activities/$ACTIVITY_ID
 
 ACTIVITIES_FILTERED_JSON="$TMP_DIR/smoke.activities.filtered.by-contact.json"
 http_json GET "$API_BASE/crm/activities?contactId=$CONTACT_ID" "" "$TOKEN" | tee "$ACTIVITIES_FILTERED_JSON" >/dev/null
-FOUND_IN_FILTER="$(json_get "$ACTIVITIES_FILTERED_JSON" "Array.isArray(j) && j.some(x => x && x.id === '$ACTIVITY_ID')")"
+FOUND_IN_FILTER="$(json_get "$ACTIVITIES_FILTERED_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$ACTIVITY_ID')")"
 [[ "$FOUND_IN_FILTER" == "true" ]] || fail "Created activity not found in filtered list: $ACTIVITIES_FILTERED_JSON"
 
 http_json DELETE "$API_BASE/crm/activities/$ACTIVITY_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.activity.deleted.json" >/dev/null
+http_json DELETE "$API_BASE/crm/activities/$ACTIVITY2_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.activity2.deleted.json" >/dev/null
+
+# Tasks CRUD (minimal coverage)
+echo "== CRM: tasks CRUD =="
+TASK_CREATE="$TMP_DIR/smoke.task.create.json"
+cat > "$TASK_CREATE" <<JSON
+{"title":"Task Smoke $TS","opportunityId":"$OPP_ID","accountId":null,"dueAt":"2025-12-15","completed":false,"assigneeUserId":null}
+JSON
+TASK_CREATED_JSON="$TMP_DIR/smoke.task.created.json"
+http_json POST "$API_BASE/crm/tasks" "$TASK_CREATE" "$TOKEN" | tee "$TASK_CREATED_JSON" >/dev/null
+TASK_ID="$(json_get "$TASK_CREATED_JSON" "j.id")"
+[[ -n "$TASK_ID" ]] || fail "Task id missing in create response: $TASK_CREATED_JSON"
+
+TASK_CREATE2="$TMP_DIR/smoke.task2.create.json"
+cat > "$TASK_CREATE2" <<JSON
+{"title":"A Task Smoke $TS","opportunityId":"$OPP_ID","accountId":null,"dueAt":"2025-12-01","completed":false,"assigneeUserId":null}
+JSON
+TASK_CREATED2_JSON="$TMP_DIR/smoke.task2.created.json"
+http_json POST "$API_BASE/crm/tasks" "$TASK_CREATE2" "$TOKEN" | tee "$TASK_CREATED2_JSON" >/dev/null
+TASK2_ID="$(json_get "$TASK_CREATED2_JSON" "j.id")"
+[[ -n "$TASK2_ID" ]] || fail "Task2 id missing in create response: $TASK_CREATED2_JSON"
+
+TASKS_FILTERED_JSON="$TMP_DIR/smoke.tasks.filtered.by-opportunity.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$TASKS_FILTERED_JSON" >/dev/null
+FOUND_TASK_IN_FILTER="$(json_get "$TASKS_FILTERED_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$TASK_ID')")"
+[[ "$FOUND_TASK_IN_FILTER" == "true" ]] || fail "Created task not found in opportunityId filtered list: $TASKS_FILTERED_JSON"
+
+TASKS_SORTED_JSON="$TMP_DIR/smoke.tasks.sorted.by-title.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID&sortBy=title&sortDir=asc" "" "$TOKEN" | tee "$TASKS_SORTED_JSON" >/dev/null
+FIRST_TASK_TITLE="$(json_get "$TASKS_SORTED_JSON" "Array.isArray(j.items) && j.items[0] && j.items[0].title")"
+[[ "$FIRST_TASK_TITLE" == "A Task Smoke $TS" ]] || fail "Expected first task title to be 'A Task Smoke $TS' for sortBy=title&sortDir=asc, got '$FIRST_TASK_TITLE': $TASKS_SORTED_JSON"
+
+TASKS_FILTERED_BY_Q_JSON="$TMP_DIR/smoke.tasks.filtered.by-opportunity.q.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID&q=Task%20Smoke%20$TS" "" "$TOKEN" | tee "$TASKS_FILTERED_BY_Q_JSON" >/dev/null
+FOUND_TASK_IN_FILTER_Q="$(json_get "$TASKS_FILTERED_BY_Q_JSON" "Array.isArray(j.items) && j.items.some(x => x && x.id === '$TASK_ID')")"
+[[ "$FOUND_TASK_IN_FILTER_Q" == "true" ]] || fail "Created task not found in opportunityId+q filtered list: $TASKS_FILTERED_BY_Q_JSON"
+
+TASK_UPDATE="$TMP_DIR/smoke.task.update.json"
+cat > "$TASK_UPDATE" <<JSON
+{"completed":true}
+JSON
+http_json PATCH "$API_BASE/crm/tasks/$TASK_ID" "$TASK_UPDATE" "$TOKEN" | tee "$TMP_DIR/smoke.task.updated.json" >/dev/null
+http_json DELETE "$API_BASE/crm/tasks/$TASK_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.task.deleted.json" >/dev/null
+http_json DELETE "$API_BASE/crm/tasks/$TASK2_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.task2.deleted.json" >/dev/null
 
 cat > "$CONTACT_UPDATE" <<JSON
 {"company":"ACME Updated"}
 JSON
 http_json PATCH "$API_BASE/crm/contacts/$CONTACT_ID" "$CONTACT_UPDATE" "$TOKEN" | tee "$TMP_DIR/smoke.contact.updated.json" >/dev/null
 http_json DELETE "$API_BASE/crm/contacts/$CONTACT_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.contact.deleted.json" >/dev/null
+
+http_json DELETE "$API_BASE/crm/contacts/$CONTACT_SORT_A_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.contact.sort.a.deleted.json" >/dev/null
+http_json DELETE "$API_BASE/crm/contacts/$CONTACT_SORT_B_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.contact.sort.b.deleted.json" >/dev/null
 
 http_json DELETE "$API_BASE/customers/$CUSTOMER_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.customer.deleted.json" >/dev/null
 
@@ -489,5 +793,7 @@ echo "- Auth: register+login"
 echo "- CRM: leads+contacts CRUD"
 echo "- Customers: create+delete (for contact accountId)"
 echo "- CRM: activities contactId filter"
+echo "- CRM: activities accountId filter"
 echo "- CRM: activities single relation rule"
 echo "- CRM: activities single relation rule (PATCH)"
+echo "- CRM: tasks CRUD"

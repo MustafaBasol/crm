@@ -68,6 +68,10 @@ export interface Invoice {
   type?: 'product' | 'service';
   // Satış-fatura bağlantısı için opsiyonel alan
   saleId?: string;
+  // Tekliften oluşturulduysa kaynak teklif
+  sourceQuoteId?: string;
+  sourceQuoteNumber?: string | null;
+  sourceOpportunityId?: string | null;
 }
 
 export interface InvoiceItem {
@@ -114,6 +118,10 @@ export interface Sale {
   productId?: string;
   productUnit?: string;
   invoiceId?: string; // Fatura ID'si (fatura oluşturulduysa)
+  // Tekliften oluşturulduysa kaynak teklif
+  sourceQuoteId?: string;
+  sourceQuoteNumber?: string | null;
+  sourceOpportunityId?: string | null;
   items?: Array<{ // Çoklu ürün desteği
     productId?: string;
     productName: string;

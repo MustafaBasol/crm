@@ -1,5 +1,16 @@
 {
   "app": {
+    "sort": {
+      "label": "Sort",
+      "updatedDesc": "Updated (newest)",
+      "updatedAsc": "Updated (oldest)",
+      "createdDesc": "Created (newest)",
+      "createdAsc": "Created (oldest)",
+      "nameAsc": "Name (A–Z)",
+      "nameDesc": "Name (Z–A)",
+      "titleAsc": "Title (A–Z)",
+      "titleDesc": "Title (Z–A)"
+    },
     "name": "comptario",
     "subtitle": "Accounting System"
   },
@@ -66,9 +77,32 @@
         "lost": "Lost"
       }
     },
+    "opportunities": {
+      "title": "Opportunities",
+      "subtitle": "Browse and filter your opportunities.",
+      "searchPlaceholder": "Search opportunities...",
+      "empty": "No opportunities yet.",
+      "filters": {
+        "search": "Search",
+        "account": "Customer",
+        "status": "Status",
+        "stage": "Stage",
+        "allAccounts": "All customers",
+        "allStages": "All stages"
+      },
+      "status": {
+        "all": "All",
+        "open": "Open",
+        "won": "Won",
+        "lost": "Lost"
+      },
+      "actions": {
+        "open": "Open"
+      }
+    },
     "leads": {
       "title": "Leads",
-      "subtitle": "The MVP integration for this page comes next.",
+      "subtitle": "List and manage your leads.",
       "empty": "No leads yet.",
       "modal": {
         "createTitle": "Add Lead",
@@ -77,7 +111,7 @@
     },
     "contacts": {
       "title": "Contacts",
-      "subtitle": "The MVP integration for this page comes next.",
+      "subtitle": "List and manage your contacts.",
       "empty": "No contacts yet.",
       "modal": {
         "createTitle": "Add Contact",
@@ -470,6 +504,7 @@
     "update": "Update",
     "add": "Add",
     "search": "Search",
+    "noResults": "No results found.",
     "close": "Close",
     "backToHome": "Back to Home",
     "yes": "Yes",
@@ -691,9 +726,11 @@
     "crm": "CRM",
     "crmDashboard": "CRM Dashboard",
     "crmPipeline": "Pipeline",
+    "crmOpportunities": "Opportunities",
     "crmLeads": "Leads",
     "crmContacts": "Contacts",
     "crmActivities": "Activities",
+    "crmTasks": "Tasks",
     "quotes": "Quotes",
     "reports": "Reports",
     "accounting": "Accounting",

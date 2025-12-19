@@ -9,21 +9,57 @@ mkdir -p "$RUNTIME_DIR"
 echo "🚀 Backend başlatılıyor (yalnızca backend)"
 cd "$BACKEND_DIR"
 
+# .env dosyasını bash olarak "source" etme: .env bash-syntax garantisi vermez (örn. MAIL_FROM içinde '<' ve boşluk).
+# Bunun yerine satır-satır KEY=VALUE parse edip export et.
+load_dotenv_file() {
+  local file="$1"
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    # CRLF uyumu
+    line="${line%$'\r'}"
+
+    # Yorum/boş satırları atla
+    case "$line" in
+      '' ) continue ;;
+      \#* ) continue ;;
+    esac
+
+    # KEY=VALUE olmayan satırları atla
+    case "$line" in
+      [A-Za-z_]*=*)
+        local key="${line%%=*}"
+        local val="${line#*=}"
+        export "$key=$val"
+        ;;
+    esac
+  done < "$file"
+}
+
 # .env dosyasını erken yükle (dotenv öncesi), böylece script default'ları .env'i ezmez
 if [ -f ./.env ]; then
   echo "📄 .env yükleniyor (backend/.env)"
-  set -a
-  # shellcheck disable=SC1091
-  . ./.env
-  set +a
+  load_dotenv_file ./.env
+fi
+
+# PORT'u erken belirle ki doğru port çakışmasını temizleyelim
+export PORT=${PORT:-3001}
+
+# Devcontainer local Postgres (127.0.0.1:5432) kullanılıyorsa cluster'ı ayakta tut.
+# Not: container'da systemd yok; pg_ctlcluster ile yönetilir.
+if [ "${ENSURE_POSTGRES:-1}" != "0" ] \
+  && { [ "${DATABASE_HOST:-}" = "127.0.0.1" ] || [ "${DATABASE_HOST:-}" = "localhost" ]; } \
+  && [ "${DATABASE_PORT:-}" = "5432" ] \
+  && [ -f "$BACKEND_DIR/scripts/ensure-postgres.sh" ]; then
+  echo "🐘 Local Postgres (5432) kontrol ediliyor..."
+  bash "$BACKEND_DIR/scripts/ensure-postgres.sh"
 fi
 
 # Çakışan süreç/port temizliği
 echo "🧹 Çakışan süreçler/portlar temizleniyor..."
 if command -v lsof >/dev/null 2>&1; then
-  PIDS=$(lsof -t -i:3001 2>/dev/null || true)
+  PIDS=$(lsof -t -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)
   if [ -n "$PIDS" ]; then
-    echo "   🔪 Port 3001 kullanan süreçler sonlandırılıyor: $PIDS"
+    echo "   🔪 Port $PORT kullanan süreçler sonlandırılıyor: $PIDS"
     kill $PIDS 2>/dev/null || true
     sleep 1
     kill -9 $PIDS 2>/dev/null || true
@@ -36,7 +72,13 @@ sleep 1
 if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
   if ! docker ps | grep -q "moneyflow-db\|moneyflow-redis"; then
     echo "🐳 Docker servisleri başlatılıyor..."
-    docker-compose up -d
+    if command -v docker-compose >/dev/null 2>&1; then
+      docker-compose up -d
+    elif docker compose version >/dev/null 2>&1; then
+      docker compose up -d
+    else
+      echo "ℹ️ docker compose yok; docker servisleri atlandı."
+    fi
     echo "⏳ Veritabanı için kısa bekleme..."; sleep 6
   fi
 else
@@ -50,7 +92,6 @@ if [ ! -d node_modules ]; then
 fi
 
 export NODE_ENV=${NODE_ENV:-development}
-export PORT=${PORT:-3001}
 export DATABASE_HOST=${DATABASE_HOST:-localhost}
 export DATABASE_PORT=${DATABASE_PORT:-5433}
 export DATABASE_USER=${DATABASE_USER:-moneyflow}

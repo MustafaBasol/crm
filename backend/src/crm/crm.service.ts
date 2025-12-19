@@ -34,8 +34,18 @@ import type { CurrentUser } from '../common/decorators/user.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { OrganizationMember } from '../organizations/entities/organization-member.entity';
 import { Role as OrganizationRole } from '../common/enums/organization.enum';
+import { Quote } from '../quotes/entities/quote.entity';
+import { Sale } from '../sales/entities/sale.entity';
+import { Invoice } from '../invoices/entities/invoice.entity';
 
 const DEFAULT_PIPELINE_NAME = 'Default Pipeline';
+type DefaultStageSeed = {
+  name: string;
+  order: number;
+  isClosedWon?: boolean;
+  isClosedLost?: boolean;
+};
+
 const DEFAULT_STAGES = [
   { name: 'Lead', order: 10 },
   { name: 'Qualified', order: 20 },
@@ -43,7 +53,7 @@ const DEFAULT_STAGES = [
   { name: 'Negotiation', order: 40 },
   { name: 'Won', order: 90, isClosedWon: true },
   { name: 'Lost', order: 100, isClosedLost: true },
-] as const;
+] satisfies ReadonlyArray<DefaultStageSeed>;
 
 @Injectable()
 export class CrmService {
@@ -74,6 +84,15 @@ export class CrmService {
 
     @InjectRepository(OrganizationMember)
     private readonly organizationMemberRepo: Repository<OrganizationMember>,
+
+    @InjectRepository(Quote)
+    private readonly quoteRepo: Repository<Quote>,
+
+    @InjectRepository(Sale)
+    private readonly saleRepo: Repository<Sale>,
+
+    @InjectRepository(Invoice)
+    private readonly invoiceRepo: Repository<Invoice>,
   ) {}
 
   private async isCurrentOrgAdminOrOwner(user: CurrentUser): Promise<boolean> {
@@ -166,11 +185,87 @@ export class CrmService {
       .filter((id): id is string => Boolean(id));
   }
 
-  async listLeads(tenantId: string) {
-    return this.leadRepo.find({
-      where: { tenantId },
-      order: { updatedAt: 'DESC' },
-    });
+  private normalizePagination(opts?: { limit?: number; offset?: number }): {
+    limit: number;
+    offset: number;
+  } {
+    const rawLimit = Number(opts?.limit ?? 25);
+    const rawOffset = Number(opts?.offset ?? 0);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(200, Math.floor(rawLimit)))
+      : 25;
+    const offset = Number.isFinite(rawOffset)
+      ? Math.max(0, Math.floor(rawOffset))
+      : 0;
+    return { limit, offset };
+  }
+
+  private normalizeCompletionFilter(status?: string): boolean | undefined {
+    const s = String(status ?? '')
+      .trim()
+      .toLowerCase();
+    if (s === 'completed') return true;
+    if (s === 'open') return false;
+    return undefined;
+  }
+
+  async listLeads(
+    tenantId: string,
+    opts?: {
+      q?: string;
+      sortBy?: string;
+      sortDir?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ) {
+    const { limit, offset } = this.normalizePagination(opts);
+
+    const sortByRaw = String(opts?.sortBy ?? '').trim();
+    const sortDirRaw = String(opts?.sortDir ?? '')
+      .trim()
+      .toLowerCase();
+    const sortDir = sortDirRaw === 'asc' ? 'ASC' : 'DESC';
+    const sortBy: 'updatedAt' | 'createdAt' | 'name' =
+      sortByRaw === 'createdAt'
+        ? 'createdAt'
+        : sortByRaw === 'name'
+          ? 'name'
+          : 'updatedAt';
+
+    const qb = this.leadRepo
+      .createQueryBuilder('l')
+      .where('l.tenantId = :tenantId', { tenantId });
+
+    const q = String(opts?.q ?? '')
+      .trim()
+      .toLowerCase();
+    if (q) {
+      qb.andWhere(
+        new Brackets((b) => {
+          b.where('LOWER(l.name) LIKE :q', { q: `%${q}%` })
+            .orWhere("LOWER(COALESCE(l.email, '')) LIKE :q", { q: `%${q}%` })
+            .orWhere("LOWER(COALESCE(l.phone, '')) LIKE :q", { q: `%${q}%` })
+            .orWhere("LOWER(COALESCE(l.company, '')) LIKE :q", { q: `%${q}%` })
+            .orWhere("LOWER(COALESCE(l.status, '')) LIKE :q", { q: `%${q}%` });
+        }),
+      );
+    }
+
+    if (sortBy === 'name') {
+      qb.addSelect('LOWER(l.name)', 'l_name_lower');
+      qb.orderBy('l_name_lower', sortDir);
+      qb.addOrderBy('l.updatedAt', 'DESC');
+    } else if (sortBy === 'createdAt') {
+      qb.orderBy('l.createdAt', sortDir);
+      qb.addOrderBy('l.updatedAt', 'DESC');
+    } else {
+      qb.orderBy('l.updatedAt', sortDir);
+    }
+
+    qb.skip(offset).take(limit);
+    const [items, total] = await qb.getManyAndCount();
+    return { items, total, limit, offset };
   }
 
   async createLead(tenantId: string, user: CurrentUser, dto: CreateLeadDto) {
@@ -234,24 +329,98 @@ export class CrmService {
   async listContacts(
     tenantId: string,
     user: CurrentUser,
-    options?: { accountId?: string },
+    options?: {
+      accountId?: string;
+      q?: string;
+      sortBy?: string;
+      sortDir?: string;
+      limit?: number;
+      offset?: number;
+    },
   ) {
     const accountId = options?.accountId?.trim() || undefined;
+    const { limit, offset } = this.normalizePagination(options);
+    const q = String(options?.q ?? '')
+      .trim()
+      .toLowerCase();
+
+    const sortByRaw = String(options?.sortBy ?? '').trim();
+    const sortDirRaw = String(options?.sortDir ?? '')
+      .trim()
+      .toLowerCase();
+    const sortDir = sortDirRaw === 'asc' ? 'ASC' : 'DESC';
+    const sortBy: 'updatedAt' | 'createdAt' | 'name' =
+      sortByRaw === 'createdAt'
+        ? 'createdAt'
+        : sortByRaw === 'name'
+          ? 'name'
+          : 'updatedAt';
+
+    const applySort = (
+      qb: ReturnType<Repository<CrmContact>['createQueryBuilder']>,
+    ) => {
+      if (sortBy === 'name') {
+        qb.addSelect('LOWER(c.name)', 'c_name_lower');
+        qb.orderBy('c_name_lower', sortDir);
+        qb.addOrderBy('c.updatedAt', 'DESC');
+        return;
+      }
+
+      if (sortBy === 'createdAt') {
+        qb.orderBy('c.createdAt', sortDir);
+        qb.addOrderBy('c.updatedAt', 'DESC');
+        return;
+      }
+
+      qb.orderBy('c.updatedAt', sortDir);
+    };
+
+    const applySearch = (
+      qb: ReturnType<Repository<CrmContact>['createQueryBuilder']>,
+    ) => {
+      if (!q) return;
+
+      qb.leftJoin(
+        Customer,
+        'cust',
+        'cust.id = c.accountId AND cust.tenantId = c.tenantId',
+      );
+
+      qb.andWhere(
+        new Brackets((b) => {
+          b.where('LOWER(c.name) LIKE :q', { q: `%${q}%` })
+            .orWhere("LOWER(COALESCE(c.email, '')) LIKE :q", { q: `%${q}%` })
+            .orWhere("LOWER(COALESCE(c.phone, '')) LIKE :q", { q: `%${q}%` })
+            .orWhere("LOWER(COALESCE(c.company, '')) LIKE :q", { q: `%${q}%` })
+            .orWhere("LOWER(COALESCE(cust.name, '')) LIKE :q", { q: `%${q}%` });
+        }),
+      );
+    };
 
     if (this.isAdmin(user)) {
       if (accountId) {
         // still validate existence for a consistent API
         await this.canAccessAccount(tenantId, user, accountId);
-        return this.contactRepo.find({
-          where: { tenantId, accountId },
-          order: { updatedAt: 'DESC' },
-        });
+
+        const qb = this.contactRepo
+          .createQueryBuilder('c')
+          .where('c.tenantId = :tenantId', { tenantId })
+          .andWhere('c.accountId = :accountId', { accountId });
+        applySearch(qb);
+        applySort(qb);
+        qb.skip(offset).take(limit);
+        const [items, total] = await qb.getManyAndCount();
+        return { items, total, limit, offset };
       }
 
-      return this.contactRepo.find({
-        where: { tenantId },
-        order: { updatedAt: 'DESC' },
-      });
+      const qb = this.contactRepo
+        .createQueryBuilder('c')
+        .where('c.tenantId = :tenantId', { tenantId });
+      applySearch(qb);
+      applySort(qb);
+      qb.skip(offset).take(limit);
+      const [items, total] = await qb.getManyAndCount();
+      return { items, total, limit, offset };
     }
 
     if (accountId) {
@@ -261,12 +430,18 @@ export class CrmService {
         accountId,
       );
 
-      return this.contactRepo.find({
-        where: canViewAllForAccount
-          ? { tenantId, accountId }
-          : { tenantId, accountId, createdByUserId: user.id },
-        order: { updatedAt: 'DESC' },
-      });
+      const qb = this.contactRepo
+        .createQueryBuilder('c')
+        .where('c.tenantId = :tenantId', { tenantId })
+        .andWhere('c.accountId = :accountId', { accountId });
+      if (!canViewAllForAccount) {
+        qb.andWhere('c.createdByUserId = :userId', { userId: user.id });
+      }
+      applySearch(qb);
+      applySort(qb);
+      qb.skip(offset).take(limit);
+      const [items, total] = await qb.getManyAndCount();
+      return { items, total, limit, offset };
     }
 
     const accessibleAccountIds = await this.getAccessibleAccountIdsForUser(
@@ -274,15 +449,24 @@ export class CrmService {
       user,
     );
 
-    return this.contactRepo.find({
-      where: [
-        { tenantId, createdByUserId: user.id },
-        ...(accessibleAccountIds.length
-          ? [{ tenantId, accountId: In(accessibleAccountIds) }]
-          : []),
-      ],
-      order: { updatedAt: 'DESC' },
-    });
+    const qb = this.contactRepo
+      .createQueryBuilder('c')
+      .where('c.tenantId = :tenantId', { tenantId })
+      .andWhere(
+        new Brackets((b) => {
+          b.where('c.createdByUserId = :userId', { userId: user.id });
+          if (accessibleAccountIds.length) {
+            b.orWhere('c.accountId IN (:...accountIds)', {
+              accountIds: accessibleAccountIds,
+            });
+          }
+        }),
+      );
+    applySearch(qb);
+    applySort(qb);
+    qb.skip(offset).take(limit);
+    const [items, total] = await qb.getManyAndCount();
+    return { items, total, limit, offset };
   }
 
   async createContact(
@@ -377,10 +561,65 @@ export class CrmService {
   async listTasks(
     tenantId: string,
     user: CurrentUser,
-    options?: { opportunityId?: string; accountId?: string },
+    options?: {
+      opportunityId?: string;
+      accountId?: string;
+      q?: string;
+      sortBy?: string;
+      sortDir?: string;
+      status?: string;
+      limit?: number;
+      offset?: number;
+    },
   ) {
     const opportunityId = options?.opportunityId?.trim() || undefined;
     const accountId = options?.accountId?.trim() || undefined;
+    const { limit, offset } = this.normalizePagination(options);
+    const completed = this.normalizeCompletionFilter(options?.status);
+    const q = String(options?.q ?? '')
+      .trim()
+      .toLowerCase();
+    const qLike = q ? `%${q}%` : '';
+
+    const sortByRaw = String(options?.sortBy ?? '').trim();
+    const sortDirRaw = String(options?.sortDir ?? '')
+      .trim()
+      .toLowerCase();
+    const sortDir: 'ASC' | 'DESC' = sortDirRaw === 'asc' ? 'ASC' : 'DESC';
+    const sortBy: 'updatedAt' | 'createdAt' | 'title' =
+      sortByRaw === 'createdAt' ||
+      sortByRaw === 'title' ||
+      sortByRaw === 'updatedAt'
+        ? sortByRaw
+        : 'updatedAt';
+
+    const applySort = (
+      qb: ReturnType<Repository<CrmTask>['createQueryBuilder']>,
+    ) => {
+      if (sortBy === 'title') {
+        qb.orderBy('LOWER(t.title)', sortDir).addOrderBy('t.updatedAt', 'DESC');
+        return;
+      }
+      if (sortBy === 'createdAt') {
+        qb.orderBy('t.createdAt', sortDir).addOrderBy('t.updatedAt', 'DESC');
+        return;
+      }
+
+      qb.orderBy('t.updatedAt', sortDir);
+    };
+
+    const applySearch = (
+      qb: ReturnType<Repository<CrmTask>['createQueryBuilder']>,
+    ) => {
+      if (!q) return;
+      qb.andWhere(
+        new Brackets((b) => {
+          b.where('LOWER(t.title) LIKE :q').orWhere(
+            "LOWER(COALESCE(t.dueAt, '')) LIKE :q",
+          );
+        }),
+      ).setParameter('q', qLike);
+    };
 
     if (opportunityId && accountId) {
       throw new BadRequestException(
@@ -390,10 +629,19 @@ export class CrmService {
 
     if (opportunityId) {
       await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
-      return this.taskRepo.find({
-        where: { tenantId, opportunityId },
-        order: { updatedAt: 'DESC' },
-      });
+
+      const qb = this.taskRepo
+        .createQueryBuilder('t')
+        .where('t.tenantId = :tenantId', { tenantId })
+        .andWhere('t.opportunityId = :opportunityId', { opportunityId });
+      applySearch(qb);
+      if (completed != null) {
+        qb.andWhere('t.completed = :completed', { completed });
+      }
+      applySort(qb);
+      qb.skip(offset).take(limit);
+      const [items, total] = await qb.getManyAndCount();
+      return { items, total, limit, offset };
     }
 
     if (accountId) {
@@ -422,13 +670,80 @@ export class CrmService {
         }
       }
 
-      return this.taskRepo.find({
-        where: { tenantId, accountId },
-        order: { updatedAt: 'DESC' },
-      });
+      const qb = this.taskRepo
+        .createQueryBuilder('t')
+        .where('t.tenantId = :tenantId', { tenantId })
+        .andWhere('t.accountId = :accountId', { accountId });
+      applySearch(qb);
+      if (completed != null) {
+        qb.andWhere('t.completed = :completed', { completed });
+      }
+      applySort(qb);
+      qb.skip(offset).take(limit);
+      const [items, total] = await qb.getManyAndCount();
+      return { items, total, limit, offset };
     }
 
-    throw new BadRequestException('Provide opportunityId or accountId');
+    // Global list (no filters)
+    if (this.isAdmin(user)) {
+      const qb = this.taskRepo
+        .createQueryBuilder('t')
+        .where('t.tenantId = :tenantId', { tenantId });
+      applySearch(qb);
+      if (completed != null) {
+        qb.andWhere('t.completed = :completed', { completed });
+      }
+      applySort(qb);
+      qb.skip(offset).take(limit);
+      const [items, total] = await qb.getManyAndCount();
+      return { items, total, limit, offset };
+    }
+
+    const accessibleAccountIds = await this.getAccessibleAccountIdsForUser(
+      tenantId,
+      user,
+    );
+
+    const qb = this.taskRepo
+      .createQueryBuilder('t')
+      .distinct(true)
+      .where('t.tenantId = :tenantId', { tenantId })
+      .leftJoin(
+        CrmOpportunity,
+        'opp',
+        'opp.id = t.opportunityId AND opp.tenantId = t.tenantId',
+      )
+      .leftJoin(
+        CrmOpportunityMember,
+        'm',
+        'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+      )
+      .andWhere(
+        new Brackets((q) => {
+          q.where(
+            't.opportunityId IS NOT NULL AND (opp.ownerUserId = :userId OR m.userId = :userId)',
+            { userId: user.id },
+          );
+
+          if (accessibleAccountIds.length > 0) {
+            q.orWhere('t.accountId IN (:...accountIds)', {
+              accountIds: accessibleAccountIds,
+            });
+          }
+        }),
+      );
+
+    applySearch(qb);
+
+    applySort(qb);
+
+    if (completed != null) {
+      qb.andWhere('t.completed = :completed', { completed });
+    }
+
+    qb.skip(offset).take(limit);
+    const [items, total] = await qb.getManyAndCount();
+    return { items, total, limit, offset };
   }
 
   async createTask(tenantId: string, user: CurrentUser, dto: CreateTaskDto) {
@@ -671,8 +986,8 @@ export class CrmService {
         pipelineId: created.id,
         name: s.name,
         order: s.order,
-        isClosedWon: Boolean((s as any).isClosedWon),
-        isClosedLost: Boolean((s as any).isClosedLost),
+        isClosedWon: Boolean(s.isClosedWon),
+        isClosedLost: Boolean(s.isClosedLost),
       }),
     );
 
@@ -778,6 +1093,8 @@ export class CrmService {
       stageId: opp.stageId,
       accountId: opp.accountId,
       ownerUserId: opp.ownerUserId,
+      createdAt: opp.createdAt.toISOString(),
+      updatedAt: opp.updatedAt.toISOString(),
       expectedCloseDate: this.toExpectedCloseDateString(opp.expectedCloseDate),
       status: opp.status,
       teamUserIds: uniqTeam,
@@ -923,6 +1240,8 @@ export class CrmService {
       stageId: safeOpp.stageId,
       accountId: safeOpp.accountId,
       ownerUserId: safeOpp.ownerUserId,
+      createdAt: safeOpp.createdAt.toISOString(),
+      updatedAt: safeOpp.updatedAt.toISOString(),
       expectedCloseDate: this.toExpectedCloseDateString(
         safeOpp.expectedCloseDate,
       ),
@@ -995,6 +1314,8 @@ export class CrmService {
       stageId: saved.stageId,
       accountId: saved.accountId,
       ownerUserId: saved.ownerUserId,
+      createdAt: saved.createdAt.toISOString(),
+      updatedAt: saved.updatedAt.toISOString(),
       expectedCloseDate: this.toExpectedCloseDateString(
         saved.expectedCloseDate,
       ),
@@ -1006,14 +1327,71 @@ export class CrmService {
   async listActivities(
     tenantId: string,
     user: CurrentUser,
-    options?: { opportunityId?: string; accountId?: string; contactId?: string },
+    options?: {
+      opportunityId?: string;
+      accountId?: string;
+      contactId?: string;
+      q?: string;
+      sortBy?: string;
+      sortDir?: string;
+      status?: string;
+      limit?: number;
+      offset?: number;
+    },
   ) {
     const opportunityId = options?.opportunityId?.trim() || undefined;
     const accountId = options?.accountId?.trim() || undefined;
     const contactId = options?.contactId?.trim() || undefined;
+    const { limit, offset } = this.normalizePagination(options);
+    const completed = this.normalizeCompletionFilter(options?.status);
+    const q = String(options?.q ?? '')
+      .trim()
+      .toLowerCase();
+    const qLike = q ? `%${q}%` : '';
 
-    const filterCount = [opportunityId, accountId, contactId].filter(Boolean)
-      .length;
+    const sortByRaw = String(options?.sortBy ?? '').trim();
+    const sortDirRaw = String(options?.sortDir ?? '')
+      .trim()
+      .toLowerCase();
+    const sortDir: 'ASC' | 'DESC' = sortDirRaw === 'asc' ? 'ASC' : 'DESC';
+    const sortBy: 'updatedAt' | 'createdAt' | 'title' =
+      sortByRaw === 'createdAt' ||
+      sortByRaw === 'title' ||
+      sortByRaw === 'updatedAt'
+        ? sortByRaw
+        : 'updatedAt';
+
+    const applySort = (
+      qb: ReturnType<Repository<CrmActivity>['createQueryBuilder']>,
+    ) => {
+      if (sortBy === 'title') {
+        qb.orderBy('LOWER(a.title)', sortDir).addOrderBy('a.updatedAt', 'DESC');
+        return;
+      }
+      if (sortBy === 'createdAt') {
+        qb.orderBy('a.createdAt', sortDir).addOrderBy('a.updatedAt', 'DESC');
+        return;
+      }
+
+      qb.orderBy('a.updatedAt', sortDir);
+    };
+
+    const applySearch = (
+      qb: ReturnType<Repository<CrmActivity>['createQueryBuilder']>,
+    ) => {
+      if (!q) return;
+      qb.andWhere(
+        new Brackets((b) => {
+          b.where('LOWER(a.title) LIKE :q')
+            .orWhere("LOWER(COALESCE(a.type, '')) LIKE :q")
+            .orWhere("LOWER(COALESCE(a.dueAt, '')) LIKE :q");
+        }),
+      ).setParameter('q', qLike);
+    };
+
+    const filterCount = [opportunityId, accountId, contactId].filter(
+      Boolean,
+    ).length;
     if (filterCount > 1) {
       throw new BadRequestException(
         'Provide only one of opportunityId, accountId, contactId',
@@ -1022,10 +1400,19 @@ export class CrmService {
 
     if (opportunityId) {
       await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
-      return this.activityRepo.find({
-        where: { tenantId, opportunityId },
-        order: { updatedAt: 'DESC' },
-      });
+
+      const qb = this.activityRepo
+        .createQueryBuilder('a')
+        .where('a.tenantId = :tenantId', { tenantId })
+        .andWhere('a.opportunityId = :opportunityId', { opportunityId });
+      applySearch(qb);
+      if (completed != null) {
+        qb.andWhere('a.completed = :completed', { completed });
+      }
+      applySort(qb);
+      qb.skip(offset).take(limit);
+      const [items, total] = await qb.getManyAndCount();
+      return { items, total, limit, offset };
     }
 
     if (accountId) {
@@ -1035,12 +1422,21 @@ export class CrmService {
         accountId,
       );
 
-      return this.activityRepo.find({
-        where: canViewAllForAccount
-          ? { tenantId, accountId }
-          : { tenantId, accountId, createdByUserId: user.id },
-        order: { updatedAt: 'DESC' },
-      });
+      const qb = this.activityRepo
+        .createQueryBuilder('a')
+        .where('a.tenantId = :tenantId', { tenantId })
+        .andWhere('a.accountId = :accountId', { accountId });
+      if (!canViewAllForAccount) {
+        qb.andWhere('a.createdByUserId = :userId', { userId: user.id });
+      }
+      applySearch(qb);
+      if (completed != null) {
+        qb.andWhere('a.completed = :completed', { completed });
+      }
+      applySort(qb);
+      qb.skip(offset).take(limit);
+      const [items, total] = await qb.getManyAndCount();
+      return { items, total, limit, offset };
     }
 
     if (contactId) {
@@ -1050,10 +1446,18 @@ export class CrmService {
       if (!contact) throw new NotFoundException('Contact not found');
 
       if (this.isAdmin(user)) {
-        return this.activityRepo.find({
-          where: { tenantId, contactId },
-          order: { updatedAt: 'DESC' },
-        });
+        const qb = this.activityRepo
+          .createQueryBuilder('a')
+          .where('a.tenantId = :tenantId', { tenantId })
+          .andWhere('a.contactId = :contactId', { contactId });
+        applySearch(qb);
+        if (completed != null) {
+          qb.andWhere('a.completed = :completed', { completed });
+        }
+        applySort(qb);
+        qb.skip(offset).take(limit);
+        const [items, total] = await qb.getManyAndCount();
+        return { items, total, limit, offset };
       }
 
       if (contact.accountId) {
@@ -1062,25 +1466,53 @@ export class CrmService {
           user,
           contact.accountId,
         );
-        return this.activityRepo.find({
-          where: canViewAllForAccount
-            ? { tenantId, contactId }
-            : { tenantId, contactId, createdByUserId: user.id },
-          order: { updatedAt: 'DESC' },
-        });
+
+        const qb = this.activityRepo
+          .createQueryBuilder('a')
+          .where('a.tenantId = :tenantId', { tenantId })
+          .andWhere('a.contactId = :contactId', { contactId });
+        if (!canViewAllForAccount) {
+          qb.andWhere('a.createdByUserId = :userId', { userId: user.id });
+        }
+        applySearch(qb);
+        if (completed != null) {
+          qb.andWhere('a.completed = :completed', { completed });
+        }
+        applySort(qb);
+        qb.skip(offset).take(limit);
+        const [items, total] = await qb.getManyAndCount();
+        return { items, total, limit, offset };
       }
 
-      return this.activityRepo.find({
-        where: { tenantId, contactId, createdByUserId: user.id },
-        order: { updatedAt: 'DESC' },
-      });
+      {
+        const qb = this.activityRepo
+          .createQueryBuilder('a')
+          .where('a.tenantId = :tenantId', { tenantId })
+          .andWhere('a.contactId = :contactId', { contactId })
+          .andWhere('a.createdByUserId = :userId', { userId: user.id });
+        applySearch(qb);
+        if (completed != null) {
+          qb.andWhere('a.completed = :completed', { completed });
+        }
+        applySort(qb);
+        qb.skip(offset).take(limit);
+        const [items, total] = await qb.getManyAndCount();
+        return { items, total, limit, offset };
+      }
     }
 
     if (this.isAdmin(user)) {
-      return this.activityRepo.find({
-        where: { tenantId },
-        order: { updatedAt: 'DESC' },
-      });
+      const qb = this.activityRepo
+        .createQueryBuilder('a')
+        .where('a.tenantId = :tenantId', { tenantId });
+      applySearch(qb);
+      if (completed != null) {
+        qb.andWhere('a.completed = :completed', { completed });
+      }
+      applySort(qb);
+      qb.skip(offset).take(limit);
+      const [items, total] = await qb.getManyAndCount();
+      return { items, total, limit, offset };
     }
 
     const [memberRows, ownerRows] = await Promise.all([
@@ -1115,10 +1547,19 @@ export class CrmService {
             });
           }
         }),
-      )
-      .orderBy('a.updatedAt', 'DESC');
+      );
 
-    return qb.getMany();
+    applySearch(qb);
+
+    applySort(qb);
+
+    if (completed != null) {
+      qb.andWhere('a.completed = :completed', { completed });
+    }
+
+    qb.skip(offset).take(limit);
+    const [items, total] = await qb.getManyAndCount();
+    return { items, total, limit, offset };
   }
 
   async createActivity(
@@ -1392,6 +1833,26 @@ export class CrmService {
     return opp;
   }
 
+  async listStages(tenantId: string) {
+    const pipeline = await this.pipelineRepo.findOne({
+      where: { tenantId, isDefault: true },
+    });
+    if (!pipeline) return [];
+
+    const stages = await this.stageRepo.find({
+      where: { tenantId, pipelineId: pipeline.id },
+      order: { order: 'ASC' },
+    });
+
+    return stages.map((s) => ({
+      id: s.id,
+      name: s.name,
+      order: s.order,
+      isClosedWon: s.isClosedWon,
+      isClosedLost: s.isClosedLost,
+    }));
+  }
+
   async getBoard(tenantId: string, user: CurrentUser) {
     const pipeline = await this.pipelineRepo.findOne({
       where: { tenantId, isDefault: true },
@@ -1400,35 +1861,139 @@ export class CrmService {
       return { pipeline: null, stages: [], opportunities: [] };
     }
 
-    const stages = await this.stageRepo.find({
-      where: { tenantId, pipelineId: pipeline.id },
-      order: { order: 'ASC' },
-    });
+    const stages = await this.listStages(tenantId);
 
-    let opportunities: CrmOpportunity[] = [];
+    const opportunities: Awaited<
+      ReturnType<typeof this.listOpportunities>
+    >['items'] = [];
+    let offset = 0;
 
-    if (this.isAdmin(user)) {
-      opportunities = await this.oppRepo.find({
-        where: { tenantId, pipelineId: pipeline.id },
-        order: { updatedAt: 'DESC' },
+    // Board endpoint returns the full set (legacy behavior). We page internally
+    // using the same visibility-scoped query as listOpportunities.
+    // listOpportunities clamps limit to max 200.
+    for (;;) {
+      const page = await this.listOpportunities(tenantId, user, {
+        limit: 200,
+        offset,
       });
-    } else {
+
+      opportunities.push(...page.items);
+
+      if (!page.items.length) break;
+      offset += page.items.length;
+      if (offset >= page.total) break;
+    }
+
+    return {
+      pipeline: { id: pipeline.id, name: pipeline.name },
+      stages,
+      opportunities,
+    };
+  }
+
+  async listOpportunities(
+    tenantId: string,
+    user: CurrentUser,
+    opts?: {
+      q?: string;
+      stageId?: string;
+      accountId?: string;
+      status?: CrmOpportunityStatus;
+      sortBy?: string;
+      sortDir?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ) {
+    const pipeline = await this.pipelineRepo.findOne({
+      where: { tenantId, isDefault: true },
+    });
+    if (!pipeline) {
+      return { items: [], total: 0, limit: 0, offset: 0 };
+    }
+
+    const rawLimit = Number(opts?.limit ?? 50);
+    const rawOffset = Number(opts?.offset ?? 0);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(200, Math.floor(rawLimit)))
+      : 50;
+    const offset = Number.isFinite(rawOffset)
+      ? Math.max(0, Math.floor(rawOffset))
+      : 0;
+
+    const sortByRaw = String(opts?.sortBy ?? '').trim();
+    const sortDirRaw = String(opts?.sortDir ?? '')
+      .trim()
+      .toLowerCase();
+    const sortDir: 'ASC' | 'DESC' = sortDirRaw === 'asc' ? 'ASC' : 'DESC';
+    const sortBy: 'updatedAt' | 'createdAt' | 'name' =
+      sortByRaw === 'createdAt' ||
+      sortByRaw === 'name' ||
+      sortByRaw === 'updatedAt'
+        ? sortByRaw
+        : 'updatedAt';
+
+    const qb = this.oppRepo
+      .createQueryBuilder('o')
+      .where('o.tenantId = :tenantId', { tenantId })
+      .andWhere('o.pipelineId = :pipelineId', { pipelineId: pipeline.id });
+
+    const applySort = (
+      qb: ReturnType<Repository<CrmOpportunity>['createQueryBuilder']>,
+    ) => {
+      if (sortBy === 'name') {
+        qb.addSelect('LOWER(o.name)', 'o_name_lower');
+        qb.orderBy('o_name_lower', sortDir);
+        qb.addOrderBy('o.updatedAt', 'DESC');
+        return;
+      }
+
+      if (sortBy === 'createdAt') {
+        qb.orderBy('o.createdAt', sortDir);
+        qb.addOrderBy('o.updatedAt', 'DESC');
+        return;
+      }
+
+      qb.orderBy('o.updatedAt', sortDir);
+    };
+
+    if (!this.isAdmin(user)) {
       const memberRows = await this.oppMemberRepo.find({
         where: { tenantId, userId: user.id },
         select: { opportunityId: true },
       });
       const memberOppIds = memberRows.map((r) => r.opportunityId);
 
-      opportunities = await this.oppRepo.find({
-        where: [
-          { tenantId, pipelineId: pipeline.id, ownerUserId: user.id },
-          ...(memberOppIds.length
-            ? [{ tenantId, pipelineId: pipeline.id, id: In(memberOppIds) }]
-            : []),
-        ],
-        order: { updatedAt: 'DESC' },
-      });
+      qb.andWhere(
+        new Brackets((inner) => {
+          inner.where('o.ownerUserId = :userId', { userId: user.id });
+          if (memberOppIds.length) {
+            inner.orWhere('o.id IN (:...memberOppIds)', { memberOppIds });
+          }
+        }),
+      );
     }
+
+    if (opts?.stageId) {
+      qb.andWhere('o.stageId = :stageId', { stageId: opts.stageId });
+    }
+    if (opts?.accountId) {
+      qb.andWhere('o.accountId = :accountId', { accountId: opts.accountId });
+    }
+    if (opts?.status) {
+      qb.andWhere('o.status = :status', { status: opts.status });
+    }
+    if (opts?.q) {
+      const q = String(opts.q).trim();
+      if (q) {
+        qb.andWhere('LOWER(o.name) LIKE :q', { q: `%${q.toLowerCase()}%` });
+      }
+    }
+
+    applySort(qb);
+    qb.skip(offset).take(limit);
+
+    const [opportunities, total] = await qb.getManyAndCount();
 
     const members = await this.oppMemberRepo.find({
       where: {
@@ -1437,18 +2002,11 @@ export class CrmService {
           ? In(opportunities.map((o) => o.id))
           : In(['00000000-0000-0000-0000-000000000000']),
       },
+      select: { opportunityId: true, userId: true },
     });
 
     return {
-      pipeline: { id: pipeline.id, name: pipeline.name },
-      stages: stages.map((s) => ({
-        id: s.id,
-        name: s.name,
-        order: s.order,
-        isClosedWon: s.isClosedWon,
-        isClosedLost: s.isClosedLost,
-      })),
-      opportunities: opportunities.map((o) => ({
+      items: opportunities.map((o) => ({
         id: o.id,
         name: o.name,
         amount: o.amount,
@@ -1456,12 +2014,175 @@ export class CrmService {
         stageId: o.stageId,
         accountId: o.accountId,
         ownerUserId: o.ownerUserId,
+        createdAt: o.createdAt.toISOString(),
+        updatedAt: o.updatedAt.toISOString(),
         expectedCloseDate: this.toExpectedCloseDateString(o.expectedCloseDate),
         status: o.status,
         teamUserIds: members
           .filter((m) => m.opportunityId === o.id)
           .map((m) => m.userId),
       })),
+      total,
+      limit,
+      offset,
     };
+  }
+
+  async getOpportunity(tenantId: string, user: CurrentUser, id: string) {
+    const opp = await this.getOpportunityForAccessCheck(tenantId, user, id);
+
+    const members = await this.oppMemberRepo.find({
+      where: { tenantId, opportunityId: opp.id },
+      select: { userId: true },
+    });
+
+    return {
+      id: opp.id,
+      name: opp.name,
+      amount: opp.amount,
+      currency: opp.currency,
+      stageId: opp.stageId,
+      accountId: opp.accountId,
+      ownerUserId: opp.ownerUserId,
+      createdAt: opp.createdAt.toISOString(),
+      updatedAt: opp.updatedAt.toISOString(),
+      expectedCloseDate: this.toExpectedCloseDateString(opp.expectedCloseDate),
+      status: opp.status,
+      teamUserIds: members.map((m) => m.userId),
+    };
+  }
+
+  async listOpportunitySales(
+    tenantId: string,
+    user: CurrentUser,
+    opportunityId: string,
+  ): Promise<
+    Array<
+      Sale & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      }
+    >
+  > {
+    await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
+
+    const quoteRows = await this.quoteRepo.find({
+      where: { tenantId, opportunityId },
+      select: { id: true },
+    });
+
+    const quoteIds = quoteRows
+      .map((q) => (q?.id ? String(q.id) : ''))
+      .filter(Boolean);
+
+    if (quoteIds.length === 0) {
+      return [];
+    }
+
+    const [sales, quoteNumbers] = await Promise.all([
+      this.saleRepo.find({
+        where: {
+          tenantId,
+          sourceQuoteId: In(quoteIds),
+        },
+        order: { createdAt: 'DESC' },
+      }),
+      this.quoteRepo.find({
+        where: { tenantId, id: In(quoteIds) },
+        select: { id: true, quoteNumber: true, opportunityId: true },
+      }),
+    ]);
+
+    const byId = new Map<string, string | null>();
+    const oppById = new Map<string, string | null>();
+    for (const q of quoteNumbers) {
+      byId.set(String(q.id), q.quoteNumber ? String(q.quoteNumber) : null);
+      oppById.set(
+        String(q.id),
+        q.opportunityId ? String(q.opportunityId) : null,
+      );
+    }
+
+    return sales.map((s) => {
+      const enriched = s as Sale & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      };
+      enriched.sourceQuoteNumber = s.sourceQuoteId
+        ? (byId.get(String(s.sourceQuoteId)) ?? null)
+        : null;
+      enriched.sourceOpportunityId = s.sourceQuoteId
+        ? (oppById.get(String(s.sourceQuoteId)) ?? null)
+        : null;
+      return enriched;
+    });
+  }
+
+  async listOpportunityInvoices(
+    tenantId: string,
+    user: CurrentUser,
+    opportunityId: string,
+  ): Promise<
+    Array<
+      Invoice & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      }
+    >
+  > {
+    await this.getOpportunityForAccessCheck(tenantId, user, opportunityId);
+
+    const quoteRows = await this.quoteRepo.find({
+      where: { tenantId, opportunityId },
+      select: { id: true },
+    });
+
+    const quoteIds = quoteRows
+      .map((q) => (q?.id ? String(q.id) : ''))
+      .filter(Boolean);
+
+    if (quoteIds.length === 0) {
+      return [];
+    }
+
+    const [invoices, quoteNumbers] = await Promise.all([
+      this.invoiceRepo.find({
+        where: {
+          tenantId,
+          isVoided: false,
+          sourceQuoteId: In(quoteIds),
+        },
+        relations: ['customer', 'createdByUser', 'updatedByUser'],
+        order: { createdAt: 'DESC' },
+      }),
+      this.quoteRepo.find({
+        where: { tenantId, id: In(quoteIds) },
+        select: { id: true, quoteNumber: true, opportunityId: true },
+      }),
+    ]);
+
+    const byId = new Map<string, string | null>();
+    const oppById = new Map<string, string | null>();
+    for (const q of quoteNumbers) {
+      byId.set(String(q.id), q.quoteNumber ? String(q.quoteNumber) : null);
+      oppById.set(
+        String(q.id),
+        q.opportunityId ? String(q.opportunityId) : null,
+      );
+    }
+
+    return invoices.map((inv) => {
+      const enriched = inv as Invoice & {
+        sourceQuoteNumber?: string | null;
+        sourceOpportunityId?: string | null;
+      };
+      enriched.sourceQuoteNumber = inv.sourceQuoteId
+        ? (byId.get(String(inv.sourceQuoteId)) ?? null)
+        : null;
+      enriched.sourceOpportunityId = inv.sourceQuoteId
+        ? (oppById.get(String(inv.sourceQuoteId)) ?? null)
+        : null;
+      return enriched;
+    });
   }
 }

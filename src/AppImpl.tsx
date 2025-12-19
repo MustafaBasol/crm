@@ -96,9 +96,11 @@ import GeneralLedger from "./components/GeneralLedger";
 import SimpleSalesPage from "./components/SimpleSalesPage";
 import QuotesPage from "./components/QuotesPage";
 import CrmPipelineBoardPage from "./components/crm/CrmPipelineBoardPage";
+import CrmOpportunitiesPage from "./components/crm/CrmOpportunitiesPage";
 import CrmLeadsPage from "./components/crm/CrmLeadsPage";
 import CrmContactsPage from "./components/crm/CrmContactsPage";
 import CrmActivitiesPage from "./components/crm/CrmActivitiesPage";
+import CrmTasksPage from "./components/crm/CrmTasksPage";
 import CrmDashboardPage from "./components/crm/CrmDashboardPage";
 import SummaryPage from "./components/summary/SummaryPage";
 import QuoteCreateModal, { type QuoteCreatePayload } from "./components/QuoteCreateModal";
@@ -328,9 +330,11 @@ const HASH_SYNC_PAGES = [
   'banks',
   'sales',
   'crm-dashboard',
+  'crm-opportunities',
   'crm-leads',
   'crm-contacts',
   'crm-activities',
+  'crm-tasks',
   'crm-pipeline',
   'quotes',
   'reports',
@@ -530,7 +534,18 @@ const AppContent: React.FC = () => {
     const isHashSyncCandidate =
       HASH_SYNC_PAGE_SET.has(currentPage) ||
       currentPage.startsWith('customer-history:') ||
-      currentPage.startsWith('crm-deal:');
+      currentPage.startsWith('crm-deal:') ||
+      currentPage.startsWith('crm-opportunities:') ||
+      currentPage.startsWith('crm-contacts:') ||
+      currentPage.startsWith('crm-activities:') ||
+      currentPage.startsWith('crm-activities-opp:') ||
+      currentPage.startsWith('crm-activities-contact:') ||
+      currentPage.startsWith('crm-tasks:') ||
+      currentPage.startsWith('crm-tasks-opp:') ||
+      currentPage.startsWith('quotes-open:') ||
+      currentPage.startsWith('quotes-edit:') ||
+      currentPage.startsWith('sales-edit:') ||
+      currentPage.startsWith('invoices-edit:');
     if (!isHashSyncCandidate) {
       return;
     }
@@ -2372,6 +2387,28 @@ const AppContent: React.FC = () => {
       } else if (hash.startsWith('customer-history:')) {
         navigate(hash);
       } else if (hash.startsWith('crm-deal:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-opportunities:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-contacts:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-activities:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-activities-opp:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-activities-contact:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-tasks:')) {
+        navigate(hash);
+      } else if (hash.startsWith('crm-tasks-opp:')) {
+        navigate(hash);
+      } else if (hash.startsWith('quotes-open:')) {
+        navigate(hash);
+      } else if (hash.startsWith('quotes-edit:')) {
+        navigate(hash);
+      } else if (hash.startsWith('sales-edit:')) {
+        navigate(hash);
+      } else if (hash.startsWith('invoices-edit:')) {
         navigate(hash);
       }
     };
@@ -4813,6 +4850,36 @@ const AppContent: React.FC = () => {
     }, 100);
   }, [showSaleModal]);
 
+  // Deep link: sales-edit:<id> ve invoices-edit:<id> -> ilgili kaydı çekip edit modalını aç
+  React.useEffect(() => {
+    const page = String(currentPage || '');
+    if (!page.startsWith('sales-edit:') && !page.startsWith('invoices-edit:')) {
+      return;
+    }
+
+    const run = async () => {
+      try {
+        if (page.startsWith('sales-edit:')) {
+          const saleId = page.replace('sales-edit:', '').trim();
+          if (!saleId) return;
+          const sale = await salesApi.getSale(String(saleId));
+          openSaleModal(sale as any);
+          return;
+        }
+        if (page.startsWith('invoices-edit:')) {
+          const invoiceId = page.replace('invoices-edit:', '').trim();
+          if (!invoiceId) return;
+          const invoice = await invoicesApi.getInvoice(String(invoiceId));
+          await openInvoiceModal(invoice as any);
+        }
+      } catch (error) {
+        console.warn('Deep-link modal open failed:', error);
+      }
+    };
+
+    void run();
+  }, [currentPage, openSaleModal, openInvoiceModal]);
+
   const openProductModal = (product?: Product | null) => {
     setSelectedProduct(product ?? null);
     setShowProductModal(true);
@@ -4847,6 +4914,15 @@ const AppContent: React.FC = () => {
     setSelectedInvoice(null);
     // Fatura akışı bittiğinde ön-seçili müşteriyi sıfırla
     setPreselectedCustomerForInvoice(null);
+
+    // Deep-link ile açıldıysa URL'yi liste sayfasına geri al (refresh'te yeniden açılmasın)
+    try {
+      if (String(currentPage || '').startsWith('invoices-edit:')) {
+        window.location.hash = 'invoices';
+      }
+    } catch {
+      // ignore
+    }
   };
 
   const closeExpenseModal = () => {
@@ -4858,6 +4934,16 @@ const AppContent: React.FC = () => {
   const closeSaleModal = () => {
     logger.debug('app.saleModal.closeRequested');
     setShowSaleModal(false);
+
+    // Deep-link ile açıldıysa URL'yi liste sayfasına geri al (refresh'te yeniden açılmasın)
+    try {
+      if (String(currentPage || '').startsWith('sales-edit:')) {
+        window.location.hash = 'sales';
+      }
+    } catch {
+      // ignore
+    }
+
     // Modal tamamen kapanana kadar bekle
     setTimeout(() => {
       logger.debug('app.saleModal.selectionCleared');
@@ -5411,6 +5497,112 @@ const AppContent: React.FC = () => {
         </React.Suspense>
       );
     }
+
+    // Dinamik rota: crm-opportunities:<accountId>
+    if (currentPage.startsWith('crm-opportunities:')) {
+      const accountId = currentPage.replace('crm-opportunities:', '');
+      return <CrmOpportunitiesPage initialAccountId={accountId} />;
+    }
+
+    // Dinamik rota: crm-contacts:<accountId>
+    if (currentPage.startsWith('crm-contacts:')) {
+      const accountId = currentPage.replace('crm-contacts:', '');
+      return <CrmContactsPage initialAccountId={accountId} />;
+    }
+
+    // Dinamik rota: crm-activities:<accountId>
+    if (currentPage.startsWith('crm-activities:')) {
+      const accountId = currentPage.replace('crm-activities:', '');
+      const account = customers.find((c) => String(c.id) === accountId);
+      return <CrmActivitiesPage accountId={accountId} accountName={account?.name ?? ''} />;
+    }
+
+    // Dinamik rota: crm-activities-opp:<opportunityId>
+    if (currentPage.startsWith('crm-activities-opp:')) {
+      const opportunityId = currentPage.replace('crm-activities-opp:', '');
+      const opp = opportunities.find((o) => String(o.id) === opportunityId);
+      return <CrmActivitiesPage opportunityId={opportunityId} dealName={opp?.name ?? ''} />;
+    }
+
+    // Dinamik rota: crm-activities-contact:<contactId>
+    if (currentPage.startsWith('crm-activities-contact:')) {
+      const contactId = currentPage.replace('crm-activities-contact:', '');
+      return <CrmActivitiesPage contactId={contactId} />;
+    }
+
+    // Dinamik rota: crm-tasks:<accountId>
+    if (currentPage.startsWith('crm-tasks:')) {
+      const accountId = currentPage.replace('crm-tasks:', '');
+      const account = customers.find((c) => String(c.id) === accountId);
+      return <CrmTasksPage accountId={accountId} accountName={account?.name ?? ''} />;
+    }
+
+    // Dinamik rota: crm-tasks-opp:<opportunityId>
+    if (currentPage.startsWith('crm-tasks-opp:')) {
+      const opportunityId = currentPage.replace('crm-tasks-opp:', '');
+      const opp = opportunities.find((o) => String(o.id) === opportunityId);
+      return <CrmTasksPage opportunityId={opportunityId} dealName={opp?.name ?? ''} />;
+    }
+
+    // Dinamik rota: quotes-open:<quoteId>
+    if (currentPage.startsWith('quotes-open:')) {
+      const quoteId = currentPage.replace('quotes-open:', '');
+      return (
+        <QuotesPage
+          customers={customers}
+          products={products}
+          initialOpenQuoteId={quoteId}
+        />
+      );
+    }
+
+    // Dinamik rota: quotes-edit:<quoteId>
+    if (currentPage.startsWith('quotes-edit:')) {
+      const quoteId = currentPage.replace('quotes-edit:', '');
+      return (
+        <QuotesPage
+          customers={customers}
+          products={products}
+          initialOpenQuoteId={quoteId}
+          initialOpenMode="edit"
+        />
+      );
+    }
+
+    // Dinamik rota: sales-edit:<saleId>
+    if (currentPage.startsWith('sales-edit:')) {
+      return (
+        <SimpleSalesPage
+          customers={customers}
+          sales={sales}
+          invoices={invoices}
+          products={products}
+          onSalesUpdate={handleSimpleSalesPageUpdate}
+          onUpsertSale={upsertSale}
+          onCreateInvoice={upsertInvoice}
+          onEditInvoice={invoice => openInvoiceModal(invoice)}
+          onDownloadSale={handleDownloadSale}
+          onDeleteSale={(id) => requestDeleteSale(String(id))}
+        />
+      );
+    }
+
+    // Dinamik rota: invoices-edit:<invoiceId>
+    if (currentPage.startsWith('invoices-edit:')) {
+      return (
+        <InvoiceList
+          invoices={invoices}
+          onAddInvoice={() => openInvoiceModal()}
+          onEditInvoice={invoice => openInvoiceModal(invoice)}
+          onDeleteInvoice={requestDeleteInvoice}
+          onViewInvoice={(invoice) => { openInvoiceView(invoice); }}
+          onUpdateInvoice={handleInlineUpdateInvoice}
+          onDownloadInvoice={handleDownloadInvoice}
+          onVoidInvoice={voidInvoice}
+          onRestoreInvoice={restoreInvoice}
+        />
+      );
+    }
     switch (currentPage) {
       case "summary":
         return (
@@ -5425,12 +5617,16 @@ const AppContent: React.FC = () => {
         return renderDashboard();
       case "crm-dashboard":
         return <CrmDashboardPage />;
+      case "crm-opportunities":
+        return <CrmOpportunitiesPage />;
       case "crm-leads":
         return <CrmLeadsPage />;
       case "crm-contacts":
         return <CrmContactsPage />;
       case "crm-activities":
         return <CrmActivitiesPage />;
+      case "crm-tasks":
+        return <CrmTasksPage />;
       case "customers":
         return (
           <CustomerList
