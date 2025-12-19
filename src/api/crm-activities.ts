@@ -29,6 +29,7 @@ export const listCrmActivities = async (options?: {
   opportunityId?: string;
   accountId?: string;
   contactId?: string;
+  q?: string;
   status?: 'open' | 'completed';
   limit?: number;
   offset?: number;
@@ -38,6 +39,7 @@ export const listCrmActivities = async (options?: {
       ...(options?.opportunityId ? { opportunityId: options.opportunityId } : {}),
       ...(options?.accountId ? { accountId: options.accountId } : {}),
       ...(options?.contactId ? { contactId: options.contactId } : {}),
+      ...(options?.q ? { q: options.q } : {}),
       ...(options?.status ? { status: options.status } : {}),
       ...(typeof options?.limit === 'number' ? { limit: options.limit } : {}),
       ...(typeof options?.offset === 'number' ? { offset: options.offset } : {}),

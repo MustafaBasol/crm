@@ -498,6 +498,7 @@ export class CrmService {
     options?: {
       opportunityId?: string;
       accountId?: string;
+      q?: string;
       status?: string;
       limit?: number;
       offset?: number;
@@ -507,6 +508,23 @@ export class CrmService {
     const accountId = options?.accountId?.trim() || undefined;
     const { limit, offset } = this.normalizePagination(options);
     const completed = this.normalizeCompletionFilter(options?.status);
+    const q = String(options?.q ?? '')
+      .trim()
+      .toLowerCase();
+    const qLike = q ? `%${q}%` : '';
+
+    const applySearch = (
+      qb: ReturnType<Repository<CrmTask>['createQueryBuilder']>,
+    ) => {
+      if (!q) return;
+      qb.andWhere(
+        new Brackets((b) => {
+          b.where('LOWER(t.title) LIKE :q').orWhere(
+            "LOWER(COALESCE(t.dueAt, '')) LIKE :q",
+          );
+        }),
+      ).setParameter('q', qLike);
+    };
 
     if (opportunityId && accountId) {
       throw new BadRequestException(
@@ -521,6 +539,7 @@ export class CrmService {
         .createQueryBuilder('t')
         .where('t.tenantId = :tenantId', { tenantId })
         .andWhere('t.opportunityId = :opportunityId', { opportunityId });
+      applySearch(qb);
       if (completed != null) {
         qb.andWhere('t.completed = :completed', { completed });
       }
@@ -559,6 +578,7 @@ export class CrmService {
         .createQueryBuilder('t')
         .where('t.tenantId = :tenantId', { tenantId })
         .andWhere('t.accountId = :accountId', { accountId });
+      applySearch(qb);
       if (completed != null) {
         qb.andWhere('t.completed = :completed', { completed });
       }
@@ -572,6 +592,7 @@ export class CrmService {
       const qb = this.taskRepo
         .createQueryBuilder('t')
         .where('t.tenantId = :tenantId', { tenantId });
+      applySearch(qb);
       if (completed != null) {
         qb.andWhere('t.completed = :completed', { completed });
       }
@@ -614,6 +635,8 @@ export class CrmService {
         }),
       )
       .orderBy('t.updatedAt', 'DESC');
+
+    applySearch(qb);
 
     if (completed != null) {
       qb.andWhere('t.completed = :completed', { completed });
@@ -1203,6 +1226,7 @@ export class CrmService {
       opportunityId?: string;
       accountId?: string;
       contactId?: string;
+      q?: string;
       status?: string;
       limit?: number;
       offset?: number;
@@ -1213,6 +1237,23 @@ export class CrmService {
     const contactId = options?.contactId?.trim() || undefined;
     const { limit, offset } = this.normalizePagination(options);
     const completed = this.normalizeCompletionFilter(options?.status);
+    const q = String(options?.q ?? '')
+      .trim()
+      .toLowerCase();
+    const qLike = q ? `%${q}%` : '';
+
+    const applySearch = (
+      qb: ReturnType<Repository<CrmActivity>['createQueryBuilder']>,
+    ) => {
+      if (!q) return;
+      qb.andWhere(
+        new Brackets((b) => {
+          b.where('LOWER(a.title) LIKE :q')
+            .orWhere("LOWER(COALESCE(a.type, '')) LIKE :q")
+            .orWhere("LOWER(COALESCE(a.dueAt, '')) LIKE :q");
+        }),
+      ).setParameter('q', qLike);
+    };
 
     const filterCount = [opportunityId, accountId, contactId].filter(
       Boolean,
@@ -1230,6 +1271,7 @@ export class CrmService {
         .createQueryBuilder('a')
         .where('a.tenantId = :tenantId', { tenantId })
         .andWhere('a.opportunityId = :opportunityId', { opportunityId });
+      applySearch(qb);
       if (completed != null) {
         qb.andWhere('a.completed = :completed', { completed });
       }
@@ -1252,6 +1294,7 @@ export class CrmService {
       if (!canViewAllForAccount) {
         qb.andWhere('a.createdByUserId = :userId', { userId: user.id });
       }
+      applySearch(qb);
       if (completed != null) {
         qb.andWhere('a.completed = :completed', { completed });
       }
@@ -1271,6 +1314,7 @@ export class CrmService {
           .createQueryBuilder('a')
           .where('a.tenantId = :tenantId', { tenantId })
           .andWhere('a.contactId = :contactId', { contactId });
+        applySearch(qb);
         if (completed != null) {
           qb.andWhere('a.completed = :completed', { completed });
         }
@@ -1293,6 +1337,7 @@ export class CrmService {
         if (!canViewAllForAccount) {
           qb.andWhere('a.createdByUserId = :userId', { userId: user.id });
         }
+        applySearch(qb);
         if (completed != null) {
           qb.andWhere('a.completed = :completed', { completed });
         }
@@ -1307,6 +1352,7 @@ export class CrmService {
           .where('a.tenantId = :tenantId', { tenantId })
           .andWhere('a.contactId = :contactId', { contactId })
           .andWhere('a.createdByUserId = :userId', { userId: user.id });
+        applySearch(qb);
         if (completed != null) {
           qb.andWhere('a.completed = :completed', { completed });
         }
@@ -1320,6 +1366,7 @@ export class CrmService {
       const qb = this.activityRepo
         .createQueryBuilder('a')
         .where('a.tenantId = :tenantId', { tenantId });
+      applySearch(qb);
       if (completed != null) {
         qb.andWhere('a.completed = :completed', { completed });
       }
@@ -1362,6 +1409,8 @@ export class CrmService {
         }),
       )
       .orderBy('a.updatedAt', 'DESC');
+
+    applySearch(qb);
 
     if (completed != null) {
       qb.andWhere('a.completed = :completed', { completed });

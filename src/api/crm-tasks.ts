@@ -28,6 +28,7 @@ export type UpdateCrmTaskDto = Partial<Omit<CreateCrmTaskDto, 'opportunityId'>> 
 export const listCrmTasks = async (options?: {
   opportunityId?: string;
   accountId?: string;
+  q?: string;
   status?: 'open' | 'completed';
   limit?: number;
   offset?: number;
@@ -36,6 +37,7 @@ export const listCrmTasks = async (options?: {
     params: {
       opportunityId: options?.opportunityId,
       accountId: options?.accountId,
+      q: options?.q,
       status: options?.status,
       limit: options?.limit,
       offset: options?.offset,
