@@ -5,7 +5,31 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
 RUNTIME_DIR="$ROOT_DIR/.runtime"
 
-BACKEND_PORT="${BACKEND_PORT:-${PORT:-3001}}"
+resolve_backend_port() {
+    if [ -n "${BACKEND_PORT:-}" ]; then
+        echo "$BACKEND_PORT"
+        return 0
+    fi
+
+    if [ -n "${PORT:-}" ]; then
+        echo "$PORT"
+        return 0
+    fi
+
+    local env_file="$BACKEND_DIR/.env"
+    if [ -f "$env_file" ]; then
+        local port
+        port="$(grep -E '^\s*PORT\s*=' "$env_file" | tail -n 1 | sed -E 's/^\s*PORT\s*=\s*//; s/\s*$//; s/^"|"$//g; s/^\x27|\x27$//g')"
+        if [[ "$port" =~ ^[0-9]+$ ]]; then
+            echo "$port"
+            return 0
+        fi
+    fi
+
+    echo "3001"
+}
+
+BACKEND_PORT="$(resolve_backend_port)"
 FRONTEND_PORT="${FRONTEND_PORT:-${VITE_PORT:-5174}}"
 API_HEALTH_URL="http://127.0.0.1:${BACKEND_PORT}/api/health"
 
@@ -37,25 +61,13 @@ else
 fi
 
 start_backend() {
-    local pid_file="$RUNTIME_DIR/backend.pid"
     if command -v lsof >/dev/null 2>&1 && lsof -iTCP:"$BACKEND_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
         echo "✅ Backend zaten dinliyor (port $BACKEND_PORT)"
         return 0
     fi
 
-    if [ -f "$pid_file" ]; then
-        local old_pid
-        old_pid="$(cat "$pid_file" 2>/dev/null || true)"
-        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
-            echo "✅ Backend zaten çalışıyor (PID: $old_pid)"
-            return 0
-        fi
-    fi
-
     echo "🔧 Backend başlatılıyor..."
-    cd "$BACKEND_DIR"
-    nohup npm run start:dev > "$RUNTIME_DIR/backend.log" 2>&1 &
-    echo $! > "$pid_file"
+    PORT="$BACKEND_PORT" bash "$ROOT_DIR/start-backend.sh" >/dev/null
 }
 
 start_frontend() {
