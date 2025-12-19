@@ -2,6 +2,87 @@
 
 # Dev Session Notes (2025-12-19)
 
+## Ana Doküman: Temel CRM Yol Haritası (Faz Tanımları)
+
+Bu doküman (SESSION_HANDOFF_NOTES) **temel seviyede CRM** geliştirmesi için tek “ana” yol haritasıdır.
+
+Amaç: Pipeline odaklı, küçük/orta ölçek ekiplerin günlük operasyonunu taşıyacak **temel CRM**:
+
+- Leads ve Contacts yönetimi
+- Deal/Opportunity (pipeline + stage) yönetimi
+- Deal/Account/Contact üzerinde Activities + Tasks ile “next step” takibi
+- Listelerde arama + server-side sorting + paging
+- Basit ama güvenli yetkilendirme (tenant/admin/owner + görünürlük)
+
+Kapsam dışı (bu “temel CRM” tanımı için): tam raporlama paketi, otomasyon/sequence, gelişmiş izin matrisi, özel entegrasyonlar.
+
+### Fazlar (Tanım + Kabul Kriteri)
+
+**Faz 0 — Dev Stabilizasyonu & Smoke Altyapısı**
+
+- Amaç: Her yeni CRM değişikliğinin hızlıca doğrulanabildiği stabil dev ortamı.
+- Kabul kriteri:
+  - Backend tek komutla ayağa kalkar (Postgres ensure + port cleanup).
+  - CRM smoke ve CRM authz smoke düzenli PASS.
+
+**Faz 1 — CRM Backend MVP (API Parity + Güvenlik)**
+
+- Amaç: CRM çekirdeğinin (leads/contacts/opportunities/pipeline/stages/activities/tasks) NestJS + TypeORM tarafında eksiksiz çalışması.
+- İçerik:
+  - CRUD + list endpointleri (paged response).
+  - Görünürlük kuralları + rol bazlı izinler.
+  - Listeleme kalitesi: `q` search + `sortBy/sortDir` whitelist + stabil tie-break.
+  - Smoke regresyonları: kritik akışlar ve en az 1–2 sorting assertion.
+- Kabul kriteri:
+  - CRM akışlarının tamamı smoke ile doğrulanır.
+
+**Faz 2 — CRM Frontend MVP (Kullanılabilir Ürün)**
+
+- Amaç: Kullanıcı UI’dan deal yaratıp yönetebilsin; temel listeler yönetilebilir olsun.
+- İçerik:
+  - CRM sayfaları: Leads, Contacts, Opportunities list; Pipeline board; Deal detail.
+  - Liste UX standardı: paging + arama + sorting + empty/noResults.
+  - Sayfa state’i: sessionStorage ile basit persist.
+- Kabul kriteri:
+  - Kullanıcı UI’dan deal oluşturur, stage değiştirir, detayda temel alanları günceller.
+
+**Faz 3 — Operasyonel CRM (Activities/Tasks ile Next Step)**
+
+- Amaç: Deal/Account/Contact üzerinde faaliyet ve görevle günlük takip.
+- İçerik:
+  - Global + scoped (deal/contact/account) activities/tasks listeleri.
+  - Filtreler (open/completed), arama, sorting.
+  - Deep-link’ler (CRM sayfalarına hızlı geçiş).
+  - Smoke: activities/tasks için sorting dahil regresyon.
+- Kabul kriteri:
+  - Deal üzerinde “next step” yönetilebiliyor (task + activity ile).
+
+**Faz 4 — (Opsiyonel) Quote/Invoice Entegrasyonu**
+
+- Amaç: “teklif → satış → fatura” zincirini CRM deal ile bağlamak.
+- Kabul kriteri:
+  - Deal’den teklif oluşturma/bağlama, kabul ile deal kapanışı gibi minimum senkron davranış.
+
+### Mevcut Durum (Bu Repo’da Şu An)
+
+Bu repo, CRM tarafında Faz 1–3’ün büyük bölümünü kapsayan bir seviyede.
+
+**Tamamlandı (özet)**
+
+- CRM smoke altyapısı ve authz smoke (Faz 0).
+- CRM backend parity: leads/contacts/opportunities/pipeline/activities/tasks CRUD + list (Faz 1).
+- CRM frontend temel sayfalar + deal detail + deep-link’ler (Faz 2–3).
+- CRM list iyileştirmeleri (Faz 2 kalite): `q` search ve server-side sorting kademeli eklendi.
+
+**Şu anki en mantıklı Faz 3 tamamlama adımı**
+
+- Smoke kapsaması “liste kalite” için zaten sorting assertion’larını içeriyor (Activities/Tasks title ASC).
+- Bu noktadan sonra en yüksek değerli sıradaki adım genelde:
+  - Bu branch’i `main`’e PR ile almak (Faz 2–3 kalite iyileştirmeleri tek yerde toplansın)
+  - Ardından Faz 4 (opsiyonel) için: Deal ↔ Quote bağlantısı ve minimum akış (deal’den teklif oluştur/bağla)
+
+Not: Faz tanımlarının tek kaynağı burasıdır; diğer roadmap dokümanları referans kabul edilir.
+
 ## Handoff (Doğrulama + smoke authz fix) — 2025-12-19
 
 Amaç: CRM paging değişiklikleri sonrası yerel doğrulama yapmak ve smoke authz senaryosunu yeni paged response sözleşmesine uyarlamak.
