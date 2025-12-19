@@ -5520,8 +5520,7 @@ const AppContent: React.FC = () => {
     // Dinamik rota: crm-activities-opp:<opportunityId>
     if (currentPage.startsWith('crm-activities-opp:')) {
       const opportunityId = currentPage.replace('crm-activities-opp:', '');
-      const opp = opportunities.find((o) => String(o.id) === opportunityId);
-      return <CrmActivitiesPage opportunityId={opportunityId} dealName={opp?.name ?? ''} />;
+      return <CrmActivitiesPage opportunityId={opportunityId} />;
     }
 
     // Dinamik rota: crm-activities-contact:<contactId>
@@ -5540,8 +5539,7 @@ const AppContent: React.FC = () => {
     // Dinamik rota: crm-tasks-opp:<opportunityId>
     if (currentPage.startsWith('crm-tasks-opp:')) {
       const opportunityId = currentPage.replace('crm-tasks-opp:', '');
-      const opp = opportunities.find((o) => String(o.id) === opportunityId);
-      return <CrmTasksPage opportunityId={opportunityId} dealName={opp?.name ?? ''} />;
+      return <CrmTasksPage opportunityId={opportunityId} />;
     }
 
     // Dinamik rota: quotes-open:<quoteId>

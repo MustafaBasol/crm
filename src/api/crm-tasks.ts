@@ -29,6 +29,8 @@ export const listCrmTasks = async (options?: {
   opportunityId?: string;
   accountId?: string;
   q?: string;
+  startDate?: string;
+  endDate?: string;
   sortBy?: 'updatedAt' | 'createdAt' | 'title';
   sortDir?: 'asc' | 'desc';
   status?: 'open' | 'completed';
@@ -40,6 +42,8 @@ export const listCrmTasks = async (options?: {
       opportunityId: options?.opportunityId,
       accountId: options?.accountId,
       q: options?.q,
+      startDate: options?.startDate,
+      endDate: options?.endDate,
       sortBy: options?.sortBy,
       sortDir: options?.sortDir,
       status: options?.status,

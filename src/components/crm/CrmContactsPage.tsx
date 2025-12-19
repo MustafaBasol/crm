@@ -4,6 +4,8 @@ import { getErrorMessage } from '../../utils/errorHandler';
 import * as contactsApi from '../../api/crm-contacts';
 import * as customersApi from '../../api/customers';
 import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSafe';
+import Pagination from '../Pagination';
+import SavedViewsBar from '../SavedViewsBar';
 
 type Props = {
   initialAccountId?: string;
@@ -12,6 +14,8 @@ type Props = {
 type StoredPageState = {
   query?: string;
   accountFilterId?: string;
+  startDate?: string;
+  endDate?: string;
   sortKey?: string;
   limit?: number;
   offset?: number;
@@ -66,9 +70,14 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
     if (initialAccountId) return initialAccountId;
     return typeof restored?.accountFilterId === 'string' ? restored.accountFilterId : '';
   });
-  const [limit] = useState(() => {
+  const [startDate, setStartDate] = useState(() =>
+    typeof restored?.startDate === 'string' ? restored.startDate : '',
+  );
+  const [endDate, setEndDate] = useState(() => (typeof restored?.endDate === 'string' ? restored.endDate : ''));
+  const [limit, setLimit] = useState(() => {
     const v = restored?.limit;
-    return typeof v === 'number' && Number.isFinite(v) ? v : 25;
+    const allowed = [20, 50, 100];
+    return typeof v === 'number' && Number.isFinite(v) && allowed.includes(v) ? v : 20;
   });
   const [offset, setOffset] = useState(() => {
     const v = restored?.offset;
@@ -91,6 +100,8 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
       const data = await contactsApi.listCrmContacts({
         accountId: accountFilterId.trim() ? accountFilterId.trim() : undefined,
         q: query.trim() ? query.trim() : undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
         ...(sortKey === 'updatedAsc'
           ? { sortBy: 'updatedAt' as const, sortDir: 'asc' as const }
           : sortKey === 'createdDesc'
@@ -137,21 +148,23 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
       JSON.stringify({
         query,
         accountFilterId,
+        startDate,
+        endDate,
         sortKey,
         limit,
         offset,
       } satisfies StoredPageState),
     );
-  }, [query, accountFilterId, sortKey, limit, offset]);
+  }, [query, accountFilterId, startDate, endDate, sortKey, limit, offset]);
 
   useEffect(() => {
     void reload();
     void loadCustomers();
-  }, [accountFilterId, query, sortKey, limit, offset]);
+  }, [accountFilterId, query, startDate, endDate, sortKey, limit, offset]);
 
   useEffect(() => {
     setOffset(0);
-  }, [accountFilterId, query, sortKey, limit]);
+  }, [accountFilterId, query, startDate, endDate, sortKey, limit]);
 
   const openCreate = () => {
     setModalError(null);
@@ -239,8 +252,7 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
 
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const hasNoResults = !loading && !error && total > 0 && rows.length === 0;
-  const canPrev = offset > 0;
-  const canNext = offset + rows.length < total;
+  const pageNumber = Math.floor(offset / limit) + 1;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -258,19 +270,37 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
         </button>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={`${t('common.search')}...`}
-          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+          className="w-full lg:flex-1 border rounded-lg px-3 py-2 border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500"
         />
+
+        <div className="flex w-full gap-2 lg:w-auto">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            placeholder={t('startDate') as string}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            placeholder={t('endDate') as string}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          />
+        </div>
 
         <select
           value={accountFilterId}
           onChange={(e) => setAccountFilterId(e.target.value)}
-          className="w-full sm:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+          className="w-full lg:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          aria-label={t('crm.opportunities.filters.account') as string}
         >
           <option value="">{t('crm.opportunities.filters.allAccounts')}</option>
           {customers.map((c) => (
@@ -283,7 +313,7 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
         <select
           value={sortKey}
           onChange={(e) => setSortKey(e.target.value as ContactSortKey)}
-          className="w-full sm:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+          className="w-full lg:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
           aria-label={t('app.sort.label') as string}
         >
           <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
@@ -293,36 +323,65 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
           <option value="nameAsc">{t('app.sort.nameAsc')}</option>
           <option value="nameDesc">{t('app.sort.nameDesc')}</option>
         </select>
-      </div>
 
-      {!loading && !error && total > 0 && (
-        <div className="mt-4 flex items-center gap-2">
-          <button
-            type="button"
-            disabled={!canPrev}
-            onClick={() => setOffset((v) => Math.max(0, v - limit))}
-            className={
-              canPrev
-                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
-                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
-            }
-          >
-            {t('common.previous')}
-          </button>
-          <button
-            type="button"
-            disabled={!canNext}
-            onClick={() => setOffset((v) => v + limit)}
-            className={
-              canNext
-                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
-                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
-            }
-          >
-            {t('common.next')}
-          </button>
+        <div className="lg:ml-auto flex items-center">
+          <SavedViewsBar
+            listType="crm_contacts"
+            getState={() => ({ query, accountFilterId, startDate, endDate, sortKey, pageSize: limit })}
+            applyState={(state) => {
+              if (!state) return;
+              setQuery(state.query ?? '');
+              setStartDate(state.startDate ?? '');
+              setEndDate(state.endDate ?? '');
+              if (!initialAccountId) setAccountFilterId(state.accountFilterId ?? '');
+              if (typeof state.sortKey === 'string') {
+                const allowed: ContactSortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'nameAsc', 'nameDesc'];
+                if ((allowed as string[]).includes(state.sortKey)) setSortKey(state.sortKey as ContactSortKey);
+              }
+              if (state.pageSize && [20, 50, 100].includes(state.pageSize)) setLimit(state.pageSize);
+              setOffset(0);
+            }}
+            presets={[
+              {
+                id: 'this-month',
+                label: t('presets.thisMonth') as string,
+                apply: () => {
+                  const d = new Date();
+                  const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+                  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+                  setStartDate(start);
+                  setEndDate(end);
+                  setOffset(0);
+                },
+              },
+              {
+                id: 'last-month',
+                label: t('presets.lastMonth') as string,
+                apply: () => {
+                  const d = new Date();
+                  const start = new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10);
+                  const end = new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10);
+                  setStartDate(start);
+                  setEndDate(end);
+                  setOffset(0);
+                },
+              },
+              {
+                id: 'this-year',
+                label: t('presets.thisYear') as string,
+                apply: () => {
+                  const d = new Date();
+                  const start = new Date(d.getFullYear(), 0, 1).toISOString().slice(0, 10);
+                  const end = new Date(d.getFullYear(), 11, 31).toISOString().slice(0, 10);
+                  setStartDate(start);
+                  setEndDate(end);
+                  setOffset(0);
+                },
+              },
+            ]}
+          />
         </div>
-      )}
+      </div>
 
       {loading && (
         <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>
@@ -416,6 +475,21 @@ export default function CrmContactsPage({ initialAccountId }: Props) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="mt-6 border-t border-gray-200 pt-4">
+          <Pagination
+            page={pageNumber}
+            pageSize={limit}
+            total={total}
+            onPageChange={(p) => setOffset((p - 1) * limit)}
+            onPageSizeChange={(size) => {
+              setLimit(size);
+              setOffset(0);
+            }}
+          />
         </div>
       )}
 

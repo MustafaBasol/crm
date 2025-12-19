@@ -2,11 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import * as tasksApi from '../../api/crm-tasks';
+import * as crmApi from '../../api/crm';
 import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSafe';
+import Pagination from '../Pagination';
+import SavedViewsBar from '../SavedViewsBar';
 
 type StoredPageState = {
   query?: string;
   statusFilter?: string;
+  startDate?: string;
+  endDate?: string;
   sortKey?: string;
   limit?: number;
   offset?: number;
@@ -53,9 +58,39 @@ export default function CrmTasksPage(props: {
   const dealName = props.dealName;
   const accountName = props.accountName;
 
+  const [resolvedDealName, setResolvedDealName] = useState<string>('');
+
+  const effectiveDealName = String(dealName ?? '').trim() ? String(dealName ?? '') : resolvedDealName;
+
   const globalMode = !opportunityId && !accountId;
 
   const restored = useMemo(() => (globalMode ? readPageState() : null), []);
+
+  useEffect(() => {
+    const id = String(opportunityId ?? '').trim();
+    if (!id) {
+      setResolvedDealName('');
+      return;
+    }
+    if (String(dealName ?? '').trim()) {
+      setResolvedDealName('');
+      return;
+    }
+
+    let cancelled = false;
+    const loadOpportunityLabel = async () => {
+      try {
+        const opp = await crmApi.getOpportunity(id);
+        if (!cancelled) setResolvedDealName(String(opp?.name ?? ''));
+      } catch {
+        if (!cancelled) setResolvedDealName('');
+      }
+    };
+    void loadOpportunityLabel();
+    return () => {
+      cancelled = true;
+    };
+  }, [opportunityId, dealName]);
 
   const [items, setItems] = useState<tasksApi.CrmTask[]>([]);
   const [total, setTotal] = useState(0);
@@ -89,9 +124,13 @@ export default function CrmTasksPage(props: {
 
   const [query, setQuery] = useState(() => (typeof restored?.query === 'string' ? restored.query : ''));
 
-  const [limit] = useState(() => {
+  const [startDate, setStartDate] = useState(() => (typeof restored?.startDate === 'string' ? restored.startDate : ''));
+  const [endDate, setEndDate] = useState(() => (typeof restored?.endDate === 'string' ? restored.endDate : ''));
+
+  const [limit, setLimit] = useState(() => {
     const v = restored?.limit;
-    return typeof v === 'number' && Number.isFinite(v) ? v : 25;
+    const allowed = [20, 50, 100];
+    return typeof v === 'number' && Number.isFinite(v) && allowed.includes(v) ? v : 20;
   });
   const [offset, setOffset] = useState(() => {
     const v = restored?.offset;
@@ -102,9 +141,9 @@ export default function CrmTasksPage(props: {
     if (!globalMode) return;
     safeSessionStorage.setItem(
       PAGE_STATE_KEY,
-      JSON.stringify({ query, statusFilter, sortKey, limit, offset } satisfies StoredPageState),
+      JSON.stringify({ query, statusFilter, startDate, endDate, sortKey, limit, offset } satisfies StoredPageState),
     );
-  }, [globalMode, query, statusFilter, sortKey, limit, offset]);
+  }, [globalMode, query, statusFilter, startDate, endDate, sortKey, limit, offset]);
 
   const reload = async () => {
     setError(null);
@@ -139,10 +178,39 @@ export default function CrmTasksPage(props: {
 
       const data = await tasksApi.listCrmTasks(
         opportunityId
-          ? { opportunityId, q, sortBy: sort.sortBy, sortDir: sort.sortDir, status: statusParam, limit, offset }
+          ? {
+              opportunityId,
+              q,
+              startDate: startDate || undefined,
+              endDate: endDate || undefined,
+              sortBy: sort.sortBy,
+              sortDir: sort.sortDir,
+              status: statusParam,
+              limit,
+              offset,
+            }
           : accountId
-            ? { accountId, q, sortBy: sort.sortBy, sortDir: sort.sortDir, status: statusParam, limit, offset }
-            : { q, sortBy: sort.sortBy, sortDir: sort.sortDir, status: statusParam, limit, offset },
+            ? {
+                accountId,
+                q,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+                sortBy: sort.sortBy,
+                sortDir: sort.sortDir,
+                status: statusParam,
+                limit,
+                offset,
+              }
+            : {
+                q,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+                sortBy: sort.sortBy,
+                sortDir: sort.sortDir,
+                status: statusParam,
+                limit,
+                offset,
+              },
       );
 
       const nextItems = Array.isArray(data?.items) ? data.items : [];
@@ -157,7 +225,7 @@ export default function CrmTasksPage(props: {
 
   useEffect(() => {
     void reload();
-  }, [opportunityId, accountId, statusFilter, query, sortKey, limit, offset]);
+  }, [opportunityId, accountId, statusFilter, query, startDate, endDate, sortKey, limit, offset]);
 
   useEffect(() => {
     setStatusFilter('all');
@@ -169,7 +237,7 @@ export default function CrmTasksPage(props: {
 
   useEffect(() => {
     setOffset(0);
-  }, [opportunityId, accountId, statusFilter, query, sortKey, limit]);
+  }, [opportunityId, accountId, statusFilter, query, startDate, endDate, sortKey, limit]);
 
   const parseDateMs = (value: string | null | undefined): number | null => {
     const raw = String(value ?? '').trim();
@@ -223,8 +291,7 @@ export default function CrmTasksPage(props: {
 
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const hasNoResults = !loading && !error && total > 0 && rows.length === 0;
-  const canPrev = offset > 0;
-  const canNext = offset + rows.length < total;
+  const pageNumber = Math.floor(offset / limit) + 1;
 
   const openCreate = () => {
     if (globalMode) return;
@@ -313,7 +380,7 @@ export default function CrmTasksPage(props: {
         <div>
           <div className="text-sm font-semibold text-gray-900">{t('crm.tasks.title')}</div>
           {opportunityId && (
-            <div className="mt-2 text-sm text-gray-500">{t('crm.tasks.subtitleForDeal', { dealName: dealName || '' })}</div>
+            <div className="mt-2 text-sm text-gray-500">{t('crm.tasks.subtitleForDeal', { dealName: effectiveDealName || '' })}</div>
           )}
           {!opportunityId && accountId && (
             <div className="mt-2 text-sm text-gray-500">{t('crm.tasks.subtitleForAccount', { accountName: accountName || '' })}</div>
@@ -330,89 +397,107 @@ export default function CrmTasksPage(props: {
         )}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={`${t('common.search')}...`}
-          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+          className="w-full lg:flex-1 border rounded-lg px-3 py-2 border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500"
         />
+
+        <div className="flex w-full gap-2 lg:w-auto">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            placeholder={t('startDate') as string}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            placeholder={t('endDate') as string}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as TaskStatusFilter)}
+          className="w-full lg:w-64 border rounded-lg px-3 py-2 text-sm border-gray-300 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          aria-label={t('crm.tasks.filters.all') as string}
+        >
+          <option value="all">{t('crm.tasks.filters.all')}</option>
+          <option value="open">{t('crm.tasks.filters.open')}</option>
+          <option value="completed">{t('crm.tasks.filters.completed')}</option>
+        </select>
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as TaskSortKey)}
+          className="w-full lg:w-64 border rounded-lg px-3 py-2 text-sm border-gray-300 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          aria-label={t('app.sort.label') as string}
+        >
+          <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
+          <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
+          <option value="createdDesc">{t('app.sort.createdDesc')}</option>
+          <option value="createdAsc">{t('app.sort.createdAsc')}</option>
+          <option value="titleAsc">{t('app.sort.titleAsc')}</option>
+          <option value="titleDesc">{t('app.sort.titleDesc')}</option>
+        </select>
+
+        {globalMode && (
+          <div className="lg:ml-auto flex items-center">
+            <SavedViewsBar
+              listType="crm_tasks"
+              getState={() => ({ query, statusFilter, startDate, endDate, sortKey, pageSize: limit })}
+              applyState={(state) => {
+                if (!state) return;
+                setQuery(state.query ?? '');
+                if (typeof state.statusFilter === 'string') {
+                  const allowed: TaskStatusFilter[] = ['all', 'open', 'completed'];
+                  setStatusFilter((allowed as string[]).includes(state.statusFilter) ? (state.statusFilter as TaskStatusFilter) : 'all');
+                } else {
+                  setStatusFilter('all');
+                }
+                setStartDate(state.startDate ?? '');
+                setEndDate(state.endDate ?? '');
+                if (typeof state.sortKey === 'string') {
+                  const allowed: TaskSortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'titleAsc', 'titleDesc'];
+                  if ((allowed as string[]).includes(state.sortKey)) setSortKey(state.sortKey as TaskSortKey);
+                }
+                if (state.pageSize && [20, 50, 100].includes(state.pageSize)) setLimit(state.pageSize);
+                setOffset(0);
+              }}
+              presets={[
+                {
+                  id: 'this-month',
+                  label: t('presets.thisMonth') as string,
+                  apply: () => {
+                    const d = new Date();
+                    const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+                    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+                    setStartDate(start);
+                    setEndDate(end);
+                    setOffset(0);
+                  },
+                },
+                { id: 'open', label: t('crm.tasks.filters.open') as string, apply: () => setStatusFilter('open') },
+                {
+                  id: 'completed',
+                  label: t('crm.tasks.filters.completed') as string,
+                  apply: () => setStatusFilter('completed'),
+                },
+              ]}
+            />
+          </div>
+        )}
       </div>
 
       {loading && <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>}
       {error && <div className="mt-4 text-sm text-red-600">{error}</div>}
 
-      {!loading && !error && total > 0 && (
-        <div className="mt-4 flex items-center gap-2">
-          <button
-            type="button"
-            disabled={!canPrev}
-            onClick={() => setOffset((v) => Math.max(0, v - limit))}
-            className={
-              canPrev
-                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
-                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
-            }
-          >
-            {t('common.previous')}
-          </button>
-          <button
-            type="button"
-            disabled={!canNext}
-            onClick={() => setOffset((v) => v + limit)}
-            className={
-              canNext
-                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
-                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
-            }
-          >
-            {t('common.next')}
-          </button>
-        </div>
-      )}
 
-      {!loading && !error && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {(
-            [
-              { key: 'all' as const, label: t('crm.tasks.filters.all') },
-              { key: 'open' as const, label: t('crm.tasks.filters.open') },
-              { key: 'completed' as const, label: t('crm.tasks.filters.completed') },
-            ] as const
-          ).map((opt) => {
-            const active = statusFilter === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setStatusFilter(opt.key)}
-                className={
-                  active
-                    ? 'px-3 py-1 rounded-full text-xs bg-blue-600 text-white'
-                    : 'px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as TaskSortKey)}
-            className="border rounded-lg px-3 py-2 text-sm border-gray-300 text-gray-700"
-             aria-label={t('app.sort.label') as string}
-          >
-              <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
-              <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
-              <option value="createdDesc">{t('app.sort.createdDesc')}</option>
-              <option value="createdAsc">{t('app.sort.createdAsc')}</option>
-              <option value="titleAsc">{t('app.sort.titleAsc')}</option>
-              <option value="titleDesc">{t('app.sort.titleDesc')}</option>
-          </select>
-        </div>
-      )}
 
       {!loading && !error && hasNoResults && (
         <div className="mt-6 text-sm text-gray-600">{t('common.noResults')}</div>
@@ -460,6 +545,21 @@ export default function CrmTasksPage(props: {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="mt-6 border-t border-gray-200 pt-4">
+          <Pagination
+            page={pageNumber}
+            pageSize={limit}
+            total={total}
+            onPageChange={(p) => setOffset((p - 1) * limit)}
+            onPageSizeChange={(size) => {
+              setLimit(size);
+              setOffset(0);
+            }}
+          />
         </div>
       )}
 

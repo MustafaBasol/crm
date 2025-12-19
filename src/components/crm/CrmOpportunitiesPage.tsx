@@ -5,6 +5,8 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import * as crmApi from '../../api/crm';
 import { getCustomers, Customer } from '../../api/customers';
 import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSafe';
+import Pagination from '../Pagination';
+import SavedViewsBar from '../SavedViewsBar';
 
 type Props = {
   initialAccountId?: string;
@@ -15,6 +17,8 @@ type StoredPageState = {
   accountId?: string;
   status?: StatusFilter;
   stageId?: string;
+  startDate?: string;
+  endDate?: string;
   sortKey?: string;
   limit?: number;
 };
@@ -76,6 +80,11 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
   });
   const [stageId, setStageId] = useState<string>(() => (typeof restored?.stageId === 'string' ? restored.stageId : ''));
 
+  const [startDate, setStartDate] = useState(() =>
+    typeof restored?.startDate === 'string' ? restored.startDate : '',
+  );
+  const [endDate, setEndDate] = useState(() => (typeof restored?.endDate === 'string' ? restored.endDate : ''));
+
   const [sortKey, setSortKey] = useState<OpportunitySortKey>(() => {
     const v = restored?.sortKey;
     const allowed: OpportunitySortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'nameAsc', 'nameDesc'];
@@ -86,7 +95,8 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
 
   const [limit, setLimit] = useState(() => {
     const v = restored?.limit;
-    return typeof v === 'number' && Number.isFinite(v) ? v : 25;
+    const allowed = [20, 50, 100];
+    return typeof v === 'number' && Number.isFinite(v) && allowed.includes(v) ? v : 20;
   });
   const [offset, setOffset] = useState(0);
 
@@ -151,12 +161,14 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
           accountId,
           status,
           stageId,
+          startDate,
+          endDate,
           sortKey,
           limit,
         } satisfies StoredPageState,
       ),
     );
-  }, [q, accountId, status, stageId, sortKey, limit]);
+  }, [q, accountId, status, stageId, startDate, endDate, sortKey, limit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -192,7 +204,7 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
 
   useEffect(() => {
     setOffset(0);
-  }, [debouncedQ, accountId, status, stageId, sortKey, limit]);
+  }, [debouncedQ, accountId, status, stageId, startDate, endDate, sortKey, limit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,6 +219,8 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
           stageId: stageId || undefined,
           accountId: accountId || undefined,
           status: status === 'all' ? undefined : status,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
           ...(sortKey === 'updatedAsc'
             ? { sortBy: 'updatedAt' as const, sortDir: 'asc' as const }
             : sortKey === 'createdDesc'
@@ -240,14 +254,10 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQ, accountId, stageId, status, sortKey, limit, offset]);
+  }, [debouncedQ, accountId, stageId, status, startDate, endDate, sortKey, limit, offset]);
 
   const total = page.total;
-  const start = total === 0 ? 0 : Math.min(total, page.offset + 1);
-  const end = Math.min(total, page.offset + page.items.length);
-
-  const canPrev = page.offset > 0;
-  const canNext = page.offset + page.items.length < total;
+  const pageNumber = Math.floor(offset / limit) + 1;
 
   const openDeal = (id: string) => {
     try {
@@ -282,94 +292,132 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
-        <div className="md:col-span-2">
-          <label className="block text-xs text-gray-500 mb-1">{t('crm.opportunities.filters.search')}</label>
+      <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center">
+        <label className="sr-only">{t('crm.opportunities.filters.search')}</label>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t('crm.opportunities.searchPlaceholder') as string}
+          className="w-full lg:flex-1 border rounded-lg px-3 py-2 border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500"
+        />
+
+        <div className="flex w-full gap-2 lg:w-auto">
           <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={t('crm.opportunities.searchPlaceholder') as string}
-            className="w-full border rounded-lg px-3 py-2 border-gray-300"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            placeholder={t('startDate') as string}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            placeholder={t('endDate') as string}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
           />
         </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">{t('crm.opportunities.filters.account')}</label>
-          <select
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 border-gray-300"
-          >
-            <option value="">{t('crm.opportunities.filters.allAccounts')}</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">{t('crm.opportunities.filters.status')}</label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            className="w-full border rounded-lg px-3 py-2 border-gray-300"
-          >
-            <option value="all">{statusLabel('all')}</option>
-            <option value="open">{statusLabel('open')}</option>
-            <option value="won">{statusLabel('won')}</option>
-            <option value="lost">{statusLabel('lost')}</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">{t('crm.opportunities.filters.stage')}</label>
-          <select
-            value={stageId}
-            onChange={(e) => setStageId(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 border-gray-300"
-          >
-            <option value="">{t('crm.opportunities.filters.allStages')}</option>
-            {stages.map((s) => (
-              <option key={s.id} value={s.id}>
-                {stageLabel(s)}
-              </option>
-            ))}
-          </select>
-        </div>
 
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">{t('app.sort.label')}</label>
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as OpportunitySortKey)}
-            className="w-full border rounded-lg px-3 py-2 border-gray-300"
-            aria-label={t('app.sort.label') as string}
-          >
-            <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
-            <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
-            <option value="createdDesc">{t('app.sort.createdDesc')}</option>
-            <option value="createdAsc">{t('app.sort.createdAsc')}</option>
-            <option value="nameAsc">{t('app.sort.nameAsc')}</option>
-            <option value="nameDesc">{t('app.sort.nameDesc')}</option>
-          </select>
-        </div>
-      </div>
+        <label className="sr-only">{t('crm.opportunities.filters.account')}</label>
+        <select
+          value={accountId}
+          onChange={(e) => setAccountId(e.target.value)}
+          className="w-full lg:w-56 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          aria-label={t('crm.opportunities.filters.account') as string}
+        >
+          <option value="">{t('crm.opportunities.filters.allAccounts')}</option>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-gray-500">
-          {t('pagination.range', { start, end, total })}
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-gray-500">{t('pagination.itemsPerPage')}</label>
-          <select
-            value={limit}
-            onChange={(e) => setLimit(Number(e.target.value) || 25)}
-            className="border rounded px-2 py-1 text-sm border-gray-300"
-          >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
+        <label className="sr-only">{t('crm.opportunities.filters.status')}</label>
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value as StatusFilter)}
+          className="w-full lg:w-40 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          aria-label={t('crm.opportunities.filters.status') as string}
+        >
+          <option value="all">{statusLabel('all')}</option>
+          <option value="open">{statusLabel('open')}</option>
+          <option value="won">{statusLabel('won')}</option>
+          <option value="lost">{statusLabel('lost')}</option>
+        </select>
+
+        <label className="sr-only">{t('crm.opportunities.filters.stage')}</label>
+        <select
+          value={stageId}
+          onChange={(e) => setStageId(e.target.value)}
+          className="w-full lg:w-56 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          aria-label={t('crm.opportunities.filters.stage') as string}
+        >
+          <option value="">{t('crm.opportunities.filters.allStages')}</option>
+          {stages.map((s) => (
+            <option key={s.id} value={s.id}>
+              {stageLabel(s)}
+            </option>
+          ))}
+        </select>
+
+        <label className="sr-only">{t('app.sort.label')}</label>
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as OpportunitySortKey)}
+          className="w-full lg:w-56 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          aria-label={t('app.sort.label') as string}
+        >
+          <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
+          <option value="updatedAsc">{t('app.sort.updatedAsc')}</option>
+          <option value="createdDesc">{t('app.sort.createdDesc')}</option>
+          <option value="createdAsc">{t('app.sort.createdAsc')}</option>
+          <option value="nameAsc">{t('app.sort.nameAsc')}</option>
+          <option value="nameDesc">{t('app.sort.nameDesc')}</option>
+        </select>
+
+        <div className="lg:ml-auto flex items-center">
+          <SavedViewsBar
+            listType="crm_opportunities"
+            getState={() => ({ q, accountId, status, stageId, startDate, endDate, sortKey, pageSize: limit })}
+            applyState={(state) => {
+              if (!state) return;
+              setQ(state.q ?? '');
+              setStartDate(state.startDate ?? '');
+              setEndDate(state.endDate ?? '');
+              if (!initialAccountId) setAccountId(state.accountId ?? '');
+              if (typeof state.status === 'string') {
+                const allowed: StatusFilter[] = ['all', 'open', 'won', 'lost'];
+                setStatus((allowed as string[]).includes(state.status) ? (state.status as StatusFilter) : 'all');
+              } else {
+                setStatus('all');
+              }
+              setStageId(state.stageId ?? '');
+              if (typeof state.sortKey === 'string') {
+                const allowed: OpportunitySortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'nameAsc', 'nameDesc'];
+                if ((allowed as string[]).includes(state.sortKey)) setSortKey(state.sortKey as OpportunitySortKey);
+              }
+              if (state.pageSize && [20, 50, 100].includes(state.pageSize)) setLimit(state.pageSize);
+              setOffset(0);
+            }}
+            presets={[
+              {
+                id: 'this-month',
+                label: t('presets.thisMonth') as string,
+                apply: () => {
+                  const d = new Date();
+                  const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+                  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+                  setStartDate(start);
+                  setEndDate(end);
+                  setOffset(0);
+                },
+              },
+              { id: 'open', label: statusLabel('open'), apply: () => setStatus('open') },
+              { id: 'won', label: statusLabel('won'), apply: () => setStatus('won') },
+              { id: 'lost', label: statusLabel('lost'), apply: () => setStatus('lost') },
+            ]}
+          />
         </div>
       </div>
 
@@ -381,6 +429,8 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
           Boolean(q.trim()) ||
           Boolean(accountId) ||
           Boolean(stageId) ||
+          Boolean(startDate) ||
+          Boolean(endDate) ||
           status !== 'all';
         return (
           <div className="mt-6 text-sm text-gray-600">
@@ -455,25 +505,21 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
 
-          <div className="mt-4 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              disabled={!canPrev}
-              onClick={() => setOffset((prev) => Math.max(0, prev - limit))}
-              className="px-3 py-2 text-sm border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {t('pagination.previous')}
-            </button>
-            <button
-              type="button"
-              disabled={!canNext}
-              onClick={() => setOffset((prev) => prev + limit)}
-              className="px-3 py-2 text-sm border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {t('pagination.next')}
-            </button>
-          </div>
+      {!loading && !error && (
+        <div className="mt-6 border-t border-gray-200 pt-4">
+          <Pagination
+            page={pageNumber}
+            pageSize={limit}
+            total={total}
+            onPageChange={(p) => setOffset((p - 1) * limit)}
+            onPageSizeChange={(size) => {
+              setLimit(size);
+              setOffset(0);
+            }}
+          />
         </div>
       )}
     </div>

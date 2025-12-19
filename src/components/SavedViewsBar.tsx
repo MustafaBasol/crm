@@ -16,7 +16,7 @@ export default function SavedViewsBar<State = any>({ listType, title, getState, 
   const { t, i18n } = useTranslation('common');
   const { tenant } = useAuth();
   const planRaw = String((tenant as any)?.subscriptionPlan || '').toLowerCase();
-  const canSave = ['business','enterprise'].some(p => planRaw.includes(p));
+  const canSave = ['professional', 'pro', 'business', 'enterprise'].some(p => planRaw.includes(p));
 
   const {
     views,
@@ -51,8 +51,8 @@ export default function SavedViewsBar<State = any>({ listType, title, getState, 
     namePh:     { tr: 'Görünüm adı', en: 'View name', fr: 'Nom de la vue', de: 'Name der Ansicht' },
     save:       { tr: 'Kaydet', en: 'Save', fr: 'Enregistrer', de: 'Speichern' },
     saveTitle:  { tr: 'Mevcut filtreleri adla kaydet', en: 'Save current filters with name', fr: 'Enregistrer les filtres actuels avec un nom', de: 'Aktuelle Filter mit Namen speichern' },
-    planReq:    { tr: 'Bu özellik Business planda', en: 'This feature requires Business plan', fr: 'Fonction disponible avec le plan Business', de: 'Funktion erfordert den Business-Tarif' },
-    planNote:   { tr: 'Görünüm kaydetme Business plan ile aktif.', en: 'Saving views is available on Business plan.', fr: 'L’enregistrement des vues est disponible avec le plan Business.', de: 'Ansichten speichern ist im Business-Tarif verfügbar.' },
+    planReq:    { tr: 'Bu özellik Pro planda', en: 'This feature requires Pro plan', fr: 'Fonction disponible avec le plan Pro', de: 'Funktion erfordert den Pro-Tarif' },
+    planNote:   { tr: 'Görünüm kaydetme Pro plan ile aktif.', en: 'Saving views is available on Pro plan.', fr: 'L’enregistrement des vues est disponible avec le plan Pro.', de: 'Ansichten speichern ist im Pro-Tarif verfügbar.' },
   } as const;
 
   // Close on outside click or Esc

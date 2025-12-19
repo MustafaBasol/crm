@@ -30,6 +30,8 @@ export type CrmPagedResponse<T> = {
 
 export const listCrmLeads = async (options?: {
   q?: string;
+  startDate?: string;
+  endDate?: string;
   sortBy?: 'updatedAt' | 'createdAt' | 'name';
   sortDir?: 'asc' | 'desc';
   limit?: number;
@@ -38,6 +40,8 @@ export const listCrmLeads = async (options?: {
   const res = await apiClient.get<CrmPagedResponse<CrmLead>>('/crm/leads', {
     params: {
       q: options?.q,
+      startDate: options?.startDate,
+      endDate: options?.endDate,
       sortBy: options?.sortBy,
       sortDir: options?.sortDir,
       limit: options?.limit,

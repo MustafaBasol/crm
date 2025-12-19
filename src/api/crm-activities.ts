@@ -30,6 +30,8 @@ export const listCrmActivities = async (options?: {
   accountId?: string;
   contactId?: string;
   q?: string;
+  startDate?: string;
+  endDate?: string;
   sortBy?: 'updatedAt' | 'createdAt' | 'title';
   sortDir?: 'asc' | 'desc';
   status?: 'open' | 'completed';
@@ -42,6 +44,8 @@ export const listCrmActivities = async (options?: {
       ...(options?.accountId ? { accountId: options.accountId } : {}),
       ...(options?.contactId ? { contactId: options.contactId } : {}),
       ...(options?.q ? { q: options.q } : {}),
+      ...(options?.startDate ? { startDate: options.startDate } : {}),
+      ...(options?.endDate ? { endDate: options.endDate } : {}),
       ...(options?.sortBy ? { sortBy: options.sortBy } : {}),
       ...(options?.sortDir ? { sortDir: options.sortDir } : {}),
       ...(options?.status ? { status: options.status } : {}),

@@ -72,6 +72,8 @@ export default function CrmPipelineBoardPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [movingOppId, setMovingOppId] = useState<string | null>(null);
+  const [draggingOppId, setDraggingOppId] = useState<string | null>(null);
+  const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
 
   const [createForm, setCreateForm] = useState<{
     name: string;
@@ -304,6 +306,48 @@ export default function CrmPipelineBoardPage() {
     );
   }
 
+  const moveOpportunityToStage = async (opportunityId: string, nextStageId: string) => {
+    if (!opportunityId || !nextStageId) return;
+    const current = opportunities.find((o) => o.id === opportunityId);
+    if (current?.stageId && current.stageId === nextStageId) return;
+    if (movingOppId) return;
+
+    setError(null);
+    try {
+      setMovingOppId(opportunityId);
+      await crmApi.moveOpportunity(opportunityId, nextStageId);
+      await reloadOpportunities();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setMovingOppId(null);
+    }
+  };
+
+  const serializeDragPayload = (payload: { opportunityId: string; fromStageId: string }) => {
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return '';
+    }
+  };
+
+  const parseDragPayload = (raw: string): { opportunityId: string; fromStageId: string } | null => {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      const opportunityId = String(parsed?.opportunityId ?? '').trim();
+      const fromStageId = String(parsed?.fromStageId ?? '').trim();
+      if (!opportunityId) return null;
+      return { opportunityId, fromStageId };
+    } catch {
+      // allow plain oppId fallback
+      const opportunityId = String(raw).trim();
+      if (!opportunityId) return null;
+      return { opportunityId, fromStageId: '' };
+    }
+  };
+
   if (error) {
     return (
       <div className="p-4">
@@ -485,17 +529,80 @@ export default function CrmPipelineBoardPage() {
         {stages.map((stage: crmApi.CrmStage) => {
           const list = oppByStage.get(stage.id) ?? [];
           return (
-            <div key={stage.id} className="border rounded bg-white">
+            <div
+              key={stage.id}
+              className={
+                dragOverStageId === stage.id
+                  ? 'border rounded bg-white ring-2 ring-blue-200'
+                  : 'border rounded bg-white'
+              }
+            >
               <div className="px-3 py-2 border-b">
                 <div className="text-sm font-medium">{stageLabel(stage)}</div>
                 <div className="text-xs text-gray-500">{t('crm.pipeline.opportunityCount', { count: list.length })}</div>
               </div>
-              <div className="p-2 space-y-2">
+              <div
+                className="p-2 space-y-2"
+                onDragEnter={() => {
+                  setDragOverStageId(stage.id);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverStageId(stage.id);
+                  try {
+                    e.dataTransfer.dropEffect = 'move';
+                  } catch {
+                    // ignore
+                  }
+                }}
+                onDragLeave={() => {
+                  setDragOverStageId((prev) => (prev === stage.id ? null : prev));
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverStageId(null);
+                  const raw =
+                    e.dataTransfer.getData('application/json') ||
+                    e.dataTransfer.getData('text/plain') ||
+                    '';
+                  const payload = parseDragPayload(raw);
+                  if (!payload?.opportunityId) return;
+                  void moveOpportunityToStage(payload.opportunityId, stage.id);
+                }}
+              >
                 {list.map((opp: crmApi.CrmOpportunity) => (
-                  <div key={opp.id} className="border rounded p-2">
+                  <div
+                    key={opp.id}
+                    className={
+                      draggingOppId === opp.id
+                        ? 'border rounded p-2 cursor-grabbing opacity-60'
+                        : movingOppId === opp.id
+                          ? 'border rounded p-2 cursor-not-allowed opacity-60'
+                          : 'border rounded p-2 cursor-grab'
+                    }
+                    draggable={movingOppId !== opp.id}
+                    onDragStart={(e) => {
+                      setDraggingOppId(opp.id);
+                      try {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData(
+                          'application/json',
+                          serializeDragPayload({ opportunityId: opp.id, fromStageId: opp.stageId }),
+                        );
+                        e.dataTransfer.setData('text/plain', opp.id);
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    onDragEnd={() => {
+                      setDragOverStageId(null);
+                      setDraggingOppId(null);
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={() => {
+                        if (draggingOppId === opp.id) return;
                         openDeal(opp.id);
                       }}
                       className="text-sm font-medium truncate text-left w-full text-blue-600 hover:underline"
@@ -522,35 +629,6 @@ export default function CrmPipelineBoardPage() {
                       >
                         {t('sidebar.crmTasks')}
                       </button>
-                    </div>
-
-                    <div className="mt-2">
-                      <label className="block text-[11px] text-gray-500 mb-1">{t('crm.pipeline.fields.stage')}</label>
-                      <select
-                        value={opp.stageId}
-                        disabled={movingOppId === opp.id}
-                        onChange={async (e) => {
-                          const nextStageId = e.target.value;
-                          if (!nextStageId || nextStageId === opp.stageId) return;
-                          setError(null);
-                          try {
-                            setMovingOppId(opp.id);
-                            await crmApi.moveOpportunity(opp.id, nextStageId);
-                            await reloadOpportunities();
-                          } catch (err) {
-                            setError(getErrorMessage(err));
-                          } finally {
-                            setMovingOppId(null);
-                          }
-                        }}
-                        className="w-full border rounded px-2 py-1 text-sm border-gray-300"
-                      >
-                        {stages.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {stageLabel(s)}
-                          </option>
-                        ))}
-                      </select>
                     </div>
                   </div>
                 ))}

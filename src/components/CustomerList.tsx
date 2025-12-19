@@ -252,69 +252,106 @@ export default function CustomerList({
       </div>
 
       <div>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={event => setSearchTerm(event.target.value)}
-            placeholder={t('customers.search')}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-        </div>
-        {/* Filters row */}
-        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:flex-nowrap lg:overflow-x-auto">
+          <div className="relative flex-1 min-w-[260px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={event => setSearchTerm(event.target.value)}
+              placeholder={t('customers.search')}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap lg:shrink-0">
             <label className="text-sm text-gray-700 inline-flex items-center gap-2">
-              <input type="checkbox" className="rounded" checked={hasEmailOnly} onChange={(e)=>setHasEmailOnly(e.target.checked)} />
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={hasEmailOnly}
+                onChange={(e) => setHasEmailOnly(e.target.checked)}
+              />
               {L.emailExists}
             </label>
             <label className="text-sm text-gray-700 inline-flex items-center gap-2">
-              <input type="checkbox" className="rounded" checked={hasPhoneOnly} onChange={(e)=>setHasPhoneOnly(e.target.checked)} />
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={hasPhoneOnly}
+                onChange={(e) => setHasPhoneOnly(e.target.checked)}
+              />
               {L.phoneExists}
             </label>
             <label className="text-sm text-gray-700 inline-flex items-center gap-2">
-              <input type="checkbox" className="rounded" checked={hasCompanyOnly} onChange={(e)=>setHasCompanyOnly(e.target.checked)} />
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={hasCompanyOnly}
+                onChange={(e) => setHasCompanyOnly(e.target.checked)}
+              />
               {L.companyExists}
             </label>
+
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-700">{L.from}</span>
-              <input type="date" lang={toLocale(lang)} value={startDate} onChange={(e)=>setStartDate(e.target.value)} className="px-2 py-1 border border-gray-300 rounded" />
+              <input
+                type="date"
+                lang={toLocale(lang)}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-9 px-2 border border-gray-300 rounded"
+              />
               <span className="text-sm text-gray-700">{L.to}</span>
-              <input type="date" lang={toLocale(lang)} value={endDate} onChange={(e)=>setEndDate(e.target.value)} className="px-2 py-1 border border-gray-300 rounded" />
+              <input
+                type="date"
+                lang={toLocale(lang)}
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-9 px-2 border border-gray-300 rounded"
+              />
               {(startDate || endDate) && (
-                <button onClick={()=>{setStartDate(''); setEndDate('');}} className="px-2 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200">{L.clear}</button>
+                <button
+                  onClick={() => {
+                    setStartDate('');
+                    setEndDate('');
+                  }}
+                  className="h-9 px-2 text-sm bg-gray-100 rounded hover:bg-gray-200"
+                >
+                  {L.clear}
+                </button>
               )}
             </div>
           </div>
-          <div className="flex w-full flex-wrap justify-start gap-2 sm:justify-end">
-          <SavedViewsBar
-            listType="customers"
-            getState={() => ({ searchTerm, hasEmailOnly, hasPhoneOnly, hasCompanyOnly, startDate, endDate, pageSize })}
-            applyState={(s) => {
-              const st: Partial<CustomerListViewState> = s ?? {};
-              setSearchTerm(st.searchTerm ?? '');
-              setHasEmailOnly(Boolean(st.hasEmailOnly));
-              setHasPhoneOnly(Boolean(st.hasPhoneOnly));
-              setHasCompanyOnly(Boolean(st.hasCompanyOnly));
-              setStartDate(st.startDate ?? '');
-              setEndDate(st.endDate ?? '');
-              if (st.pageSize && isValidCustomerPageSize(st.pageSize)) {
-                handlePageSizeChange(st.pageSize);
-              }
-            }}
-            presets={[
-              { id:'with-email', label:t('presets.withEmail'), apply:()=>{ setHasEmailOnly(true); setHasPhoneOnly(false); setHasCompanyOnly(false); }},
-              { id:'with-phone', label:t('presets.withPhone'), apply:()=>{ setHasPhoneOnly(true); setHasEmailOnly(false); setHasCompanyOnly(false); }},
-              { id:'with-company', label:t('presets.withCompany'), apply:()=>{ setHasCompanyOnly(true); setHasEmailOnly(false); setHasPhoneOnly(false); }},
-              { id:'added-this-month', label:t('presets.addedThisMonth'), apply:()=>{
-                const d = new Date();
-                const s = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10);
-                const e = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
-                setStartDate(s); setEndDate(e);
-              }},
-            ]}
-          />
+
+          <div className="flex w-full flex-wrap justify-start gap-2 sm:justify-end lg:ml-auto lg:w-auto lg:shrink-0">
+            <SavedViewsBar
+              listType="customers"
+              getState={() => ({ searchTerm, hasEmailOnly, hasPhoneOnly, hasCompanyOnly, startDate, endDate, pageSize })}
+              applyState={(s) => {
+                const st: Partial<CustomerListViewState> = s ?? {};
+                setSearchTerm(st.searchTerm ?? '');
+                setHasEmailOnly(Boolean(st.hasEmailOnly));
+                setHasPhoneOnly(Boolean(st.hasPhoneOnly));
+                setHasCompanyOnly(Boolean(st.hasCompanyOnly));
+                setStartDate(st.startDate ?? '');
+                setEndDate(st.endDate ?? '');
+                if (st.pageSize && isValidCustomerPageSize(st.pageSize)) {
+                  handlePageSizeChange(st.pageSize);
+                }
+              }}
+              presets={[
+                { id:'with-email', label:t('presets.withEmail'), apply:()=>{ setHasEmailOnly(true); setHasPhoneOnly(false); setHasCompanyOnly(false); }},
+                { id:'with-phone', label:t('presets.withPhone'), apply:()=>{ setHasPhoneOnly(true); setHasEmailOnly(false); setHasCompanyOnly(false); }},
+                { id:'with-company', label:t('presets.withCompany'), apply:()=>{ setHasCompanyOnly(true); setHasEmailOnly(false); setHasPhoneOnly(false); }},
+                { id:'added-this-month', label:t('presets.addedThisMonth'), apply:()=>{
+                  const d = new Date();
+                  const s = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10);
+                  const e = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
+                  setStartDate(s); setEndDate(e);
+                }},
+              ]}
+            />
           </div>
         </div>
       </div>

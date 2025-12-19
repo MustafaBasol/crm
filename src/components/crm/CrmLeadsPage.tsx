@@ -3,9 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '../../utils/errorHandler';
 import * as leadsApi from '../../api/crm-leads';
 import { parseLocalObject, safeSessionStorage } from '../../utils/localStorageSafe';
+import Pagination from '../Pagination';
+import SavedViewsBar from '../SavedViewsBar';
 
 type StoredPageState = {
   query?: string;
+  startDate?: string;
+  endDate?: string;
   sortKey?: string;
   limit?: number;
   offset?: number;
@@ -54,6 +58,10 @@ export default function CrmLeadsPage() {
 
   const restored = useMemo(() => readPageState(), []);
   const [query, setQuery] = useState(() => (typeof restored?.query === 'string' ? restored.query : ''));
+  const [startDate, setStartDate] = useState(() =>
+    typeof restored?.startDate === 'string' ? restored.startDate : '',
+  );
+  const [endDate, setEndDate] = useState(() => (typeof restored?.endDate === 'string' ? restored.endDate : ''));
 
   const [sortKey, setSortKey] = useState<LeadSortKey>(() => {
     const v = restored?.sortKey;
@@ -63,9 +71,10 @@ export default function CrmLeadsPage() {
       : 'updatedDesc';
   });
 
-  const [limit] = useState(() => {
+  const [limit, setLimit] = useState(() => {
     const v = restored?.limit;
-    return typeof v === 'number' && Number.isFinite(v) ? v : 25;
+    const allowed = [20, 50, 100];
+    return typeof v === 'number' && Number.isFinite(v) && allowed.includes(v) ? v : 20;
   });
   const [offset, setOffset] = useState(() => {
     const v = restored?.offset;
@@ -75,9 +84,9 @@ export default function CrmLeadsPage() {
   useEffect(() => {
     safeSessionStorage.setItem(
       PAGE_STATE_KEY,
-      JSON.stringify({ query, sortKey, limit, offset } satisfies StoredPageState),
+      JSON.stringify({ query, startDate, endDate, sortKey, limit, offset } satisfies StoredPageState),
     );
-  }, [query, sortKey, limit, offset]);
+  }, [query, startDate, endDate, sortKey, limit, offset]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -94,6 +103,8 @@ export default function CrmLeadsPage() {
     try {
       const data = await leadsApi.listCrmLeads({
         q: query.trim() ? query.trim() : undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
         ...(sortKey === 'updatedAsc'
           ? { sortBy: 'updatedAt' as const, sortDir: 'asc' as const }
           : sortKey === 'createdDesc'
@@ -120,11 +131,11 @@ export default function CrmLeadsPage() {
 
   useEffect(() => {
     void reload();
-  }, [query, sortKey, limit, offset]);
+  }, [query, startDate, endDate, sortKey, limit, offset]);
 
   useEffect(() => {
     setOffset(0);
-  }, [query, sortKey, limit]);
+  }, [query, startDate, endDate, sortKey, limit]);
 
   const openCreate = () => {
     setModalError(null);
@@ -213,8 +224,7 @@ export default function CrmLeadsPage() {
   const rows = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const hasActiveQuery = Boolean(query.trim());
   const hasNoResults = !loading && !error && total > 0 && rows.length === 0;
-  const canPrev = offset > 0;
-  const canNext = offset + rows.length < total;
+  const pageNumber = Math.floor(offset / limit) + 1;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -232,19 +242,36 @@ export default function CrmLeadsPage() {
         </button>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={`${t('common.search')}...`}
-          className="w-full sm:w-80 border rounded-lg px-3 py-2 border-gray-300 text-sm"
+          className="w-full lg:flex-1 border rounded-lg px-3 py-2 border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500"
         />
+
+        <div className="flex w-full gap-2 lg:w-auto">
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            placeholder={t('startDate') as string}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            placeholder={t('endDate') as string}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          />
+        </div>
 
         <select
           value={sortKey}
           onChange={(e) => setSortKey(e.target.value as LeadSortKey)}
-          className="w-full sm:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+          className="w-full lg:w-64 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
           aria-label={t('app.sort.label') as string}
         >
           <option value="updatedDesc">{t('app.sort.updatedDesc')}</option>
@@ -254,36 +281,64 @@ export default function CrmLeadsPage() {
           <option value="nameAsc">{t('app.sort.nameAsc')}</option>
           <option value="nameDesc">{t('app.sort.nameDesc')}</option>
         </select>
-      </div>
 
-      {!loading && !error && total > 0 && (
-        <div className="mt-4 flex items-center gap-2">
-          <button
-            type="button"
-            disabled={!canPrev}
-            onClick={() => setOffset((v) => Math.max(0, v - limit))}
-            className={
-              canPrev
-                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
-                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
-            }
-          >
-            {t('common.previous')}
-          </button>
-          <button
-            type="button"
-            disabled={!canNext}
-            onClick={() => setOffset((v) => v + limit)}
-            className={
-              canNext
-                ? 'px-3 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-50'
-                : 'px-3 py-2 rounded-lg text-sm border border-gray-200 text-gray-400 cursor-not-allowed'
-            }
-          >
-            {t('common.next')}
-          </button>
+        <div className="lg:ml-auto flex items-center">
+          <SavedViewsBar
+            listType="crm_leads"
+            getState={() => ({ query, startDate, endDate, sortKey, pageSize: limit })}
+            applyState={(state) => {
+              if (!state) return;
+              setQuery(state.query ?? '');
+              setStartDate(state.startDate ?? '');
+              setEndDate(state.endDate ?? '');
+              if (typeof state.sortKey === 'string') {
+                const allowed: LeadSortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'nameAsc', 'nameDesc'];
+                if ((allowed as string[]).includes(state.sortKey)) setSortKey(state.sortKey as LeadSortKey);
+              }
+              if (state.pageSize && [20, 50, 100].includes(state.pageSize)) setLimit(state.pageSize);
+              setOffset(0);
+            }}
+            presets={[
+              {
+                id: 'this-month',
+                label: t('presets.thisMonth') as string,
+                apply: () => {
+                  const d = new Date();
+                  const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+                  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+                  setStartDate(start);
+                  setEndDate(end);
+                  setOffset(0);
+                },
+              },
+              {
+                id: 'last-month',
+                label: t('presets.lastMonth') as string,
+                apply: () => {
+                  const d = new Date();
+                  const start = new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10);
+                  const end = new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10);
+                  setStartDate(start);
+                  setEndDate(end);
+                  setOffset(0);
+                },
+              },
+              {
+                id: 'this-year',
+                label: t('presets.thisYear') as string,
+                apply: () => {
+                  const d = new Date();
+                  const start = new Date(d.getFullYear(), 0, 1).toISOString().slice(0, 10);
+                  const end = new Date(d.getFullYear(), 11, 31).toISOString().slice(0, 10);
+                  setStartDate(start);
+                  setEndDate(end);
+                  setOffset(0);
+                },
+              },
+            ]}
+          />
         </div>
-      )}
+      </div>
 
       {loading && (
         <div className="mt-4 text-sm text-gray-600">{t('common.loading')}</div>
@@ -343,6 +398,21 @@ export default function CrmLeadsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="mt-6 border-t border-gray-200 pt-4">
+          <Pagination
+            page={pageNumber}
+            pageSize={limit}
+            total={total}
+            onPageChange={(p) => setOffset((p - 1) * limit)}
+            onPageSizeChange={(size) => {
+              setLimit(size);
+              setOffset(0);
+            }}
+          />
         </div>
       )}
 

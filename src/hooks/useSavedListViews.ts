@@ -3,7 +3,19 @@ import { useAuth } from '../contexts/AuthContext';
 import { logger } from '../utils/logger';
 import { safeLocalStorage, readTenantScopedArray, writeTenantScopedArray } from '../utils/localStorageSafe';
 
-export type ListType = 'invoices' | 'expenses' | 'sales' | 'customers' | 'products' | 'suppliers' | 'quotes';
+export type ListType =
+  | 'invoices'
+  | 'expenses'
+  | 'sales'
+  | 'customers'
+  | 'products'
+  | 'suppliers'
+  | 'quotes'
+  | 'crm_opportunities'
+  | 'crm_leads'
+  | 'crm_contacts'
+  | 'crm_activities'
+  | 'crm_tasks';
 
 export interface SavedListView<State = unknown> {
   id: string;

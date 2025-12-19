@@ -24,6 +24,8 @@ export type UpdateCrmContactDto = Partial<CreateCrmContactDto>;
 export const listCrmContacts = async (options?: {
   accountId?: string;
   q?: string;
+  startDate?: string;
+  endDate?: string;
   sortBy?: 'updatedAt' | 'createdAt' | 'name';
   sortDir?: 'asc' | 'desc';
   limit?: number;
@@ -35,6 +37,8 @@ export const listCrmContacts = async (options?: {
       params: {
         accountId: options?.accountId,
         q: options?.q,
+        startDate: options?.startDate,
+        endDate: options?.endDate,
         sortBy: options?.sortBy,
         sortDir: options?.sortDir,
         limit: options?.limit,
