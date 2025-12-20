@@ -218,6 +218,40 @@ let crmTasks = [
   },
 ];
 
+// Notifications in-memory store (simple)
+let notifications = [
+  {
+    id: 'notif-1',
+    tenantId: mockTenant.id,
+    userId: mockUser.id,
+    title: 'Task assigned',
+    description: 'Sözleşme taslağı gönder',
+    type: 'info',
+    link: 'crm-tasks',
+    relatedId: 'crm-task:task-1',
+    i18nTitleKey: 'notifications.crm.taskAssigned.title',
+    i18nDescKey: 'notifications.crm.taskAssigned.desc',
+    i18nParams: { taskTitle: 'Sözleşme taslağı gönder' },
+    readAt: null,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'notif-2',
+    tenantId: mockTenant.id,
+    userId: mockUser.id,
+    title: 'Deal stage changed',
+    description: 'Opp Demo',
+    type: 'info',
+    link: 'crm-deal:opp-1',
+    relatedId: 'crm-opportunity:opp-1',
+    i18nTitleKey: 'notifications.crm.opportunityStageChanged.title',
+    i18nDescKey: 'notifications.crm.opportunityStageChanged.desc',
+    i18nParams: { opportunityName: 'Opp Demo', toStageName: 'Qualified' },
+    readAt: null,
+    createdAt: new Date().toISOString(),
+  },
+];
+
 // CRM automation (stage change -> create task)
 let crmAutomationStageTaskRules = [
   {
@@ -450,6 +484,59 @@ const server = createServer((req, res) => {
       stages: crmStages,
       opportunities: crmOpportunities,
     });
+  }
+
+  // Notifications
+  if (path === '/api/notifications' && req.method === 'GET') {
+    const url = new URL(req.url, 'http://localhost');
+    const limitRaw = Number(url.searchParams.get('limit') || 25);
+    const offsetRaw = Number(url.searchParams.get('offset') || 0);
+    const unreadOnly = String(url.searchParams.get('unreadOnly') || '').toLowerCase();
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, Math.floor(limitRaw))) : 25;
+    const offset = Number.isFinite(offsetRaw) ? Math.max(0, Math.floor(offsetRaw)) : 0;
+    const onlyUnread = unreadOnly === '1' || unreadOnly === 'true';
+
+    const scoped = (notifications || []).filter((n) => n && n.userId === mockUser.id);
+    const filtered = onlyUnread ? scoped.filter((n) => !n.readAt) : scoped;
+    const items = filtered.slice(offset, offset + limit);
+
+    return json(res, 200, {
+      items,
+      total: filtered.length,
+      limit,
+      offset,
+    });
+  }
+
+  if (path === '/api/notifications/unread-count' && req.method === 'GET') {
+    const scoped = (notifications || []).filter((n) => n && n.userId === mockUser.id && !n.readAt);
+    return json(res, 200, { unread: scoped.length });
+  }
+
+  if (path === '/api/notifications/read-all' && req.method === 'POST') {
+    const now = new Date().toISOString();
+    let updated = 0;
+    notifications = (notifications || []).map((n) => {
+      if (n && n.userId === mockUser.id && !n.readAt) {
+        updated += 1;
+        return { ...n, readAt: now };
+      }
+      return n;
+    });
+    return json(res, 200, { success: true, updated });
+  }
+
+  const notifReadMatch = path.match(/^\/api\/notifications\/([^/]+)\/read$/);
+  if (notifReadMatch && req.method === 'POST') {
+    const id = decodeURIComponent(notifReadMatch[1] || '');
+    const now = new Date().toISOString();
+    notifications = (notifications || []).map((n) => {
+      if (n && n.id === id && n.userId === mockUser.id && !n.readAt) {
+        return { ...n, readAt: now };
+      }
+      return n;
+    });
+    return json(res, 200, { success: true });
   }
 
   if (path === '/api/crm/search' && req.method === 'GET') {

@@ -1624,6 +1624,16 @@
     "sales": {
       "created": { "title": "New sale recorded", "desc": "{{customerName}} - {{summary}}: {{totalAmount}}" }
     },
+    "crm": {
+      "taskAssigned": {
+        "title": "Task assigned",
+        "desc": "{{taskTitle}}"
+      },
+      "opportunityStageChanged": {
+        "title": "Deal stage changed",
+        "desc": "{{opportunityName}} → {{toStageName}}"
+      }
+    },
     "plan": {
       "limit": {
         "title": "Plan limit warning",

@@ -26,6 +26,16 @@
       "email": "E-mail",
       "phone": "Téléphone",
       "company": "Société",
+    "crm": {
+      "taskAssigned": {
+        "title": "Tâche assignée",
+        "desc": "{{taskTitle}}"
+      },
+      "opportunityStageChanged": {
+        "title": "Étape du deal modifiée",
+        "desc": "{{opportunityName}} → {{toStageName}}"
+      }
+    },
       "account": "Compte",
       "status": "Statut",
       "contact": "Contact",

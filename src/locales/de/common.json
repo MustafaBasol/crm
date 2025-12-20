@@ -39,6 +39,16 @@
         "contacts": "Kontakte",
         "leads": "Leads",
         "tasks": "Aufgaben",
+      "crm": {
+        "taskAssigned": {
+          "title": "Aufgabe zugewiesen",
+          "desc": "{{taskTitle}}"
+        },
+        "opportunityStageChanged": {
+          "title": "Deal-Phase geändert",
+          "desc": "{{opportunityName}} → {{toStageName}}"
+        }
+      },
         "activities": "Aktivitäten"
       }
     },

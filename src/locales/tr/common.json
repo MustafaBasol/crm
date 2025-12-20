@@ -1725,6 +1725,16 @@
     "sales": {
       "created": { "title": "Yeni satış kaydedildi", "desc": "{{customerName}} - {{summary}}: {{totalAmount}}" }
     },
+    "crm": {
+      "taskAssigned": {
+        "title": "Görev atandı",
+        "desc": "{{taskTitle}}"
+      },
+      "opportunityStageChanged": {
+        "title": "Fırsat aşaması değişti",
+        "desc": "{{opportunityName}} → {{toStageName}}"
+      }
+    },
     "plan": {
       "limit": {
         "title": "Plan limiti uyarısı",

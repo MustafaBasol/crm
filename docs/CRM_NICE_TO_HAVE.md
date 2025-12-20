@@ -42,9 +42,9 @@ Hedef: günlük kullanımda daha az sürtünme, daha iyi görünürlük, daha g�
 
 ## 3) Bildirimler & Hatırlatmalar
 
-- In-app bildirim merkezi (CRM odaklı): assigned tasks, mention, stage change.
-- E-posta / push bildirim tercihleri (tenant scoped) ve “quiet hours”.
-- Calendar entegrasyonu (ICS export): task due date veya activity için ICS oluşturma.
+- Durum: Uygulandı (CRM stage change + task assignment için in-app bildirimler)
+- API: `GET /api/notifications`, `GET /api/notifications/unread-count`, `POST /api/notifications/:id/read`, `POST /api/notifications/read-all`
+- Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “Notifications: CRM stage change notification (member)” ve “Notifications: CRM task assignment (member)” adımları
 
 ## 4) Arama Deneyimi
 

@@ -22,6 +22,7 @@ import { Quote } from '../quotes/entities/quote.entity';
 import { Sale } from '../sales/entities/sale.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 import { AuditModule } from '../audit/audit.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AuditModule } from '../audit/audit.module';
       CrmAutomationOverdueTaskRule,
     ]),
     AuditModule,
+    NotificationsModule,
   ],
   controllers: [CrmController],
   providers: [CrmService],

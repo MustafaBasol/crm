@@ -56,6 +56,7 @@ import { Sale } from '../sales/entities/sale.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const DEFAULT_PIPELINE_NAME = 'Default Pipeline';
 type DefaultStageSeed = {
@@ -134,6 +135,8 @@ export class CrmService {
     private readonly invoiceRepo: Repository<Invoice>,
 
     private readonly auditService: AuditService,
+
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private readonly AUTOMATION_SOURCE_STALE_DEAL = 'automation_stale_deal';
@@ -3187,7 +3190,30 @@ export class CrmService {
       updatedByUserId: null,
     });
 
-    return this.taskRepo.save(entity);
+    const saved = await this.taskRepo.save(entity);
+
+    // Notification: assigned task (best-effort)
+    try {
+      const assigneeId = saved.assigneeUserId ? String(saved.assigneeUserId) : '';
+      if (assigneeId && assigneeId !== user.id) {
+        await this.notificationsService.createOne({
+          tenantId,
+          userId: assigneeId,
+          title: 'Task assigned',
+          description: saved.title,
+          type: 'info',
+          link: 'crm-tasks',
+          relatedId: `crm-task:${saved.id}`,
+          i18nTitleKey: 'notifications.crm.taskAssigned.title',
+          i18nDescKey: 'notifications.crm.taskAssigned.desc',
+          i18nParams: { taskTitle: saved.title },
+        });
+      }
+    } catch {
+      // best-effort only
+    }
+
+    return saved;
   }
 
   async updateTask(
@@ -3198,6 +3224,8 @@ export class CrmService {
   ) {
     const task = await this.taskRepo.findOne({ where: { tenantId, id } });
     if (!task) throw new NotFoundException('Task not found');
+
+    const prevAssigneeUserId = task.assigneeUserId;
 
     const canEditUnlinked =
       this.isAdmin(user) || task.createdByUserId === user.id;
@@ -3251,7 +3279,31 @@ export class CrmService {
     }
 
     task.updatedByUserId = user.id;
-    return this.taskRepo.save(task);
+    const saved = await this.taskRepo.save(task);
+
+    // Notification: assignment changed (best-effort)
+    try {
+      const nextAssignee = saved.assigneeUserId ? String(saved.assigneeUserId) : '';
+      const prevAssignee = prevAssigneeUserId ? String(prevAssigneeUserId) : '';
+      if (nextAssignee && nextAssignee !== user.id && nextAssignee !== prevAssignee) {
+        await this.notificationsService.createOne({
+          tenantId,
+          userId: nextAssignee,
+          title: 'Task assigned',
+          description: saved.title,
+          type: 'info',
+          link: 'crm-tasks',
+          relatedId: `crm-task:${saved.id}`,
+          i18nTitleKey: 'notifications.crm.taskAssigned.title',
+          i18nDescKey: 'notifications.crm.taskAssigned.desc',
+          i18nParams: { taskTitle: saved.title },
+        });
+      }
+    } catch {
+      // best-effort only
+    }
+
+    return saved;
   }
 
   async deleteTask(tenantId: string, user: CurrentUser, id: string) {
@@ -3616,10 +3668,35 @@ export class CrmService {
         // best-effort only
       }
     }
-    const teamUserIds = await this.getTeamUserIdsForOpportunity(
-      tenantId,
-      saved.id,
-    );
+
+    const teamUserIds = await this.getTeamUserIdsForOpportunity(tenantId, saved.id);
+
+    // Notification: stage change (best-effort)
+    try {
+      const notifyUserIds = (teamUserIds || []).filter((uid) => uid && uid !== user.id);
+      if (notifyUserIds.length > 0) {
+        await this.notificationsService.createForUsers({
+          tenantId,
+          userIds: notifyUserIds,
+          payload: {
+            title: 'Deal stage changed',
+            description: saved.name,
+            type: 'info',
+            link: `crm-deal:${saved.id}`,
+            relatedId: `crm-opportunity:${saved.id}`,
+            i18nTitleKey: 'notifications.crm.opportunityStageChanged.title',
+            i18nDescKey: 'notifications.crm.opportunityStageChanged.desc',
+            i18nParams: {
+              opportunityName: saved.name,
+              toStageName: stage.name,
+            },
+          },
+        });
+      }
+    } catch {
+      // best-effort only
+    }
+
     return {
       id: saved.id,
       name: saved.name,

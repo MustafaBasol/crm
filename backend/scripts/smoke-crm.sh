@@ -27,7 +27,7 @@ TOKEN_FILE="$TMP_DIR/smoke.token.txt"
 json_get() {
   # Usage: json_get <file> <js-expr>
   # Example: json_get login.json "j.token||j.accessToken"
-  node -e "const j=require(process.argv[1]); const v=(${2}); process.stdout.write(v?String(v):'')" "$1"
+  node -e "const j=require(process.argv[1]); const v=(${2}); if (v===0) process.stdout.write('0'); else if (v) process.stdout.write(String(v)); else process.stdout.write('');" "$1"
 }
 
 http_json() {
@@ -433,6 +433,50 @@ OPP_MOVED_JSON="$TMP_DIR/smoke.crm.opp.moved.json"
 http_json POST "$API_BASE/crm/opportunities/$OPP_ID/move" "$OPP_MOVE_PAYLOAD" "$TOKEN" | tee "$OPP_MOVED_JSON" >/dev/null
 OPP_MOVED_STAGE_ID="$(json_get "$OPP_MOVED_JSON" "j.stageId")"
 [[ "$OPP_MOVED_STAGE_ID" == "$STAGE_1_ID" ]] || fail "Expected moved stageId to be $STAGE_1_ID, got $OPP_MOVED_STAGE_ID: $OPP_MOVED_JSON"
+
+if [[ -n "$MEMBER_TOKEN" ]]; then
+  echo "== Notifications: CRM stage change notification (member) =="
+  MEMBER_NOTIFS_JSON="$TMP_DIR/smoke.notifications.member.list.json"
+  http_json GET "$API_BASE/notifications?limit=50&offset=0" "" "$MEMBER_TOKEN" | tee "$MEMBER_NOTIFS_JSON" >/dev/null
+  MEMBER_HAS_STAGE_NOTIF="$(json_get "$MEMBER_NOTIFS_JSON" "j && Array.isArray(j.items) && j.items.some(n => n && String(n.relatedId||'') === 'crm-opportunity:$OPP_ID')")"
+  [[ "$MEMBER_HAS_STAGE_NOTIF" == "true" ]] || fail "Expected member notifications to include stage change for opportunity $OPP_ID: $MEMBER_NOTIFS_JSON"
+
+  echo "== Notifications: CRM task assignment (member) =="
+  MEMBER_TASK_CREATE="$TMP_DIR/smoke.crm.task.member.create.json"
+  cat > "$MEMBER_TASK_CREATE" <<JSON
+{"opportunityId":"$OPP_ID","title":"Member Assigned Task $TS","dueAt":null,"completed":false,"assigneeUserId":"$MEMBER_USER_ID"}
+JSON
+  MEMBER_TASK_CREATED_JSON="$TMP_DIR/smoke.crm.task.member.created.json"
+  http_json POST "$API_BASE/crm/tasks" "$MEMBER_TASK_CREATE" "$TOKEN" | tee "$MEMBER_TASK_CREATED_JSON" >/dev/null
+  MEMBER_TASK_ID="$(json_get "$MEMBER_TASK_CREATED_JSON" "j.id")"
+  [[ -n "$MEMBER_TASK_ID" ]] || fail "Member task id missing in create response: $MEMBER_TASK_CREATED_JSON"
+
+  MEMBER_NOTIFS2_JSON="$TMP_DIR/smoke.notifications.member.list2.json"
+  http_json GET "$API_BASE/notifications?limit=50&offset=0" "" "$MEMBER_TOKEN" | tee "$MEMBER_NOTIFS2_JSON" >/dev/null
+  MEMBER_HAS_TASK_NOTIF="$(json_get "$MEMBER_NOTIFS2_JSON" "j && Array.isArray(j.items) && j.items.some(n => n && String(n.relatedId||'') === 'crm-task:$MEMBER_TASK_ID')")"
+  [[ "$MEMBER_HAS_TASK_NOTIF" == "true" ]] || fail "Expected member notifications to include task assignment for task $MEMBER_TASK_ID: $MEMBER_NOTIFS2_JSON"
+fi
+
+if [[ -n "$MEMBER_TOKEN" ]]; then
+  echo "== CRM: notifications (member sees stage change + mark all read) =="
+  MEMBER_NOTIFS_JSON="$TMP_DIR/smoke.member.notifications.json"
+  http_json GET "$API_BASE/notifications?limit=50&offset=0" "" "$MEMBER_TOKEN" | tee "$MEMBER_NOTIFS_JSON" >/dev/null
+  MEMBER_HAS_STAGE_NOTIF="$(json_get "$MEMBER_NOTIFS_JSON" "j && Array.isArray(j.items) && j.items.some(n => n && String(n.relatedId||'') === 'crm-opportunity:$OPP_ID')")"
+  [[ "$MEMBER_HAS_STAGE_NOTIF" == "true" ]] || fail "Expected member notifications to include stage change for opportunity ($OPP_ID): $MEMBER_NOTIFS_JSON"
+
+  MEMBER_UNREAD_JSON="$TMP_DIR/smoke.member.notifications.unread.json"
+  http_json GET "$API_BASE/notifications/unread-count" "" "$MEMBER_TOKEN" | tee "$MEMBER_UNREAD_JSON" >/dev/null
+  MEMBER_UNREAD_COUNT="$(json_get "$MEMBER_UNREAD_JSON" "j && typeof j.unread === 'number' ? j.unread : -1")"
+  [[ "$MEMBER_UNREAD_COUNT" -ge 1 ]] || fail "Expected member unread notifications >= 1, got $MEMBER_UNREAD_COUNT: $MEMBER_UNREAD_JSON"
+
+  MEMBER_READ_ALL_JSON="$TMP_DIR/smoke.member.notifications.readall.json"
+  http_json POST "$API_BASE/notifications/read-all" "" "$MEMBER_TOKEN" | tee "$MEMBER_READ_ALL_JSON" >/dev/null
+
+  MEMBER_UNREAD2_JSON="$TMP_DIR/smoke.member.notifications.unread2.json"
+  http_json GET "$API_BASE/notifications/unread-count" "" "$MEMBER_TOKEN" | tee "$MEMBER_UNREAD2_JSON" >/dev/null
+  MEMBER_UNREAD2_COUNT="$(json_get "$MEMBER_UNREAD2_JSON" "j && typeof j.unread === 'number' ? j.unread : -1")"
+  [[ "$MEMBER_UNREAD2_COUNT" == "0" ]] || fail "Expected member unread notifications to become 0 after read-all, got $MEMBER_UNREAD2_COUNT: $MEMBER_UNREAD2_JSON"
+fi
 
 AUTO_TASKS_JSON="$TMP_DIR/smoke.crm.tasks.after.move.json"
 http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$AUTO_TASKS_JSON" >/dev/null

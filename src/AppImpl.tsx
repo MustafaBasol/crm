@@ -36,6 +36,7 @@ import * as invoicesApi from "./api/invoices";
 import * as salesApi from "./api/sales";
 import * as expensesApi from "./api/expenses";
 import * as suppliersApi from "./api/suppliers";
+import * as notificationsApi from "./api/notifications";
 
 // components
 import Header, { HeaderNotification } from "./components/Header";
@@ -858,8 +859,14 @@ const AppContent: React.FC = () => {
     return () => { cancelled = true; };
   }, [isAuthenticated, tenantScopedId, setCurrency]);
   const [notifications, setNotifications] = useState<HeaderNotification[]>(initialNotifications);
+  const [crmNotifications, setCrmNotifications] = useState<HeaderNotification[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const headerNotifications = useMemo(() => {
+    if (!Array.isArray(crmNotifications) || crmNotifications.length === 0) return notifications;
+    return [...crmNotifications, ...notifications];
+  }, [crmNotifications, notifications]);
 
   const navigateTo = React.useCallback((page: string) => {
     setCurrentPage(page);
@@ -930,6 +937,46 @@ const AppContent: React.FC = () => {
   React.useEffect(() => {
     hydrateNotifications();
   }, [hydrateNotifications]);
+
+  const hydrateCrmNotifications = React.useCallback(async () => {
+    try {
+      if (!isAuthenticated) {
+        setCrmNotifications([]);
+        return;
+      }
+      const res = await notificationsApi.listNotifications({ limit: 50, offset: 0 });
+      const items = Array.isArray(res?.items) ? res.items : [];
+
+      const mapped: HeaderNotification[] = items.map((n) => {
+        const createdAtMs = n?.createdAt ? new Date(n.createdAt).getTime() : Date.now();
+        const readAtMs = n?.readAt ? new Date(n.readAt).getTime() : undefined;
+        const isRead = Boolean(n?.readAt);
+        return {
+          id: String(n.id),
+          title: String(n.title || ''),
+          description: String(n.description || ''),
+          time: n?.createdAt ? new Date(n.createdAt).toLocaleString() : '',
+          firstSeenAt: Number.isFinite(createdAtMs) ? createdAtMs : Date.now(),
+          type: (n.type as any) || 'info',
+          read: isRead,
+          readAt: readAtMs,
+          link: n.link || undefined,
+          relatedId: n.relatedId || undefined,
+          i18nTitleKey: n.i18nTitleKey || undefined,
+          i18nDescKey: n.i18nDescKey || undefined,
+          i18nParams: (n.i18nParams as any) || undefined,
+        };
+      });
+
+      setCrmNotifications(mapped);
+    } catch {
+      // best-effort only
+    }
+  }, [isAuthenticated]);
+
+  React.useEffect(() => {
+    void hydrateCrmNotifications();
+  }, [hydrateCrmNotifications]);
 
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
@@ -1759,10 +1806,11 @@ const AppContent: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const unreadNotificationCount = useMemo(
-    () => notifications.filter(notification => !notification.read).length,
-    [notifications]
-  );
+  const unreadNotificationCount = useMemo(() => {
+    const localUnread = notifications.filter((notification) => !notification.read).length;
+    const crmUnread = crmNotifications.filter((notification) => !notification.read).length;
+    return localUnread + crmUnread;
+  }, [notifications, crmNotifications]);
 
   const authUserTwoFactorEnabled = ((authUser as any)?.twoFactorEnabled === true);
   const tenantScopedIdForNotifications = React.useMemo(() => {
@@ -2541,11 +2589,28 @@ const AppContent: React.FC = () => {
         const now = Date.now();
         setNotifications(current =>
           current.map(notification =>
-            notification.read 
-              ? notification 
+            notification.read
+              ? notification
               : { ...notification, read: true, readAt: now }
           )
         );
+        setCrmNotifications(current =>
+          current.map(notification =>
+            notification.read
+              ? notification
+              : { ...notification, read: true, readAt: now }
+          )
+        );
+
+        // Backend'de de hepsini okundu işaretle + listeyi tazele (best-effort)
+        void (async () => {
+          try {
+            await notificationsApi.markAllRead();
+          } catch {}
+          try {
+            await hydrateCrmNotifications();
+          } catch {}
+        })();
       }
       return next;
     });
@@ -2560,6 +2625,21 @@ const AppContent: React.FC = () => {
       link: notification.link,
       persistent: Boolean(notification.persistent),
     });
+
+    const isCrmNotification =
+      (typeof notification.link === 'string' && notification.link.startsWith('crm-')) ||
+      (typeof notification.relatedId === 'string' && notification.relatedId.startsWith('crm-')) ||
+      (typeof notification.relatedId === 'string' && notification.relatedId.startsWith('crm_')) ||
+      (typeof notification.relatedId === 'string' && notification.relatedId.startsWith('crm-task:')) ||
+      (typeof notification.relatedId === 'string' && notification.relatedId.startsWith('crm-opportunity:'));
+
+    if (isCrmNotification && !notification.read) {
+      void (async () => {
+        try {
+          await notificationsApi.markRead(notification.id);
+        } catch {}
+      })();
+    }
     
     // Persistent/repeatDaily bildirimleri için özel işlem
     if (notification.persistent || notification.repeatDaily) {
@@ -2580,6 +2660,14 @@ const AppContent: React.FC = () => {
         current.map(n =>
           n.id === notification.id 
             ? { ...n, read: true, readAt: now } 
+            : n
+        )
+      );
+
+      setCrmNotifications(current =>
+        current.map(n =>
+          n.id === notification.id
+            ? { ...n, read: true, readAt: now }
             : n
         )
       );
@@ -6782,7 +6870,7 @@ const AppContent: React.FC = () => {
             onToggleSidebar={handleToggleSidebar}
             appArea={appArea}
             onAppAreaChange={handleAppAreaChange}
-            notifications={notifications}
+            notifications={headerNotifications}
             unreadCount={unreadNotificationCount}
             isNotificationsOpen={isNotificationsOpen}
             onToggleNotifications={handleToggleNotifications}
