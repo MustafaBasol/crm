@@ -20,6 +20,10 @@ import {
 } from './entities/crm-automation-rule.entity';
 import { CrmAutomationStaleDealRule } from './entities/crm-automation-stale-deal-rule.entity';
 import { CrmAutomationWonChecklistRule } from './entities/crm-automation-won-checklist-rule.entity';
+import {
+  CrmAutomationStageSequenceItem,
+  CrmAutomationStageSequenceRule,
+} from './entities/crm-automation-stage-sequence-rule.entity';
 import { CrmActivity } from './entities/crm-activity.entity';
 import { CrmTask } from './entities/crm-task.entity';
 import { CrmLead } from './entities/crm-lead.entity';
@@ -90,6 +94,9 @@ export class CrmService {
     @InjectRepository(CrmAutomationWonChecklistRule)
     private readonly automationWonChecklistRuleRepo: Repository<CrmAutomationWonChecklistRule>,
 
+    @InjectRepository(CrmAutomationStageSequenceRule)
+    private readonly automationStageSequenceRuleRepo: Repository<CrmAutomationStageSequenceRule>,
+
     @InjectRepository(CrmActivity)
     private readonly activityRepo: Repository<CrmActivity>,
 
@@ -122,6 +129,8 @@ export class CrmService {
 
   private readonly AUTOMATION_SOURCE_STALE_DEAL = 'automation_stale_deal';
   private readonly AUTOMATION_SOURCE_WON_CHECKLIST = 'automation_won_checklist';
+  private readonly AUTOMATION_SOURCE_STAGE_SEQUENCE =
+    'automation_stage_sequence';
 
   private clampProbability(value: unknown): number | null {
     if (value == null) return null;
@@ -243,7 +252,7 @@ export class CrmService {
       .orderBy('h.opportunityId', 'ASC')
       .addOrderBy('h.changedAt', 'ASC');
 
-    const rows: Array<{
+    type StageHistoryRawRow = {
       opportunityid?: string;
       opportunityId?: string;
       fromstageid?: string | null;
@@ -252,22 +261,34 @@ export class CrmService {
       toStageId?: string;
       changedat?: string;
       changedAt?: string;
-    }> = await qb.getRawMany();
+    };
+    const rows = await qb.getRawMany<StageHistoryRawRow>();
 
     // Normalize casing
     const normalized = rows
-      .map((r: any) => ({
-        opportunityId: r.opportunityId ?? r.opportunityid,
-        fromStageId: r.fromStageId ?? r.fromstageid ?? null,
-        toStageId: r.toStageId ?? r.tostageid,
-        changedAt: new Date(r.changedAt ?? r.changedat),
-      }))
-      .filter(
-        (r) =>
-          r.opportunityId &&
-          r.toStageId &&
-          Number.isFinite(r.changedAt.getTime()),
-      );
+      .map((r) => {
+        const opportunityIdRaw = r.opportunityId ?? r.opportunityid;
+        const opportunityId =
+          typeof opportunityIdRaw === 'string' ? opportunityIdRaw : '';
+
+        const fromStageIdRaw = r.fromStageId ?? r.fromstageid;
+        const fromStageId =
+          typeof fromStageIdRaw === 'string' ? fromStageIdRaw : null;
+
+        const toStageIdRaw = r.toStageId ?? r.tostageid;
+        const toStageId = typeof toStageIdRaw === 'string' ? toStageIdRaw : '';
+
+        const changedAtRaw = r.changedAt ?? r.changedat;
+        const changedAt = new Date(
+          typeof changedAtRaw === 'string' || typeof changedAtRaw === 'number'
+            ? changedAtRaw
+            : '',
+        );
+
+        return { opportunityId, fromStageId, toStageId, changedAt };
+      })
+      .filter((r) => Boolean(r.opportunityId) && Boolean(r.toStageId))
+      .filter((r) => Number.isFinite(r.changedAt.getTime()));
 
     const durationsByStage = new Map<
       string,
@@ -381,22 +402,97 @@ export class CrmService {
       >
     >
   > {
-    const items: Array<any> = [];
-    const limit = 200;
-    let offset = 0;
+    const pipeline = await this.pipelineRepo.findOne({
+      where: { tenantId, isDefault: true },
+      select: { id: true },
+    });
+    if (!pipeline) return [];
 
-    for (let i = 0; i < 2000; i += 1) {
-      const page = await this.listOpportunities(tenantId, user, {
-        status: opts.status,
-        startDate: opts.startDate,
-        endDate: opts.endDate,
-        limit,
-        offset,
+    const limit = 500;
+    let offset = 0;
+    const items: Array<
+      Pick<
+        CrmOpportunity,
+        | 'id'
+        | 'stageId'
+        | 'amount'
+        | 'currency'
+        | 'probability'
+        | 'updatedAt'
+        | 'createdAt'
+        | 'status'
+        | 'wonAt'
+        | 'lostAt'
+        | 'expectedCloseDate'
+      >
+    > = [];
+
+    for (let i = 0; i < 4000; i += 1) {
+      const qb = this.oppRepo
+        .createQueryBuilder('o')
+        .where('o.tenantId = :tenantId', { tenantId })
+        .andWhere('o.pipelineId = :pipelineId', { pipelineId: pipeline.id });
+
+      if (opts.status) {
+        qb.andWhere('o.status = :status', { status: opts.status });
+      }
+
+      const dateRange = this.normalizeDateRange(opts.startDate, opts.endDate);
+      this.applyDateRangeToQb(qb, 'o.expectedCloseDate', dateRange, {
+        requireNotNull: true,
       });
-      items.push(...(page.items || []));
-      if (!page.items?.length) break;
-      offset += page.items.length;
-      if (typeof page.total === 'number' && items.length >= page.total) break;
+
+      if (!this.isAdmin(user)) {
+        qb.leftJoin(
+          CrmOpportunityMember,
+          'm',
+          'm.opportunityId = o.id AND m.tenantId = o.tenantId AND m.userId = :userId',
+          { userId: user.id },
+        ).andWhere(
+          new Brackets((inner) => {
+            inner.where('o.ownerUserId = :userId', { userId: user.id });
+            inner.orWhere('m.userId IS NOT NULL');
+          }),
+        );
+      }
+
+      qb.select([
+        'o.id',
+        'o.stageId',
+        'o.amount',
+        'o.currency',
+        'o.probability',
+        'o.updatedAt',
+        'o.createdAt',
+        'o.status',
+        'o.wonAt',
+        'o.lostAt',
+        'o.expectedCloseDate',
+      ])
+        .orderBy('o.id', 'ASC')
+        .skip(offset)
+        .take(limit);
+
+      const page = await qb.getMany();
+      if (!page.length) break;
+      items.push(
+        ...page.map((o) => ({
+          id: o.id,
+          stageId: o.stageId,
+          amount: o.amount,
+          currency: o.currency,
+          probability: o.probability,
+          updatedAt: o.updatedAt,
+          createdAt: o.createdAt,
+          status: o.status,
+          wonAt: o.wonAt,
+          lostAt: o.lostAt,
+          expectedCloseDate: o.expectedCloseDate,
+        })),
+      );
+
+      offset += page.length;
+      if (page.length < limit) break;
     }
 
     return items;
@@ -441,7 +537,7 @@ export class CrmService {
     >();
 
     for (const opp of openOpps) {
-      const stageId = String((opp as any).stageId || '').trim();
+      const stageId = String(opp.stageId || '').trim();
       if (!stageId) continue;
       const row =
         byStageMap.get(stageId) ||
@@ -452,21 +548,26 @@ export class CrmService {
           totalsByCurrency: {},
           avgAgeDays: 0,
           staleCount: 0,
-        } satisfies any);
+        } satisfies {
+          stageId: string;
+          stageName: string;
+          count: number;
+          totalsByCurrency: Record<string, number>;
+          avgAgeDays: number;
+          staleCount: number;
+        });
 
       row.count += 1;
 
       const currency =
-        String((opp as any).currency ?? 'TRY')
+        String(opp.currency ?? 'TRY')
           .trim()
           .toUpperCase() || 'TRY';
-      const amount = Number((opp as any).amount) || 0;
+      const amount = Number(opp.amount) || 0;
       row.totalsByCurrency[currency] =
         (row.totalsByCurrency[currency] || 0) + amount;
 
-      const updatedAt = (opp as any).updatedAt
-        ? new Date((opp as any).updatedAt)
-        : now;
+      const updatedAt = opp.updatedAt instanceof Date ? opp.updatedAt : now;
       const ageDays = this.diffDays(updatedAt, now);
       row.avgAgeDays += ageDays;
 
@@ -491,9 +592,9 @@ export class CrmService {
         return aOrder - bOrder;
       });
 
-    const totalsByCurrency = this.sumAmountsByCurrency(openOpps as any);
-    const staleDealsCount = openOpps.filter((o: any) => {
-      const updatedAt = o?.updatedAt ? new Date(o.updatedAt) : null;
+    const totalsByCurrency = this.sumAmountsByCurrency(openOpps);
+    const staleDealsCount = openOpps.filter((o) => {
+      const updatedAt = o.updatedAt instanceof Date ? o.updatedAt : null;
       if (!updatedAt) return false;
       return updatedAt.getTime() < staleBefore.getTime();
     }).length;
@@ -554,9 +655,11 @@ export class CrmService {
       );
     }
 
-    const closedOpps = await qb
+    const closedOpps = (await qb
       .select(['opp.id', 'opp.status', 'opp.ownerUserId', 'opp.stageId'])
-      .getMany();
+      .getMany()) as Array<
+      Pick<CrmOpportunity, 'id' | 'status' | 'ownerUserId' | 'stageId'>
+    >;
 
     const wonCount = closedOpps.filter(
       (o) => o.status === CrmOpportunityStatus.WON,
@@ -571,7 +674,7 @@ export class CrmService {
     const byStageAgg = new Map<string, { won: number; lost: number }>();
     const closedOppIds: string[] = [];
 
-    for (const opp of closedOpps as any[]) {
+    for (const opp of closedOpps) {
       if (!opp?.id) continue;
       closedOppIds.push(String(opp.id));
 
@@ -604,7 +707,7 @@ export class CrmService {
       });
 
       const oppMembers = new Map<string, Set<string>>();
-      for (const m of members as any[]) {
+      for (const m of members) {
         const oppId = String(m.opportunityId || '').trim();
         const userId = String(m.userId || '').trim();
         if (!oppId || !userId) continue;
@@ -613,7 +716,7 @@ export class CrmService {
         oppMembers.set(oppId, set);
       }
 
-      for (const opp of closedOpps as any[]) {
+      for (const opp of closedOpps) {
         const oppId = String(opp?.id || '').trim();
         if (!oppId) continue;
         const isWon = opp.status === CrmOpportunityStatus.WON;
@@ -835,16 +938,14 @@ export class CrmService {
       Record<string, { raw: number; weighted: number; count: number }>
     > = {};
 
-    for (const opp of items as any[]) {
+    for (const opp of items) {
       const currency =
         String(opp.currency ?? 'TRY')
           .trim()
           .toUpperCase() || 'TRY';
       const amount = Number(opp.amount) || 0;
-      const expectedCloseDate =
-        opp.expectedCloseDate instanceof Date
-          ? opp.expectedCloseDate
-          : new Date(opp.expectedCloseDate);
+      const expectedCloseDate = opp.expectedCloseDate;
+      if (!(expectedCloseDate instanceof Date)) continue;
       if (!Number.isFinite(expectedCloseDate.getTime())) continue;
       const p =
         this.clampProbability(opp.probability) ??
@@ -928,9 +1029,11 @@ export class CrmService {
       taskQb.andWhere('t.createdAt >= :start', { start: range.start });
     if (range.end) taskQb.andWhere('t.createdAt <= :end', { end: range.end });
 
+    type ActivityRawRow = { createdAt: string; userId: string };
+    type TaskRawRow = { createdAt: string; userId: string; completed: boolean };
     const [activityRows, taskRows] = await Promise.all([
-      activityQb.getRawMany(),
-      taskQb.getRawMany(),
+      activityQb.getRawMany<ActivityRawRow>(),
+      taskQb.getRawMany<TaskRawRow>(),
     ]);
 
     const totalsByUser: Record<
@@ -1204,6 +1307,134 @@ export class CrmService {
     return this.automationStageTaskRuleRepo.save(rule);
   }
 
+  async listAutomationStageSequenceRules(tenantId: string, user: CurrentUser) {
+    await this.assertCanManageAutomations(user);
+    const rules = await this.automationStageSequenceRuleRepo.find({
+      where: { tenantId },
+      order: { createdAt: 'DESC' },
+    });
+    return { items: rules };
+  }
+
+  async createAutomationStageSequenceRule(
+    tenantId: string,
+    user: CurrentUser,
+    dto: {
+      enabled?: boolean;
+      fromStageId?: string | null;
+      toStageId: string;
+      items: Array<{ titleTemplate: string; dueInDays: number }>;
+      assigneeTarget?: CrmAutomationAssigneeTarget;
+      assigneeUserId?: string | null;
+    },
+  ) {
+    await this.assertCanManageAutomations(user);
+
+    const enabled = dto.enabled ?? true;
+    const fromStageId = dto.fromStageId ? String(dto.fromStageId) : null;
+    const toStageId = String(dto.toStageId || '').trim();
+    if (!toStageId) throw new BadRequestException('toStageId required');
+
+    const assigneeTarget = dto.assigneeTarget || 'owner';
+    if (assigneeTarget === 'specific' && !dto.assigneeUserId) {
+      throw new BadRequestException('assigneeUserId required for specific');
+    }
+
+    const items: CrmAutomationStageSequenceItem[] = Array.isArray(dto.items)
+      ? dto.items
+          .map((it) => ({
+            titleTemplate: String(it.titleTemplate || '').trim(),
+            dueInDays: this.clampInt(it.dueInDays, 0, 0, 3650),
+          }))
+          .filter((it) => Boolean(it.titleTemplate))
+      : [];
+    if (!items.length) {
+      throw new BadRequestException('items required');
+    }
+
+    const rule = await this.automationStageSequenceRuleRepo.save(
+      this.automationStageSequenceRuleRepo.create({
+        tenantId,
+        enabled,
+        fromStageId,
+        toStageId,
+        items,
+        assigneeTarget,
+        assigneeUserId:
+          assigneeTarget === 'specific' && dto.assigneeUserId
+            ? String(dto.assigneeUserId)
+            : null,
+      }),
+    );
+
+    return rule;
+  }
+
+  async updateAutomationStageSequenceRule(
+    tenantId: string,
+    user: CurrentUser,
+    id: string,
+    dto: {
+      enabled?: boolean;
+      fromStageId?: string | null;
+      toStageId?: string;
+      items?: Array<{ titleTemplate: string; dueInDays: number }>;
+      assigneeTarget?: CrmAutomationAssigneeTarget;
+      assigneeUserId?: string | null;
+    },
+  ) {
+    await this.assertCanManageAutomations(user);
+
+    const rule = await this.automationStageSequenceRuleRepo.findOne({
+      where: { tenantId, id },
+    });
+    if (!rule) throw new NotFoundException('Rule not found');
+
+    if ('enabled' in dto && dto.enabled != null) {
+      rule.enabled = Boolean(dto.enabled);
+    }
+
+    if ('fromStageId' in dto) {
+      rule.fromStageId = dto.fromStageId ? String(dto.fromStageId) : null;
+    }
+
+    if (dto.toStageId != null) {
+      rule.toStageId = String(dto.toStageId || '').trim();
+      if (!rule.toStageId) throw new BadRequestException('toStageId required');
+    }
+
+    if (dto.items != null) {
+      const items: CrmAutomationStageSequenceItem[] = Array.isArray(dto.items)
+        ? dto.items
+            .map((it) => ({
+              titleTemplate: String(it.titleTemplate || '').trim(),
+              dueInDays: this.clampInt(it.dueInDays, 0, 0, 3650),
+            }))
+            .filter((it) => Boolean(it.titleTemplate))
+        : [];
+      if (!items.length) throw new BadRequestException('items required');
+      rule.items = items;
+    }
+
+    if (dto.assigneeTarget != null) {
+      rule.assigneeTarget = dto.assigneeTarget;
+    }
+    if ('assigneeUserId' in dto) {
+      rule.assigneeUserId = dto.assigneeUserId
+        ? String(dto.assigneeUserId)
+        : null;
+    }
+
+    if (rule.assigneeTarget === 'specific' && !rule.assigneeUserId) {
+      throw new BadRequestException('assigneeUserId required for specific');
+    }
+    if (rule.assigneeTarget !== 'specific') {
+      rule.assigneeUserId = null;
+    }
+
+    return this.automationStageSequenceRuleRepo.save(rule);
+  }
+
   async listAutomationWonChecklistRules(tenantId: string, user: CurrentUser) {
     await this.assertCanManageAutomations(user);
     const rules = await this.automationWonChecklistRuleRepo.find({
@@ -1301,7 +1532,7 @@ export class CrmService {
     }
 
     if (dto.assigneeTarget != null) {
-      rule.assigneeTarget = dto.assigneeTarget as any;
+      rule.assigneeTarget = dto.assigneeTarget;
     }
     if ('assigneeUserId' in dto) {
       rule.assigneeUserId = dto.assigneeUserId
@@ -1439,7 +1670,7 @@ export class CrmService {
     }
 
     if (dto.assigneeTarget != null) {
-      rule.assigneeTarget = dto.assigneeTarget as any;
+      rule.assigneeTarget = dto.assigneeTarget;
     }
     if ('assigneeUserId' in dto) {
       rule.assigneeUserId = dto.assigneeUserId
@@ -1587,6 +1818,112 @@ export class CrmService {
       .getOne();
 
     return !existing;
+  }
+
+  private async shouldCreateStageSequenceTasks(
+    tenantId: string,
+    opportunityId: string,
+    rule: CrmAutomationStageSequenceRule,
+  ): Promise<boolean> {
+    const existing = await this.taskRepo
+      .createQueryBuilder('t')
+      .where('t.tenantId = :tenantId', { tenantId })
+      .andWhere('t.opportunityId = :opportunityId', { opportunityId })
+      .andWhere('t.source = :source', {
+        source: this.AUTOMATION_SOURCE_STAGE_SEQUENCE,
+      })
+      .andWhere('t.sourceRuleId = :sourceRuleId', { sourceRuleId: rule.id })
+      .getOne();
+
+    return !existing;
+  }
+
+  private async applyStageSequenceRules(
+    tenantId: string,
+    mover: CurrentUser,
+    ctx: {
+      opportunityId: string;
+      opportunityName: string;
+      accountId: string | null;
+      ownerUserId: string;
+      fromStageId: string;
+      toStageId: string;
+      toStageName: string;
+    },
+  ): Promise<void> {
+    const rules = await this.automationStageSequenceRuleRepo.find({
+      where: { tenantId, enabled: true },
+      order: { createdAt: 'ASC' },
+    });
+    if (!rules.length) return;
+
+    for (const rule of rules) {
+      try {
+        if (String(rule.toStageId) !== String(ctx.toStageId)) continue;
+        if (
+          rule.fromStageId &&
+          String(rule.fromStageId) !== String(ctx.fromStageId)
+        ) {
+          continue;
+        }
+
+        const shouldCreate = await this.shouldCreateStageSequenceTasks(
+          tenantId,
+          ctx.opportunityId,
+          rule,
+        );
+        if (!shouldCreate) continue;
+
+        const assigneeUserId = this.resolveAutomationAssignee(
+          rule as unknown as Pick<
+            CrmAutomationStageTaskRule,
+            'assigneeTarget' | 'assigneeUserId'
+          >,
+          {
+            ownerUserId: ctx.ownerUserId,
+            moverUserId: mover.id,
+          },
+        );
+        if (!assigneeUserId) continue;
+
+        const items = Array.isArray(rule.items) ? rule.items : [];
+        const normalizedItems = items
+          .map((it) => ({
+            titleTemplate: String(it.titleTemplate || '').trim(),
+            dueInDays: this.clampInt(it.dueInDays, 0, 0, 3650),
+          }))
+          .filter((it) => Boolean(it.titleTemplate));
+        if (!normalizedItems.length) continue;
+
+        for (const item of normalizedItems) {
+          const title = this.renderAutomationTitle(item.titleTemplate, {
+            opportunityName: ctx.opportunityName,
+            toStageName: ctx.toStageName,
+          });
+
+          const dueAt =
+            item.dueInDays > 0 ? this.addDaysDateOnly(item.dueInDays) : null;
+
+          await this.taskRepo.save(
+            this.taskRepo.create({
+              tenantId,
+              title,
+              opportunityId: ctx.opportunityId,
+              accountId: ctx.accountId,
+              dueAt,
+              completed: false,
+              assigneeUserId,
+              createdByUserId: mover.id,
+              updatedByUserId: mover.id,
+              source: this.AUTOMATION_SOURCE_STAGE_SEQUENCE,
+              sourceRuleId: rule.id,
+            }),
+          );
+        }
+      } catch {
+        // best-effort only
+      }
+    }
   }
 
   private async applyWonChecklistRules(
@@ -2938,6 +3275,21 @@ export class CrmService {
         ownerUserId: saved.ownerUserId,
         fromStageId,
         toStageId: saved.stageId,
+      });
+    } catch {
+      // best-effort only
+    }
+
+    // Automation: stage change -> create sequence tasks (best-effort)
+    try {
+      await this.applyStageSequenceRules(tenantId, user, {
+        opportunityId: saved.id,
+        opportunityName: saved.name,
+        accountId: saved.accountId,
+        ownerUserId: saved.ownerUserId,
+        fromStageId,
+        toStageId: saved.stageId,
+        toStageName: stage.name,
       });
     } catch {
       // best-effort only

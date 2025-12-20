@@ -235,6 +235,25 @@ let crmAutomationStageTaskRules = [
   },
 ];
 
+// CRM automation (stage change -> create sequence tasks)
+let crmAutomationStageSequenceRules = [
+  {
+    id: 'seq-rule-1',
+    tenantId: mockTenant.id,
+    enabled: false,
+    fromStageId: null,
+    toStageId: 'st-2',
+    items: [
+      { dueInDays: 3, titleTemplate: 'Seq task 1: {{opportunityName}}' },
+      { dueInDays: 7, titleTemplate: 'Seq task 2: {{toStageName}}' },
+    ],
+    assigneeTarget: 'owner',
+    assigneeUserId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
 // CRM automation (stale deal reminder -> create task)
 let crmAutomationStaleDealRules = [
   {
@@ -813,6 +832,125 @@ const server = createServer((req, res) => {
     });
   }
 
+  // CRM Automation - stage sequence rules
+  if (path === '/api/crm/automation/stage-sequence-rules' && req.method === 'GET') {
+    return json(res, 200, { items: Array.isArray(crmAutomationStageSequenceRules) ? crmAutomationStageSequenceRules : [] });
+  }
+
+  if (path === '/api/crm/automation/stage-sequence-rules' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const toStageId = typeof body.toStageId === 'string' ? body.toStageId.trim() : '';
+      if (!toStageId || !ensureStageExists(toStageId)) {
+        return json(res, 400, { message: 'toStageId geçersiz' });
+      }
+
+      const fromStageId = typeof body.fromStageId === 'string' ? body.fromStageId.trim() : null;
+      if (fromStageId && !ensureStageExists(fromStageId)) {
+        return json(res, 400, { message: 'fromStageId geçersiz' });
+      }
+
+      const enabled = typeof body.enabled === 'boolean' ? body.enabled : true;
+
+      const rawItems = Array.isArray(body.items) ? body.items : [];
+      const items = rawItems
+        .map((it) => {
+          const dueInDaysRaw = (typeof it?.dueInDays === 'number' || typeof it?.dueInDays === 'string') ? Number(it.dueInDays) : 0;
+          const dueInDays = Number.isFinite(dueInDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(dueInDaysRaw))) : 0;
+          const titleTemplate = typeof it?.titleTemplate === 'string' ? it.titleTemplate.trim() : '';
+          return { dueInDays, titleTemplate };
+        })
+        .filter((it) => it && typeof it.titleTemplate === 'string' && it.titleTemplate.trim())
+        .slice(0, 50);
+      if (!items.length) {
+        return json(res, 400, { message: 'items zorunlu' });
+      }
+
+      const assigneeTargetRaw = typeof body.assigneeTarget === 'string' ? body.assigneeTarget : 'owner';
+      const assigneeTarget = ['owner', 'mover', 'specific'].includes(assigneeTargetRaw) ? assigneeTargetRaw : 'owner';
+      const assigneeUserId = typeof body.assigneeUserId === 'string' ? body.assigneeUserId : null;
+      if (assigneeTarget === 'specific' && !assigneeUserId) {
+        return json(res, 400, { message: 'assigneeTarget=specific için assigneeUserId zorunlu' });
+      }
+
+      const rule = {
+        id: randomId('seq-rule'),
+        tenantId: mockTenant.id,
+        enabled,
+        fromStageId: fromStageId || null,
+        toStageId,
+        items,
+        assigneeTarget,
+        assigneeUserId: assigneeTarget === 'specific' ? (assigneeUserId || null) : null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      crmAutomationStageSequenceRules = [rule, ...(Array.isArray(crmAutomationStageSequenceRules) ? crmAutomationStageSequenceRules : [])];
+      return json(res, 200, rule);
+    });
+  }
+
+  const crmAutomationSequenceRuleMatch = path.match(/^\/api\/crm\/automation\/stage-sequence-rules\/([^/]+)$/);
+  if (crmAutomationSequenceRuleMatch && req.method === 'PATCH') {
+    const id = crmAutomationSequenceRuleMatch[1];
+    return readJsonBody(req).then((body) => {
+      const list = Array.isArray(crmAutomationStageSequenceRules) ? crmAutomationStageSequenceRules : [];
+      const idx = list.findIndex((r) => r.id === id);
+      if (idx < 0) return json(res, 404, { message: 'Rule bulunamadı' });
+
+      const next = { ...list[idx] };
+      if (typeof body.enabled === 'boolean') next.enabled = body.enabled;
+
+      if (typeof body.toStageId === 'string') {
+        const v = body.toStageId.trim();
+        if (!v || !ensureStageExists(v)) return json(res, 400, { message: 'toStageId geçersiz' });
+        next.toStageId = v;
+      }
+
+      if (typeof body.fromStageId === 'string') {
+        const v = body.fromStageId.trim();
+        if (!v || !ensureStageExists(v)) return json(res, 400, { message: 'fromStageId geçersiz' });
+        next.fromStageId = v;
+      }
+      if (body.fromStageId === null) next.fromStageId = null;
+
+      if (body.items != null) {
+        const rawItems = Array.isArray(body.items) ? body.items : [];
+        const items = rawItems
+          .map((it) => {
+            const dueInDaysRaw = (typeof it?.dueInDays === 'number' || typeof it?.dueInDays === 'string') ? Number(it.dueInDays) : 0;
+            const dueInDays = Number.isFinite(dueInDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(dueInDaysRaw))) : 0;
+            const titleTemplate = typeof it?.titleTemplate === 'string' ? it.titleTemplate.trim() : '';
+            return { dueInDays, titleTemplate };
+          })
+          .filter((it) => it && typeof it.titleTemplate === 'string' && it.titleTemplate.trim())
+          .slice(0, 50);
+        if (!items.length) return json(res, 400, { message: 'items zorunlu' });
+        next.items = items;
+      }
+
+      if (typeof body.assigneeTarget === 'string') {
+        const v = body.assigneeTarget;
+        if (!['owner', 'mover', 'specific'].includes(v)) return json(res, 400, { message: 'assigneeTarget geçersiz' });
+        next.assigneeTarget = v;
+      }
+
+      if ('assigneeUserId' in body) {
+        if (typeof body.assigneeUserId === 'string') next.assigneeUserId = body.assigneeUserId;
+        if (body.assigneeUserId === null) next.assigneeUserId = null;
+      }
+
+      if (next.assigneeTarget === 'specific' && !next.assigneeUserId) {
+        return json(res, 400, { message: 'assigneeTarget=specific için assigneeUserId zorunlu' });
+      }
+      if (next.assigneeTarget !== 'specific') next.assigneeUserId = null;
+
+      next.updatedAt = new Date().toISOString();
+      crmAutomationStageSequenceRules[idx] = next;
+      return json(res, 200, next);
+    });
+  }
+
   // CRM Automation - stale deal rules
   if (path === '/api/crm/automation/stale-deal-rules' && req.method === 'GET') {
     const rules = Array.isArray(crmAutomationStaleDealRules) ? crmAutomationStaleDealRules : [];
@@ -1170,6 +1308,77 @@ const server = createServer((req, res) => {
             updatedAt: new Date().toISOString(),
           };
           crmTasks = [task, ...(Array.isArray(crmTasks) ? crmTasks : [])];
+        }
+      } catch {
+        // ignore
+      }
+
+      // Best-effort automation: stage sequence
+      try {
+        const rules = Array.isArray(crmAutomationStageSequenceRules) ? crmAutomationStageSequenceRules : [];
+        const toStageName = toStage?.name || stageId;
+
+        const matches = rules.filter((r) => {
+          if (!r || r.enabled !== true) return false;
+          if (String(r.toStageId) !== String(stageId)) return false;
+          if (r.fromStageId == null) return true;
+          return String(r.fromStageId) === String(prevStageId);
+        });
+
+        for (const rule of matches) {
+          const already = (Array.isArray(crmTasks) ? crmTasks : []).some((t) => {
+            if (!t) return false;
+            if (String(t.opportunityId || '') !== String(updated.id)) return false;
+            if (String(t.source || '') !== 'automation_stage_sequence') return false;
+            if (String(t.sourceRuleId || '') !== String(rule.id)) return false;
+            return true;
+          });
+          if (already) continue;
+
+          const assigneeUserId = rule.assigneeTarget === 'owner'
+            ? (updated.ownerUserId || null)
+            : (rule.assigneeTarget === 'mover'
+              ? mockUser.id
+              : (rule.assigneeTarget === 'specific' ? (rule.assigneeUserId || null) : null));
+          if (!assigneeUserId) continue;
+
+          const rawItems = Array.isArray(rule.items) ? rule.items : [];
+          const items = rawItems
+            .map((it) => {
+              const dueInDaysRaw = (typeof it?.dueInDays === 'number' || typeof it?.dueInDays === 'string') ? Number(it.dueInDays) : 0;
+              const dueInDays = Number.isFinite(dueInDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(dueInDaysRaw))) : 0;
+              const titleTemplate = typeof it?.titleTemplate === 'string' ? it.titleTemplate.trim() : '';
+              return { dueInDays, titleTemplate };
+            })
+            .filter((it) => it && typeof it.titleTemplate === 'string' && it.titleTemplate.trim());
+          if (!items.length) continue;
+
+          for (const item of items) {
+            const title = String(item.titleTemplate)
+              .replaceAll('{{opportunityName}}', String(updated.name || ''))
+              .replaceAll('{{toStageName}}', String(toStageName))
+              .slice(0, 220);
+
+            const dueAt = item.dueInDays > 0
+              ? new Date(Date.now() + Number(item.dueInDays) * 24 * 60 * 60 * 1000).toISOString()
+              : null;
+
+            const task = {
+              id: randomId('task'),
+              title,
+              opportunityId: updated.id,
+              accountId: updated.accountId || null,
+              dueAt,
+              completed: false,
+              assigneeUserId,
+              createdByUserId: mockUser.id,
+              source: 'automation_stage_sequence',
+              sourceRuleId: rule.id,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            crmTasks = [task, ...(Array.isArray(crmTasks) ? crmTasks : [])];
+          }
         }
       } catch {
         // ignore

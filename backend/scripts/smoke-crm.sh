@@ -449,6 +449,38 @@ http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$ST
 STALE_TASK_COUNT="$(json_get "$STALE_TASKS2_JSON" "Array.isArray(j.items) ? j.items.filter(t => t && typeof t.title === 'string' && t.title.startsWith('Stale task:')).length : 0")"
 [[ "$STALE_TASK_COUNT" == "1" ]] || fail "Expected stale-deal automation cooldown to prevent duplicates (count=1), got $STALE_TASK_COUNT: $STALE_TASKS2_JSON"
 
+echo "== CRM: automation (stage sequence creates multiple tasks) =="
+SEQ_RULE_CREATE="$TMP_DIR/smoke.crm.seq.rule.create.json"
+cat > "$SEQ_RULE_CREATE" <<JSON
+{"enabled":true,"fromStageId":"$STAGE_1_ID","toStageId":"$STAGE_2_ID","items":[{"titleTemplate":"Seq 1: {{opportunityName}} -> {{toStageName}}","dueInDays":0},{"titleTemplate":"Seq 2: Follow-up for {{opportunityName}}","dueInDays":5}],"assigneeTarget":"owner"}
+JSON
+SEQ_RULE_CREATED_JSON="$TMP_DIR/smoke.crm.seq.rule.created.json"
+http_json POST "$API_BASE/crm/automation/stage-sequence-rules" "$SEQ_RULE_CREATE" "$TOKEN" | tee "$SEQ_RULE_CREATED_JSON" >/dev/null
+SEQ_RULE_ID="$(json_get "$SEQ_RULE_CREATED_JSON" "j.id")"
+[[ -n "$SEQ_RULE_ID" ]] || fail "Stage-sequence automation rule id missing in create response: $SEQ_RULE_CREATED_JSON"
+
+SEQ_TASKS_BEFORE_JSON="$TMP_DIR/smoke.crm.tasks.before.seq.move.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$SEQ_TASKS_BEFORE_JSON" >/dev/null
+SEQ_TASKS_BEFORE_COUNT="$(json_get "$SEQ_TASKS_BEFORE_JSON" "Array.isArray(j.items) ? j.items.length : 0")"
+
+OPP_MOVE_SEQ_PAYLOAD="$TMP_DIR/smoke.crm.opp.move.seq.json"
+cat > "$OPP_MOVE_SEQ_PAYLOAD" <<JSON
+{"stageId":"$STAGE_2_ID"}
+JSON
+OPP_MOVED_SEQ_JSON="$TMP_DIR/smoke.crm.opp.moved.seq.json"
+http_json POST "$API_BASE/crm/opportunities/$OPP_ID/move" "$OPP_MOVE_SEQ_PAYLOAD" "$TOKEN" | tee "$OPP_MOVED_SEQ_JSON" >/dev/null
+
+SEQ_TASKS_AFTER_JSON="$TMP_DIR/smoke.crm.tasks.after.seq.move.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$SEQ_TASKS_AFTER_JSON" >/dev/null
+SEQ_TASKS_AFTER_COUNT="$(json_get "$SEQ_TASKS_AFTER_JSON" "Array.isArray(j.items) ? j.items.length : 0")"
+DELTA_SEQ_TASKS="$((SEQ_TASKS_AFTER_COUNT - SEQ_TASKS_BEFORE_COUNT))"
+[[ "$DELTA_SEQ_TASKS" == "2" ]] || fail "Expected stage-sequence automation to create 2 tasks (delta=2), got delta=$DELTA_SEQ_TASKS. before=$SEQ_TASKS_BEFORE_COUNT after=$SEQ_TASKS_AFTER_COUNT: $SEQ_TASKS_AFTER_JSON"
+
+SEQ_TASK_1_FOUND="$(json_get "$SEQ_TASKS_AFTER_JSON" "Array.isArray(j.items) && j.items.some(t => t && typeof t.title === 'string' && t.title.startsWith('Seq 1:'))")"
+SEQ_TASK_2_FOUND="$(json_get "$SEQ_TASKS_AFTER_JSON" "Array.isArray(j.items) && j.items.some(t => t && typeof t.title === 'string' && t.title.startsWith('Seq 2:'))")"
+[[ "$SEQ_TASK_1_FOUND" == "true" ]] || fail "Expected sequence task #1 to be created: $SEQ_TASKS_AFTER_JSON"
+[[ "$SEQ_TASK_2_FOUND" == "true" ]] || fail "Expected sequence task #2 to be created: $SEQ_TASKS_AFTER_JSON"
+
 echo "== CRM: automation (won checklist creates tasks) =="
 WON_STAGE_ID="$(json_get "$STAGES_JSON" "Array.isArray(j) ? (j.find(s => s && s.isClosedWon)?.id || '') : ''")"
 [[ -n "$WON_STAGE_ID" ]] || fail "Won stage id not found in stages list: $STAGES_JSON"

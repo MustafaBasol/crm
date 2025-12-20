@@ -6,6 +6,7 @@ import * as crmApi from '../../api/crm';
 import {
   crmAutomationsApi,
   type CrmAutomationAssigneeTarget,
+  type CrmAutomationStageSequenceRule,
   type CrmAutomationStageTaskRule,
   type CrmAutomationStaleDealRule,
   type CrmAutomationWonChecklistRule,
@@ -40,6 +41,7 @@ export default function CrmAutomationsSettingsTab() {
       },
       sections: {
         stage: { title: 'Stage → Otomatik Görev', new: 'Yeni kural' },
+        sequence: { title: 'Stage → Sıralı Görev Akışı', new: 'Yeni kural' },
         stale: { title: 'Stale Deal → Hatırlatma Görevi', new: 'Yeni kural' },
         won: { title: 'Won → Follow-up Checklist', new: 'Yeni kural' },
       },
@@ -49,6 +51,7 @@ export default function CrmAutomationsSettingsTab() {
         toStage: 'Hedef stage',
         any: 'Hepsi',
         titleTemplate: 'Görev başlığı şablonu',
+        sequenceItems: 'Sequence adımları (satır: gün|başlık)',
         dueInDays: 'Vade (gün)',
         staleDays: 'Stale (gün)',
         stageFilter: 'Stage filtresi',
@@ -70,6 +73,7 @@ export default function CrmAutomationsSettingsTab() {
       },
       hints: {
         stageTemplate: 'Örn: Auto task: {{toStageName}}',
+        sequenceItems: 'Örn:\n3|Ara ({{opportunityName}})\n7|E-posta gönder ({{toStageName}})',
         staleTemplate: 'Örn: Stale task: {{opportunityName}}',
         wonItems: 'Örn:\nMüşteriye teşekkür e-postası gönder\nOnboarding toplantısı planla',
       },
@@ -86,6 +90,7 @@ export default function CrmAutomationsSettingsTab() {
       },
       sections: {
         stage: { title: 'Stage → Create Task', new: 'New rule' },
+        sequence: { title: 'Stage → Sequence', new: 'New rule' },
         stale: { title: 'Stale Deal → Reminder Task', new: 'New rule' },
         won: { title: 'WON → Follow-up Checklist', new: 'New rule' },
       },
@@ -95,6 +100,7 @@ export default function CrmAutomationsSettingsTab() {
         toStage: 'To stage',
         any: 'Any',
         titleTemplate: 'Task title template',
+        sequenceItems: 'Sequence steps (line: days|title)',
         dueInDays: 'Due in days',
         staleDays: 'Stale days',
         stageFilter: 'Stage filter',
@@ -116,6 +122,7 @@ export default function CrmAutomationsSettingsTab() {
       },
       hints: {
         stageTemplate: 'e.g. Auto task: {{toStageName}}',
+        sequenceItems: 'e.g.\n3|Call ({{opportunityName}})\n7|Send email ({{toStageName}})',
         staleTemplate: 'e.g. Stale task: {{opportunityName}}',
         wonItems: 'e.g.\nSend thank-you email\nSchedule onboarding call',
       },
@@ -132,6 +139,7 @@ export default function CrmAutomationsSettingsTab() {
       },
       sections: {
         stage: { title: 'Étape → Créer une tâche', new: 'Nouvelle règle' },
+        sequence: { title: 'Étape → Séquence', new: 'Nouvelle règle' },
         stale: { title: 'Deal inactif → Tâche de rappel', new: 'Nouvelle règle' },
         won: { title: 'Gagné → Checklist de suivi', new: 'Nouvelle règle' },
       },
@@ -141,6 +149,7 @@ export default function CrmAutomationsSettingsTab() {
         toStage: 'Étape cible',
         any: 'Tous',
         titleTemplate: 'Modèle de titre de tâche',
+        sequenceItems: 'Étapes de séquence (ligne : jours|titre)',
         dueInDays: 'Échéance (jours)',
         staleDays: 'Inactivité (jours)',
         stageFilter: 'Filtre d’étape',
@@ -162,6 +171,7 @@ export default function CrmAutomationsSettingsTab() {
       },
       hints: {
         stageTemplate: 'ex. Tâche auto : {{toStageName}}',
+        sequenceItems: 'ex.\n3|Appeler ({{opportunityName}})\n7|Envoyer un e-mail ({{toStageName}})',
         staleTemplate: 'ex. Tâche inactive : {{opportunityName}}',
         wonItems: 'ex.\nEnvoyer un e-mail de remerciement\nPlanifier un appel d’onboarding',
       },
@@ -178,6 +188,7 @@ export default function CrmAutomationsSettingsTab() {
       },
       sections: {
         stage: { title: 'Phase → Aufgabe erstellen', new: 'Neue Regel' },
+        sequence: { title: 'Phase → Sequenz', new: 'Neue Regel' },
         stale: { title: 'Stale Deal → Erinnerungsaufgabe', new: 'Neue Regel' },
         won: { title: 'Gewonnen → Follow-up-Checkliste', new: 'Neue Regel' },
       },
@@ -187,6 +198,7 @@ export default function CrmAutomationsSettingsTab() {
         toStage: 'Zu Phase',
         any: 'Alle',
         titleTemplate: 'Aufgabentitel-Vorlage',
+        sequenceItems: 'Sequenz-Schritte (Zeile: Tage|Titel)',
         dueInDays: 'Fällig in Tagen',
         staleDays: 'Stale Tage',
         stageFilter: 'Phasenfilter',
@@ -208,6 +220,7 @@ export default function CrmAutomationsSettingsTab() {
       },
       hints: {
         stageTemplate: 'z.B. Auto-Aufgabe: {{toStageName}}',
+        sequenceItems: 'z.B.\n3|Anrufen ({{opportunityName}})\n7|E-Mail senden ({{toStageName}})',
         staleTemplate: 'z.B. Stale-Aufgabe: {{opportunityName}}',
         wonItems: 'z.B.\nDankes-E-Mail senden\nOnboarding-Call planen',
       },
@@ -240,6 +253,7 @@ export default function CrmAutomationsSettingsTab() {
   }, [members]);
 
   const [stageRules, setStageRules] = useState<CrmAutomationStageTaskRule[]>([]);
+  const [sequenceRules, setSequenceRules] = useState<CrmAutomationStageSequenceRule[]>([]);
   const [staleRules, setStaleRules] = useState<CrmAutomationStaleDealRule[]>([]);
   const [wonRules, setWonRules] = useState<CrmAutomationWonChecklistRule[]>([]);
 
@@ -250,6 +264,16 @@ export default function CrmAutomationsSettingsTab() {
     toStageId: '' as string,
     titleTemplate: 'Auto task: {{toStageName}}',
     dueInDays: 3,
+    assigneeTarget: 'owner' as CrmAutomationAssigneeTarget,
+    assigneeUserId: '' as string,
+  });
+
+  const [editingSequenceRuleId, setEditingSequenceRuleId] = useState<string | null>(null);
+  const [sequenceForm, setSequenceForm] = useState({
+    enabled: true,
+    fromStageId: '' as string,
+    toStageId: '' as string,
+    itemsText: '' as string,
     assigneeTarget: 'owner' as CrmAutomationAssigneeTarget,
     assigneeUserId: '' as string,
   });
@@ -302,6 +326,18 @@ export default function CrmAutomationsSettingsTab() {
     });
   };
 
+  const resetSequenceForm = () => {
+    setEditingSequenceRuleId(null);
+    setSequenceForm({
+      enabled: true,
+      fromStageId: '',
+      toStageId: stageOptions[0]?.id || '',
+      itemsText: '',
+      assigneeTarget: 'owner',
+      assigneeUserId: '',
+    });
+  };
+
   const resetWonForm = () => {
     setEditingWonRuleId(null);
     setWonForm({
@@ -317,15 +353,17 @@ export default function CrmAutomationsSettingsTab() {
     setLoading(true);
     setError(null);
     try {
-      const [stagesRes, stageRulesRes, staleRulesRes, wonRulesRes] = await Promise.all([
+      const [stagesRes, stageRulesRes, sequenceRulesRes, staleRulesRes, wonRulesRes] = await Promise.all([
         crmApi.getStages(),
         crmAutomationsApi.listStageTaskRules(),
+        crmAutomationsApi.listStageSequenceRules(),
         crmAutomationsApi.listStaleDealRules(),
         crmAutomationsApi.listWonChecklistRules(),
       ]);
 
       setStages(Array.isArray(stagesRes) ? stagesRes : []);
       setStageRules(Array.isArray(stageRulesRes?.items) ? stageRulesRes.items : []);
+      setSequenceRules(Array.isArray(sequenceRulesRes?.items) ? sequenceRulesRes.items : []);
       setStaleRules(Array.isArray(staleRulesRes?.items) ? staleRulesRes.items : []);
       setWonRules(Array.isArray(wonRulesRes?.items) ? wonRulesRes.items : []);
 
@@ -354,6 +392,7 @@ export default function CrmAutomationsSettingsTab() {
     // stage list geldikten sonra defaults
     if (stageOptions.length > 0) {
       setStageForm((prev) => (prev.toStageId ? prev : { ...prev, toStageId: stageOptions[0]?.id || '' }));
+      setSequenceForm((prev) => (prev.toStageId ? prev : { ...prev, toStageId: stageOptions[0]?.id || '' }));
     }
   }, [stageOptions.length]);
 
@@ -365,6 +404,50 @@ export default function CrmAutomationsSettingsTab() {
       toStageId: rule.toStageId || '',
       titleTemplate: rule.titleTemplate || '',
       dueInDays: clampInt(rule.dueInDays, 0, 0, 3650),
+      assigneeTarget: normalizeTarget(rule.assigneeTarget),
+      assigneeUserId: rule.assigneeUserId || '',
+    });
+  };
+
+  const parseSequenceItemsText = (textValue: string): Array<{ titleTemplate: string; dueInDays: number }> => {
+    const lines = String(textValue || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    return lines
+      .map((line) => {
+        const m = line.match(/^\s*(\d+)\s*\|\s*(.+)$/);
+        if (m) {
+          return {
+            dueInDays: clampInt(m[1], 0, 0, 3650),
+            titleTemplate: String(m[2] || '').trim(),
+          };
+        }
+        return { dueInDays: 0, titleTemplate: line };
+      })
+      .filter((it) => Boolean(String(it.titleTemplate || '').trim()));
+  };
+
+  const startEditSequenceRule = (rule: CrmAutomationStageSequenceRule) => {
+    setEditingSequenceRuleId(rule.id);
+    const itemsText = Array.isArray(rule.items)
+      ? rule.items
+          .map((it) => {
+            const dueInDays = clampInt((it as any)?.dueInDays, 0, 0, 3650);
+            const titleTemplate = String((it as any)?.titleTemplate || '').trim();
+            if (!titleTemplate) return '';
+            return `${dueInDays}|${titleTemplate}`;
+          })
+          .filter(Boolean)
+          .join('\n')
+      : '';
+
+    setSequenceForm({
+      enabled: !!rule.enabled,
+      fromStageId: rule.fromStageId || '',
+      toStageId: rule.toStageId || '',
+      itemsText,
       assigneeTarget: normalizeTarget(rule.assigneeTarget),
       assigneeUserId: rule.assigneeUserId || '',
     });
@@ -435,6 +518,48 @@ export default function CrmAutomationsSettingsTab() {
       }
       await loadAll();
       resetStageForm();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
+
+  const saveSequenceRule = async () => {
+    setError(null);
+
+    const toStageId = String(sequenceForm.toStageId || '').trim();
+    const assigneeTarget = normalizeTarget(sequenceForm.assigneeTarget);
+    const items = parseSequenceItemsText(sequenceForm.itemsText);
+
+    if (!toStageId) {
+      setError(text.validation.requiredField(text.fields.toStage));
+      return;
+    }
+    if (!items.length) {
+      setError(text.validation.requiredField(text.fields.sequenceItems));
+      return;
+    }
+    if (assigneeTarget === 'specific' && !sequenceForm.assigneeUserId) {
+      setError(text.validation.requiredField(text.fields.assigneeUserId));
+      return;
+    }
+
+    const payload = {
+      enabled: !!sequenceForm.enabled,
+      fromStageId: sequenceForm.fromStageId ? String(sequenceForm.fromStageId) : null,
+      toStageId,
+      items,
+      assigneeTarget,
+      assigneeUserId: assigneeTarget === 'specific' ? String(sequenceForm.assigneeUserId) : null,
+    };
+
+    try {
+      if (editingSequenceRuleId) {
+        await crmAutomationsApi.updateStageSequenceRule(editingSequenceRuleId, payload);
+      } else {
+        await crmAutomationsApi.createStageSequenceRule(payload);
+      }
+      await loadAll();
+      resetSequenceForm();
     } catch (e) {
       setError(getErrorMessage(e));
     }
@@ -521,6 +646,15 @@ export default function CrmAutomationsSettingsTab() {
   const toggleStageRuleEnabled = async (rule: CrmAutomationStageTaskRule) => {
     try {
       await crmAutomationsApi.updateStageTaskRule(rule.id, { enabled: !rule.enabled });
+      await loadAll();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
+
+  const toggleSequenceRuleEnabled = async (rule: CrmAutomationStageSequenceRule) => {
+    try {
+      await crmAutomationsApi.updateStageSequenceRule(rule.id, { enabled: !rule.enabled });
       await loadAll();
     } catch (e) {
       setError(getErrorMessage(e));
@@ -744,6 +878,170 @@ export default function CrmAutomationsSettingsTab() {
                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
               >
                 {editingStageRuleId ? text.actions.save : text.actions.create}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Stage sequence rules */}
+      <div className="border rounded-xl bg-white p-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="text-sm font-semibold text-gray-900">{text.sections.sequence.title}</div>
+          <button
+            type="button"
+            onClick={() => {
+              if (editingSequenceRuleId) return;
+              resetSequenceForm();
+              setEditingSequenceRuleId('');
+            }}
+            className="border rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50"
+          >
+            {text.sections.sequence.new}
+          </button>
+        </div>
+
+        {sequenceRules.length === 0 ? (
+          <div className="text-sm text-gray-500">—</div>
+        ) : (
+          <div className="space-y-2">
+            {sequenceRules.map((r) => (
+              <div key={r.id} className="border border-gray-200 rounded-lg p-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-gray-900 truncate">
+                    {text.fields.toStage}: {stageNameById.get(r.toStageId) || r.toStageId}
+                    {r.fromStageId ? ` (${text.fields.fromStage}: ${stageNameById.get(r.fromStageId) || r.fromStageId})` : ''}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1 break-words">
+                    <div>
+                      {text.fields.sequenceItems}: {Array.isArray(r.items) ? r.items.length : 0}
+                    </div>
+                    <div>
+                      {text.fields.assigneeTarget}: {(text.targets as any)[r.assigneeTarget] || r.assigneeTarget}
+                      {r.assigneeTarget === 'specific' && r.assigneeUserId ? ` (${r.assigneeUserId})` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={!!r.enabled}
+                      onChange={() => void toggleSequenceRuleEnabled(r)}
+                    />
+                    {text.fields.enabled}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => startEditSequenceRule(r)}
+                    className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  >
+                    {text.actions.edit}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(editingSequenceRuleId !== null) && (
+          <div className="mt-4 border-t border-gray-200 pt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={!!sequenceForm.enabled}
+                  onChange={(e) => setSequenceForm((p) => ({ ...p, enabled: e.target.checked }))}
+                />
+                {text.fields.enabled}
+              </label>
+
+              <div />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.fromStage}</label>
+                <select
+                  value={sequenceForm.fromStageId}
+                  onChange={(e) => setSequenceForm((p) => ({ ...p, fromStageId: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                >
+                  <option value="">{text.fields.any}</option>
+                  {stageOptions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.toStage}</label>
+                <select
+                  value={sequenceForm.toStageId}
+                  onChange={(e) => setSequenceForm((p) => ({ ...p, toStageId: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                >
+                  <option value="">—</option>
+                  {stageOptions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.sequenceItems}</label>
+                <textarea
+                  value={sequenceForm.itemsText}
+                  onChange={(e) => setSequenceForm((p) => ({ ...p, itemsText: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white min-h-[120px]"
+                  placeholder={text.hints.sequenceItems}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.assigneeTarget}</label>
+                <select
+                  value={sequenceForm.assigneeTarget}
+                  onChange={(e) => setSequenceForm((p) => ({ ...p, assigneeTarget: normalizeTarget(e.target.value) }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                >
+                  <option value="owner">{text.targets.owner}</option>
+                  <option value="mover">{text.targets.mover}</option>
+                  <option value="specific">{text.targets.specific}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.assigneeUserId}</label>
+                <select
+                  value={sequenceForm.assigneeUserId}
+                  onChange={(e) => setSequenceForm((p) => ({ ...p, assigneeUserId: e.target.value }))}
+                  disabled={sequenceForm.assigneeTarget !== 'specific'}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white disabled:bg-gray-50"
+                >
+                  <option value="">—</option>
+                  {memberOptions.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  resetSequenceForm();
+                  setEditingSequenceRuleId(null);
+                }}
+                className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                {text.actions.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveSequenceRule()}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
+              >
+                {editingSequenceRuleId ? text.actions.save : text.actions.create}
               </button>
             </div>
           </div>

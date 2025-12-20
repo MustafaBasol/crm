@@ -30,6 +30,8 @@ import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { CreateAutomationStageTaskRuleDto } from './dto/create-automation-stage-task-rule.dto';
 import { UpdateAutomationStageTaskRuleDto } from './dto/update-automation-stage-task-rule.dto';
+import { CreateAutomationStageSequenceRuleDto } from './dto/create-automation-stage-sequence-rule.dto';
+import { UpdateAutomationStageSequenceRuleDto } from './dto/update-automation-stage-sequence-rule.dto';
 import { CreateAutomationStaleDealRuleDto } from './dto/create-automation-stale-deal-rule.dto';
 import { UpdateAutomationStaleDealRuleDto } from './dto/update-automation-stale-deal-rule.dto';
 import { CreateAutomationWonChecklistRuleDto } from './dto/create-automation-won-checklist-rule.dto';
@@ -45,6 +47,44 @@ const serializeCsvValue = (value: CsvPrimitive): string => {
     return '"' + serialized.replace(/"/g, '""') + '"';
   }
   return serialized;
+};
+
+type PipelineHealthByStageRow = {
+  stageId: string;
+  stageName: string;
+  count: number;
+  totalsByCurrency: Record<string, number>;
+  avgAgeDays: number;
+  staleCount: number;
+};
+
+type PipelineHealthReport = {
+  staleDays: number;
+  byStage: PipelineHealthByStageRow[];
+};
+
+type ForecastWeekRow = {
+  week: string;
+  totalsByCurrency: Record<
+    string,
+    { raw: number; weighted: number; count: number }
+  >;
+};
+
+type ForecastReport = {
+  byWeek: ForecastWeekRow[];
+};
+
+type ActivitySeriesRow = {
+  bucketStart: string;
+  activities: number;
+  tasksCreated: number;
+  tasksCompleted: number;
+};
+
+type ActivityReport = {
+  bucket: 'day' | 'week';
+  series: ActivitySeriesRow[];
 };
 
 @ApiTags('crm')
@@ -129,13 +169,13 @@ export class CrmController {
     @Res() res: Response,
     @Query('staleDays') staleDays?: string,
   ) {
-    const report = await this.crmService.getPipelineHealthReport(
+    const report = (await this.crmService.getPipelineHealthReport(
       user.tenantId,
       user,
       {
         staleDays: staleDays ? Number(staleDays) : undefined,
       },
-    );
+    )) as unknown as PipelineHealthReport;
 
     await this.crmService.logReportExport(user.tenantId, user, {
       report: 'pipeline-health',
@@ -149,17 +189,19 @@ export class CrmController {
       'Stale Count',
       'Totals By Currency (JSON)',
     ];
-    const rows = (report.byStage || []).map((row: any) => {
-      return [
-        row.stageName,
-        row.count,
-        row.avgAgeDays,
-        row.staleCount,
-        JSON.stringify(row.totalsByCurrency || {}),
-      ]
-        .map(serializeCsvValue)
-        .join(',');
-    });
+    const rows = (Array.isArray(report.byStage) ? report.byStage : []).map(
+      (row) => {
+        return [
+          row.stageName,
+          row.count,
+          row.avgAgeDays,
+          row.staleCount,
+          JSON.stringify(row.totalsByCurrency || {}),
+        ]
+          .map(serializeCsvValue)
+          .join(',');
+      },
+    );
 
     const csv = '\uFEFF' + [headersRow.join(','), ...rows].join('\n');
     const filename = `crm_pipeline_health_${user.tenantId}.csv`;
@@ -275,14 +317,14 @@ export class CrmController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const report = await this.crmService.getForecastReport(
+    const report = (await this.crmService.getForecastReport(
       user.tenantId,
       user,
       {
         startDate,
         endDate,
       },
-    );
+    )) as unknown as ForecastReport;
 
     await this.crmService.logReportExport(user.tenantId, user, {
       report: 'forecast',
@@ -292,13 +334,13 @@ export class CrmController {
     const headersRow = ['Week', 'Currency', 'Raw', 'Weighted', 'Count'];
     const rows: string[] = [];
 
-    for (const w of report.byWeek || []) {
-      const week = String((w as any).week || '');
-      const totals = (w as any).totalsByCurrency || {};
+    for (const w of Array.isArray(report.byWeek) ? report.byWeek : []) {
+      const week = String(w.week || '');
+      const totals = w.totalsByCurrency || {};
       for (const [ccy, v] of Object.entries(totals)) {
-        const raw = Number((v as any).raw) || 0;
-        const weighted = Number((v as any).weighted) || 0;
-        const count = Number((v as any).count) || 0;
+        const raw = Number(v?.raw) || 0;
+        const weighted = Number(v?.weighted) || 0;
+        const count = Number(v?.count) || 0;
         rows.push(
           [week, ccy, raw, weighted, count].map(serializeCsvValue).join(','),
         );
@@ -322,7 +364,7 @@ export class CrmController {
     @Query('endDate') endDate?: string,
     @Query('bucket') bucket?: 'day' | 'week',
   ) {
-    const report = await this.crmService.getActivityReport(
+    const report = (await this.crmService.getActivityReport(
       user.tenantId,
       user,
       {
@@ -330,7 +372,7 @@ export class CrmController {
         endDate,
         bucket,
       },
-    );
+    )) as unknown as ActivityReport;
 
     await this.crmService.logReportExport(user.tenantId, user, {
       report: 'activity',
@@ -343,11 +385,13 @@ export class CrmController {
       'TasksCreated',
       'TasksCompleted',
     ];
-    const rows = (report.series || []).map((r: any) => {
-      return [r.bucketStart, r.activities, r.tasksCreated, r.tasksCompleted]
-        .map(serializeCsvValue)
-        .join(',');
-    });
+    const rows = (Array.isArray(report.series) ? report.series : []).map(
+      (r) => {
+        return [r.bucketStart, r.activities, r.tasksCreated, r.tasksCompleted]
+          .map(serializeCsvValue)
+          .join(',');
+      },
+    );
 
     const csv = '\uFEFF' + [headersRow.join(','), ...rows].join('\n');
     const filename = `crm_activity_${user.tenantId}.csv`;
@@ -500,6 +544,49 @@ export class CrmController {
     @Body() dto: UpdateAutomationStageTaskRuleDto,
   ) {
     return this.crmService.updateAutomationStageTaskRule(
+      user.tenantId,
+      user,
+      id,
+      dto,
+    );
+  }
+
+  @Get('automation/stage-sequence-rules')
+  @ApiOperation({
+    summary: 'List automation rules: stage change -> create sequence tasks',
+  })
+  async listAutomationStageSequenceRules(@User() user: CurrentUser) {
+    return this.crmService.listAutomationStageSequenceRules(
+      user.tenantId,
+      user,
+    );
+  }
+
+  @Post('automation/stage-sequence-rules')
+  @ApiOperation({
+    summary: 'Create automation rule: stage change -> create sequence tasks',
+  })
+  async createAutomationStageSequenceRule(
+    @User() user: CurrentUser,
+    @Body() dto: CreateAutomationStageSequenceRuleDto,
+  ) {
+    return this.crmService.createAutomationStageSequenceRule(
+      user.tenantId,
+      user,
+      dto,
+    );
+  }
+
+  @Patch('automation/stage-sequence-rules/:id')
+  @ApiOperation({
+    summary: 'Update automation rule: stage change -> create sequence tasks',
+  })
+  async updateAutomationStageSequenceRule(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateAutomationStageSequenceRuleDto,
+  ) {
+    return this.crmService.updateAutomationStageSequenceRule(
       user.tenantId,
       user,
       id,
