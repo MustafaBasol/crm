@@ -68,7 +68,7 @@ export default function Sidebar({
         { icon: Receipt, label: t('sidebar.crmActivities'), page: 'crm-activities' },
         { icon: CheckSquare, label: t('sidebar.crmTasks'), page: 'crm-tasks' },
         { icon: FileText, label: t('sidebar.quotes'), page: 'quotes' },
-        { icon: PieChart, label: t('sidebar.reports'), page: 'reports' },
+        { icon: PieChart, label: t('sidebar.crmReports'), page: 'crm-reports' },
       ];
     }
 

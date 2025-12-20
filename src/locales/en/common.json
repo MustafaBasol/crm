@@ -41,6 +41,80 @@
     "dashboard": {
       "subtitle": "An overview of the pipeline and activity."
     },
+    "reports": {
+      "title": "CRM Reports",
+      "subtitle": "Pipeline health and funnel metrics.",
+      "refresh": "Refresh",
+      "exportCsv": "Download CSV",
+      "pipelineHealth": {
+        "title": "Pipeline Health",
+        "staleDays": "Stale (days)",
+        "openDeals": "Open deals",
+        "staleDeals": "Stale deals",
+        "totalsByCurrency": "Totals by currency",
+        "stage": "Stage",
+        "count": "Count",
+        "avgAgeDays": "Avg age (days)",
+        "staleCount": "Stale count",
+        "amount": "Amount",
+        "closed": "Closed (Won+Lost)",
+        "winRate": "Win rate",
+        "winRateByStage": "Win rate by stage",
+        "winRateByOwner": "Win rate by owner",
+        "winRateByTeam": "Win rate by team",
+        "owner": "Owner",
+        "teamMember": "Team member",
+        "ownerNote": "Note: Owner/team lists are shown by userId.",
+        "teamNote": "Note: Team win-rate attributes deals to all team members.",
+        "note": "Note: Stage age is approximated using the last update time."
+      },
+      "funnel": {
+        "title": "Funnel",
+        "start": "Start",
+        "end": "End",
+        "leads": "Leads",
+        "contacts": "Contacts",
+        "opportunities": "Opportunities",
+        "winRate": "Win rate",
+        "metric": "Metric",
+        "value": "Value",
+        "contactPerLead": "Contact / Lead",
+        "opportunityPerContact": "Opportunity / Contact",
+        "closed": "Closed (Won+Lost)",
+        "stageTransitions": {
+          "title": "Stage Transition Durations",
+          "avgDaysInStage": "Avg days in stage",
+          "transitions": "Transitions",
+          "from": "From",
+          "to": "To",
+          "count": "Count",
+          "avgDays": "Avg days"
+        },
+        "note": "Note: Funnel metrics are currently count-based."
+      },
+      "forecast": {
+        "title": "Forecast (Weighted)",
+        "rawTotal": "Total (raw)",
+        "weightedTotal": "Total (weighted)",
+        "week": "Week",
+        "currency": "Currency",
+        "raw": "Raw",
+        "weighted": "Weighted",
+        "count": "Count",
+        "note": "Note: Weighted totals are computed using opportunity probability (opportunity.probability if set; otherwise derived from stage)."
+      },
+      "activity": {
+        "title": "Activity Metrics",
+        "bucket": "Bucket",
+        "day": "Daily",
+        "week": "Weekly",
+        "bucketStart": "Date",
+        "activities": "Activities",
+        "tasksCreated": "Tasks created",
+        "tasksCompleted": "Tasks completed",
+        "note": "Note: For non-admin users, metrics are scoped to the user."
+      }
+    },
     "pipeline": {
       "title": "Pipeline",
       "defaultName": "Default Pipeline",
@@ -731,6 +805,7 @@
     "crmContacts": "Contacts",
     "crmActivities": "Activities",
     "crmTasks": "Tasks",
+    "crmReports": "CRM Reports",
     "quotes": "Quotes",
     "reports": "Reports",
     "accounting": "Accounting",

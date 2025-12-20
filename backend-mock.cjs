@@ -363,6 +363,265 @@ const server = createServer((req, res) => {
       opportunities: crmOpportunities,
     });
   }
+
+  // CRM Reports (mock)
+  if (path === '/api/crm/reports/pipeline-health' && req.method === 'GET') {
+    const url = new URL(req.url, 'http://localhost');
+    const staleDaysRaw = url.searchParams.get('staleDays');
+    const staleDays = Math.max(1, Math.min(3650, Math.floor(Number(staleDaysRaw || 30) || 30)));
+    const now = Date.now();
+    const staleBefore = now - staleDays * 24 * 60 * 60 * 1000;
+
+    const stageNameById = new Map((crmStages || []).map((s) => [s.id, s.name]));
+    const byStageMap = new Map();
+    const totalsByCurrency = {};
+
+    for (const opp of crmOpportunities || []) {
+      if (String(opp.status || 'open') !== 'open') continue;
+      const stageId = String(opp.stageId || '').trim();
+      const stageName = stageNameById.get(stageId) || stageId;
+      const updatedAt = opp.updatedAt ? new Date(opp.updatedAt).getTime() : now;
+      const currency = String(opp.currency || 'TRY').toUpperCase();
+      const amount = Number(opp.amount) || 0;
+      totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + amount;
+
+      const row = byStageMap.get(stageId) || {
+        stageId,
+        stageName,
+        count: 0,
+        totalsByCurrency: {},
+        avgAgeDays: 0,
+        staleCount: 0,
+      };
+      row.count += 1;
+      row.totalsByCurrency[currency] = (row.totalsByCurrency[currency] || 0) + amount;
+      row.avgAgeDays += (now - updatedAt) / (1000 * 60 * 60 * 24);
+      if (updatedAt < staleBefore) row.staleCount += 1;
+      byStageMap.set(stageId, row);
+    }
+
+    const byStage = Array.from(byStageMap.values()).map((r) => ({
+      ...r,
+      avgAgeDays: r.count > 0 ? Math.round((r.avgAgeDays / r.count) * 10) / 10 : 0,
+    }));
+
+    const staleDealsCount = (crmOpportunities || []).filter((o) => {
+      if (String(o.status || 'open') !== 'open') return false;
+      const updatedAt = o.updatedAt ? new Date(o.updatedAt).getTime() : now;
+      return updatedAt < staleBefore;
+    }).length;
+
+    return json(res, 200, {
+      staleDays,
+      openCount: (crmOpportunities || []).filter((o) => String(o.status || 'open') === 'open').length,
+      totalsByCurrency,
+      byStage,
+      staleDealsCount,
+      winRate: null,
+      winRateBreakdown: { byOwner: [], byTeamMember: [], byStage: [] },
+      winRateRange: { start: null, end: null },
+    });
+  }
+
+  if (path === '/api/crm/reports/funnel' && req.method === 'GET') {
+    const url = new URL(req.url, 'http://localhost');
+    const startDate = url.searchParams.get('startDate');
+    const endDate = url.searchParams.get('endDate');
+    const stageTransitions = {
+      range: { start: startDate || null, end: endDate || null },
+      avgDaysInStage: [],
+      transitions: [],
+    };
+
+    const won = (crmOpportunities || []).filter((o) => String(o.status || 'open') === 'won').length;
+    const lost = (crmOpportunities || []).filter((o) => String(o.status || 'open') === 'lost').length;
+    const opportunities = (crmOpportunities || []).length;
+    const closed = won + lost;
+
+    return json(res, 200, {
+      range: { start: null, end: null },
+      counts: { leads: (crmLeads || []).length, contacts: (crmContacts || []).length, opportunities, won, lost },
+      rates: { contactPerLead: null, opportunityPerContact: null, winRate: closed > 0 ? won / closed : null },
+      stageTransitions,
+    });
+  }
+
+  if (path === '/api/crm/reports/forecast' && req.method === 'GET') {
+    const url = new URL(req.url, 'http://localhost');
+    const startDate = url.searchParams.get('startDate');
+    const endDate = url.searchParams.get('endDate');
+    const now = new Date();
+
+    const parseDate = (v) => {
+      if (!v) return null;
+      const d = new Date(String(v));
+      return Number.isFinite(d.getTime()) ? d : null;
+    };
+
+    const rangeStart = parseDate(startDate) || now;
+    const rangeEnd = parseDate(endDate) || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const startOfDay = (date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    const startOfWeekMonday = (date) => {
+      const d = startOfDay(date);
+      const day = d.getDay();
+      const diff = (day === 0 ? -6 : 1 - day);
+      d.setDate(d.getDate() + diff);
+      return d;
+    };
+    const bucketKey = (date, bucket) => {
+      const base = bucket === 'week' ? startOfWeekMonday(date) : startOfDay(date);
+      return base.toISOString().slice(0, 10);
+    };
+
+    const openStages = (crmStages || []).filter((s) => !s.isClosedWon && !s.isClosedLost).sort((a, b) => (a.order || 0) - (b.order || 0));
+    const stageProb = new Map();
+    if (openStages.length > 0) {
+      const n = openStages.length;
+      for (let i = 0; i < n; i += 1) stageProb.set(openStages[i].id, (i + 1) / (n + 1));
+    }
+
+    const totalsByCurrency = {};
+    const byBucket = {};
+
+    for (const opp of crmOpportunities || []) {
+      if (String(opp.status || 'open') !== 'open') continue;
+      if (!opp.expectedCloseDate) continue;
+      const expectedCloseDate = new Date(opp.expectedCloseDate);
+      if (!Number.isFinite(expectedCloseDate.getTime())) continue;
+      if (expectedCloseDate < rangeStart || expectedCloseDate > rangeEnd) continue;
+
+      const currency = String(opp.currency || 'TRY').trim().toUpperCase() || 'TRY';
+      const amount = Number(opp.amount) || 0;
+      const probRaw = typeof opp.probability === 'number' ? opp.probability : null;
+      const stageBased = stageProb.get(String(opp.stageId || ''));
+      const prob = (probRaw != null && Number.isFinite(probRaw)) ? Math.max(0, Math.min(1, probRaw)) : (stageBased != null ? stageBased : 0);
+      const weighted = amount * prob;
+
+      totalsByCurrency[currency] = totalsByCurrency[currency] || { raw: 0, weighted: 0, count: 0 };
+      totalsByCurrency[currency].raw += amount;
+      totalsByCurrency[currency].weighted += weighted;
+      totalsByCurrency[currency].count += 1;
+
+      const bucket = bucketKey(expectedCloseDate, 'week');
+      byBucket[bucket] = byBucket[bucket] || {};
+      byBucket[bucket][currency] = byBucket[bucket][currency] || { raw: 0, weighted: 0, count: 0 };
+      byBucket[bucket][currency].raw += amount;
+      byBucket[bucket][currency].weighted += weighted;
+      byBucket[bucket][currency].count += 1;
+    }
+
+    const bucketKeys = Object.keys(byBucket).sort();
+    return json(res, 200, {
+      range: { start: rangeStart.toISOString(), end: rangeEnd.toISOString() },
+      totalsByCurrency,
+      byWeek: bucketKeys.map((week) => ({ week, totalsByCurrency: byBucket[week] })),
+    });
+  }
+
+  if (path === '/api/crm/reports/activity' && req.method === 'GET') {
+    const url = new URL(req.url, 'http://localhost');
+    const startDate = url.searchParams.get('startDate');
+    const endDate = url.searchParams.get('endDate');
+    const bucket = url.searchParams.get('bucket') === 'day' ? 'day' : 'week';
+    const now = new Date();
+    const parseDate = (v) => {
+      if (!v) return null;
+      const d = new Date(String(v));
+      return Number.isFinite(d.getTime()) ? d : null;
+    };
+    const rangeStart = parseDate(startDate) || new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const rangeEnd = parseDate(endDate) || now;
+
+    const startOfDay = (date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    const startOfWeekMonday = (date) => {
+      const d = startOfDay(date);
+      const day = d.getDay();
+      const diff = (day === 0 ? -6 : 1 - day);
+      d.setDate(d.getDate() + diff);
+      return d;
+    };
+    const bucketKey = (date, bucketName) => {
+      const base = bucketName === 'week' ? startOfWeekMonday(date) : startOfDay(date);
+      return base.toISOString().slice(0, 10);
+    };
+
+    const totalsByUser = {};
+    const series = {};
+
+    for (const a of (crmActivities || [])) {
+      const createdAt = new Date(a.createdAt || a.updatedAt || now.toISOString());
+      if (!Number.isFinite(createdAt.getTime())) continue;
+      if (createdAt < rangeStart || createdAt > rangeEnd) continue;
+      const userId = String(a.createdByUserId || mockUser.id);
+
+      totalsByUser[userId] = totalsByUser[userId] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      totalsByUser[userId].activities += 1;
+
+      const k = bucketKey(createdAt, bucket);
+      series[k] = series[k] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      series[k].activities += 1;
+    }
+
+    for (const t of (crmTasks || [])) {
+      const createdAt = new Date(t.createdAt || t.updatedAt || now.toISOString());
+      if (!Number.isFinite(createdAt.getTime())) continue;
+      if (createdAt < rangeStart || createdAt > rangeEnd) continue;
+      const userId = String(t.createdByUserId || t.assigneeUserId || mockUser.id);
+      const completed = Boolean(t.completed);
+
+      totalsByUser[userId] = totalsByUser[userId] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      totalsByUser[userId].tasksCreated += 1;
+      if (completed) totalsByUser[userId].tasksCompleted += 1;
+
+      const k = bucketKey(createdAt, bucket);
+      series[k] = series[k] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      series[k].tasksCreated += 1;
+      if (completed) series[k].tasksCompleted += 1;
+    }
+
+    const seriesKeys = Object.keys(series).sort();
+    return json(res, 200, {
+      range: { start: rangeStart.toISOString(), end: rangeEnd.toISOString() },
+      bucket,
+      totalsByUser,
+      series: seriesKeys.map((k) => ({ bucketStart: k, ...series[k] })),
+    });
+  }
+
+  if (path === '/api/crm/reports/pipeline-health/export-csv' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="crm_pipeline_health_mock.csv"');
+    return res.end('\uFEFFStage,Count,Avg Age (days),Stale Count,Totals By Currency (JSON)\nLead,0,0,0,{}');
+  }
+
+  if (path === '/api/crm/reports/funnel/export-csv' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="crm_funnel_mock.csv"');
+    return res.end(
+      '\uFEFFSection,Key,Value,Extra\nCounts,Leads,0,\nCounts,Contacts,0,\nCounts,Opportunities,0,\nCounts,Won,0,\nCounts,Lost,0,\nRates,Win Rate,,',
+    );
+  }
+
+  if (path === '/api/crm/reports/forecast/export-csv' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="crm_forecast_mock.csv"');
+    return res.end('\uFEFFWeek,Currency,Raw,Weighted,Count\n');
+  }
+
+  if (path === '/api/crm/reports/activity/export-csv' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="crm_activity_mock.csv"');
+    return res.end('\uFEFFBucketStart,Activities,TasksCreated,TasksCompleted\n');
+  }
   if (path === '/api/crm/opportunities' && req.method === 'POST') {
     return readJsonBody(req).then((body) => {
       const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -376,6 +635,9 @@ const server = createServer((req, res) => {
       const amount = Number(body.amount || 0);
       const currency = typeof body.currency === 'string' ? body.currency : 'TRY';
       const expectedCloseDate = typeof body.expectedCloseDate === 'string' ? body.expectedCloseDate : null;
+      const probability = (typeof body.probability === 'number' || typeof body.probability === 'string')
+        ? Number(body.probability)
+        : null;
       const teamUserIds = Array.isArray(body.teamUserIds) ? body.teamUserIds.filter((x) => typeof x === 'string') : [mockUser.id];
       const opp = {
         id: randomId('opp'),
@@ -386,6 +648,7 @@ const server = createServer((req, res) => {
         accountId,
         ownerUserId: mockUser.id,
         expectedCloseDate,
+        probability: (probability != null && Number.isFinite(probability)) ? Math.max(0, Math.min(1, probability)) : null,
         status: 'open',
         teamUserIds: Array.from(new Set([mockUser.id, ...teamUserIds])),
       };
@@ -438,6 +701,12 @@ const server = createServer((req, res) => {
 
       if (typeof body.expectedCloseDate === 'string') next.expectedCloseDate = body.expectedCloseDate;
       if (body.expectedCloseDate === null) next.expectedCloseDate = null;
+
+      if (typeof body.probability === 'number' || typeof body.probability === 'string') {
+        const probability = Number(body.probability);
+        next.probability = Number.isFinite(probability) ? Math.max(0, Math.min(1, probability)) : next.probability;
+      }
+      if (body.probability === null) next.probability = null;
 
       crmOpportunities[idx] = next;
       return json(res, 200, next);

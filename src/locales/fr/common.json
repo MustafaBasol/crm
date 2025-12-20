@@ -47,6 +47,80 @@
     "dashboard": {
       "subtitle": "Une vue d’ensemble du pipeline et de l’activité."
     },
+    "reports": {
+      "title": "Rapports CRM",
+      "subtitle": "Santé du pipeline et métriques de funnel.",
+      "refresh": "Rafraîchir",
+      "exportCsv": "Télécharger CSV",
+      "pipelineHealth": {
+        "title": "Santé du pipeline",
+        "staleDays": "Inactif (jours)",
+        "openDeals": "Opportunités ouvertes",
+        "staleDeals": "Opportunités inactives",
+        "totalsByCurrency": "Totaux par devise",
+        "stage": "Étape",
+        "count": "Nombre",
+        "avgAgeDays": "Âge moy. (jours)",
+        "staleCount": "Inactif (nb)",
+        "amount": "Montant",
+        "closed": "Clôturé (Gagné+Perdu)",
+        "winRate": "Taux de gain",
+        "winRateByStage": "Taux de gain par étape",
+        "winRateByOwner": "Taux de gain par owner",
+        "winRateByTeam": "Taux de gain par équipe",
+        "owner": "Owner",
+        "teamMember": "Membre de l’équipe",
+        "ownerNote": "Note : les listes owner/équipe sont affichées par userId.",
+        "teamNote": "Note : le taux de gain équipe attribue les deals à tous les membres de l’équipe.",
+        "note": "Note : l’âge par étape est estimé à partir de la dernière mise à jour."
+      },
+      "funnel": {
+        "title": "Funnel",
+        "start": "Début",
+        "end": "Fin",
+        "leads": "Prospects",
+        "contacts": "Contacts",
+        "opportunities": "Opportunités",
+        "winRate": "Taux de gain",
+        "metric": "Métrique",
+        "value": "Valeur",
+        "contactPerLead": "Contact / Prospect",
+        "opportunityPerContact": "Opportunité / Contact",
+        "closed": "Clôturé (Gagné+Perdu)",
+        "stageTransitions": {
+          "title": "Durées de transition d’étapes",
+          "avgDaysInStage": "Jours moyens par étape",
+          "transitions": "Transitions",
+          "from": "De",
+          "to": "À",
+          "count": "Nombre",
+          "avgDays": "Jours moy."
+        },
+        "note": "Note : les métriques de funnel sont pour l’instant basées sur des comptages."
+      },
+      "forecast": {
+        "title": "Prévision (pondérée)",
+        "rawTotal": "Total (brut)",
+        "weightedTotal": "Total (pondéré)",
+        "week": "Semaine",
+        "currency": "Devise",
+        "raw": "Brut",
+        "weighted": "Pondéré",
+        "count": "Nombre",
+        "note": "Note : les totaux pondérés utilisent la probabilité (opportunity.probability si définie ; sinon dérivée de l’étape)."
+      },
+      "activity": {
+        "title": "Métriques d’activité",
+        "bucket": "Regroupement",
+        "day": "Quotidien",
+        "week": "Hebdomadaire",
+        "bucketStart": "Date",
+        "activities": "Activités",
+        "tasksCreated": "Tâches créées",
+        "tasksCompleted": "Tâches terminées",
+        "note": "Note : pour les utilisateurs non-admin, les métriques sont limitées à l’utilisateur."
+      }
+    },
     "pipeline": {
       "title": "Pipeline",
       "defaultName": "Pipeline par défaut",
@@ -1339,6 +1413,7 @@
     "crmContacts": "Contacts",
     "crmActivities": "Activités",
     "crmTasks": "Tâches",
+    "crmReports": "Rapports CRM",
     "quotes": "Devis",
     "reports": "Rapports",
     "accounting": "Comptabilité",

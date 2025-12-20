@@ -69,6 +69,10 @@ export class CrmOpportunity {
   @Column({ type: 'varchar', length: 3, default: 'TRY' })
   currency: string;
 
+  // 0..1 (nullable). If null, reports may derive a default from stage order.
+  @Column({ type: 'decimal', precision: 5, scale: 4, nullable: true })
+  probability: number | null;
+
   @Column({ type: 'date', nullable: true })
   expectedCloseDate: Date | null;
 

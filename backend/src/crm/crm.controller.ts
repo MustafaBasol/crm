@@ -7,9 +7,11 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '../common/decorators/user.decorator';
 import type { CurrentUser } from '../common/decorators/user.decorator';
@@ -28,12 +30,299 @@ import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { CrmOpportunityStatus } from './entities/crm-opportunity.entity';
 
+type CsvPrimitive = string | number | boolean | Date | null | undefined;
+const serializeCsvValue = (value: CsvPrimitive): string => {
+  if (value == null) return '';
+  const serialized = value instanceof Date ? value.toISOString() : String(value);
+  if (/[",\n]/.test(serialized)) {
+    return '"' + serialized.replace(/"/g, '""') + '"';
+  }
+  return serialized;
+};
+
 @ApiTags('crm')
 @Controller('crm')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class CrmController {
   constructor(private readonly crmService: CrmService) {}
+
+  @Get('reports/pipeline-health')
+  @ApiOperation({
+    summary:
+      'Pipeline health report (open deals; stage distribution; stale deals; win rate)',
+  })
+  async pipelineHealth(
+    @User() user: CurrentUser,
+    @Query('staleDays') staleDays?: string,
+    @Query('closedStartDate') closedStartDate?: string,
+    @Query('closedEndDate') closedEndDate?: string,
+  ) {
+    return this.crmService.getPipelineHealthReport(user.tenantId, user, {
+      staleDays: staleDays ? Number(staleDays) : undefined,
+      closedStartDate,
+      closedEndDate,
+    });
+  }
+
+  @Get('reports/funnel')
+  @ApiOperation({
+    summary:
+      'Funnel report (counts: leads/contacts/opportunities/won/lost) for a date range',
+  })
+  async funnel(
+    @User() user: CurrentUser,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.crmService.getFunnelReport(user.tenantId, user, {
+      startDate,
+      endDate,
+    });
+  }
+
+  @Get('reports/forecast')
+  @ApiOperation({
+    summary:
+      'Forecast report (weighted by expectedCloseDate and probability) for a date range',
+  })
+  async forecast(
+    @User() user: CurrentUser,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.crmService.getForecastReport(user.tenantId, user, {
+      startDate,
+      endDate,
+    });
+  }
+
+  @Get('reports/activity')
+  @ApiOperation({
+    summary:
+      'Activity metrics (user/team daily/weekly activity/task volume) for a date range',
+  })
+  async activity(
+    @User() user: CurrentUser,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('bucket') bucket?: 'day' | 'week',
+  ) {
+    return this.crmService.getActivityReport(user.tenantId, user, {
+      startDate,
+      endDate,
+      bucket,
+    });
+  }
+
+  @Get('reports/pipeline-health/export-csv')
+  @ApiOperation({ summary: 'Export pipeline health report as CSV' })
+  async exportPipelineHealthCsv(
+    @User() user: CurrentUser,
+    @Res() res: Response,
+    @Query('staleDays') staleDays?: string,
+  ) {
+    const report = await this.crmService.getPipelineHealthReport(
+      user.tenantId,
+      user,
+      {
+        staleDays: staleDays ? Number(staleDays) : undefined,
+      },
+    );
+
+    await this.crmService.logReportExport(user.tenantId, user, {
+      report: 'pipeline-health',
+      params: { staleDays: report.staleDays },
+    });
+
+    const headersRow = [
+      'Stage',
+      'Count',
+      'Avg Age (days)',
+      'Stale Count',
+      'Totals By Currency (JSON)',
+    ];
+    const rows = (report.byStage || []).map((row: any) => {
+      return [
+        row.stageName,
+        row.count,
+        row.avgAgeDays,
+        row.staleCount,
+        JSON.stringify(row.totalsByCurrency || {}),
+      ]
+        .map(serializeCsvValue)
+        .join(',');
+    });
+
+    const csv = '\uFEFF' + [headersRow.join(','), ...rows].join('\n');
+    const filename = `crm_pipeline_health_${user.tenantId}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).send(csv);
+  }
+
+  @Get('reports/funnel/export-csv')
+  @ApiOperation({ summary: 'Export funnel report as CSV' })
+  async exportFunnelCsv(
+    @User() user: CurrentUser,
+    @Res() res: Response,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const report = await this.crmService.getFunnelReport(user.tenantId, user, {
+      startDate,
+      endDate,
+    });
+
+    await this.crmService.logReportExport(user.tenantId, user, {
+      report: 'funnel',
+      params: { startDate, endDate },
+    });
+
+    const headersRow = ['Section', 'Key', 'Value', 'Extra'];
+    const rows: string[] = [];
+
+    rows.push(
+      ['Counts', 'Leads', report.counts.leads, null].map(serializeCsvValue).join(','),
+    );
+    rows.push(
+      ['Counts', 'Contacts', report.counts.contacts, null]
+        .map(serializeCsvValue)
+        .join(','),
+    );
+    rows.push(
+      ['Counts', 'Opportunities', report.counts.opportunities, null]
+        .map(serializeCsvValue)
+        .join(','),
+    );
+    rows.push(
+      ['Counts', 'Won', report.counts.won, null].map(serializeCsvValue).join(','),
+    );
+    rows.push(
+      ['Counts', 'Lost', report.counts.lost, null].map(serializeCsvValue).join(','),
+    );
+
+    rows.push(
+      ['Rates', 'Contact per Lead', report.rates.contactPerLead, null]
+        .map(serializeCsvValue)
+        .join(','),
+    );
+    rows.push(
+      ['Rates', 'Opportunity per Contact', report.rates.opportunityPerContact, null]
+        .map(serializeCsvValue)
+        .join(','),
+    );
+    rows.push(
+      ['Rates', 'Win Rate', report.rates.winRate, null]
+        .map(serializeCsvValue)
+        .join(','),
+    );
+
+    if (report.stageTransitions) {
+      for (const r of report.stageTransitions.avgDaysInStage || []) {
+        rows.push(
+          ['Stage Avg Days', r.stageId, r.avgDays, `count=${r.count}`]
+            .map(serializeCsvValue)
+            .join(','),
+        );
+      }
+      for (const tr of report.stageTransitions.transitions || []) {
+        rows.push(
+          [
+            'Stage Transitions',
+            `${tr.fromStageId ?? 'null'} -> ${tr.toStageId}`,
+            tr.avgDays,
+            `count=${tr.count}`,
+          ]
+            .map(serializeCsvValue)
+            .join(','),
+        );
+      }
+    }
+
+    const csv = '\uFEFF' + [headersRow.join(','), ...rows].join('\n');
+    const filename = `crm_funnel_${user.tenantId}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).send(csv);
+  }
+
+  @Get('reports/forecast/export-csv')
+  @ApiOperation({ summary: 'Export forecast report as CSV' })
+  async exportForecastCsv(
+    @User() user: CurrentUser,
+    @Res() res: Response,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const report = await this.crmService.getForecastReport(user.tenantId, user, {
+      startDate,
+      endDate,
+    });
+
+    await this.crmService.logReportExport(user.tenantId, user, {
+      report: 'forecast',
+      params: { startDate, endDate },
+    });
+
+    const headersRow = ['Week', 'Currency', 'Raw', 'Weighted', 'Count'];
+    const rows: string[] = [];
+
+    for (const w of report.byWeek || []) {
+      const week = String((w as any).week || '');
+      const totals = (w as any).totalsByCurrency || {};
+      for (const [ccy, v] of Object.entries(totals)) {
+        const raw = Number((v as any).raw) || 0;
+        const weighted = Number((v as any).weighted) || 0;
+        const count = Number((v as any).count) || 0;
+        rows.push([week, ccy, raw, weighted, count].map(serializeCsvValue).join(','));
+      }
+    }
+
+    const csv = '\uFEFF' + [headersRow.join(','), ...rows].join('\n');
+    const filename = `crm_forecast_${user.tenantId}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).send(csv);
+  }
+
+  @Get('reports/activity/export-csv')
+  @ApiOperation({ summary: 'Export activity report as CSV' })
+  async exportActivityCsv(
+    @User() user: CurrentUser,
+    @Res() res: Response,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('bucket') bucket?: 'day' | 'week',
+  ) {
+    const report = await this.crmService.getActivityReport(user.tenantId, user, {
+      startDate,
+      endDate,
+      bucket,
+    });
+
+    await this.crmService.logReportExport(user.tenantId, user, {
+      report: 'activity',
+      params: { startDate, endDate, bucket: report.bucket },
+    });
+
+    const headersRow = ['BucketStart', 'Activities', 'TasksCreated', 'TasksCompleted'];
+    const rows = (report.series || []).map((r: any) => {
+      return [r.bucketStart, r.activities, r.tasksCreated, r.tasksCompleted]
+        .map(serializeCsvValue)
+        .join(',');
+    });
+
+    const csv = '\uFEFF' + [headersRow.join(','), ...rows].join('\n');
+    const filename = `crm_activity_${user.tenantId}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).send(csv);
+  }
 
   @Get('leads')
   @ApiOperation({ summary: 'List CRM leads' })

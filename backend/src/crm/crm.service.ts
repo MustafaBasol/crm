@@ -13,6 +13,7 @@ import {
   CrmOpportunityStatus,
 } from './entities/crm-opportunity.entity';
 import { CrmOpportunityMember } from './entities/crm-opportunity-member.entity';
+import { CrmOpportunityStageHistory } from './entities/crm-opportunity-stage-history.entity';
 import { CrmActivity } from './entities/crm-activity.entity';
 import { CrmTask } from './entities/crm-task.entity';
 import { CrmLead } from './entities/crm-lead.entity';
@@ -37,6 +38,8 @@ import { Role as OrganizationRole } from '../common/enums/organization.enum';
 import { Quote } from '../quotes/entities/quote.entity';
 import { Sale } from '../sales/entities/sale.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/audit-log.entity';
 
 const DEFAULT_PIPELINE_NAME = 'Default Pipeline';
 type DefaultStageSeed = {
@@ -67,6 +70,9 @@ export class CrmService {
     @InjectRepository(CrmOpportunityMember)
     private readonly oppMemberRepo: Repository<CrmOpportunityMember>,
 
+    @InjectRepository(CrmOpportunityStageHistory)
+    private readonly oppStageHistoryRepo: Repository<CrmOpportunityStageHistory>,
+
     @InjectRepository(CrmActivity)
     private readonly activityRepo: Repository<CrmActivity>,
 
@@ -93,7 +99,738 @@ export class CrmService {
 
     @InjectRepository(Invoice)
     private readonly invoiceRepo: Repository<Invoice>,
+
+    private readonly auditService: AuditService,
   ) {}
+
+  private clampProbability(value: unknown): number | null {
+    if (value == null) return null;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.min(1, n));
+  }
+
+  private clampInt(value: unknown, fallback: number, min: number, max: number): number {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(min, Math.min(max, Math.floor(n)));
+  }
+
+  private diffDays(from: Date, to: Date): number {
+    const ms = to.getTime() - from.getTime();
+    if (!Number.isFinite(ms)) return 0;
+    return ms / (1000 * 60 * 60 * 24);
+  }
+
+  private startOfDay(date: Date): Date {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  private startOfWeekMonday(date: Date): Date {
+    const d = this.startOfDay(date);
+    const day = d.getDay(); // 0=Sun
+    const diff = (day === 0 ? -6 : 1 - day); // move to Monday
+    d.setDate(d.getDate() + diff);
+    return d;
+  }
+
+  private bucketKey(date: Date, bucket: 'day' | 'week'): string {
+    const base = bucket === 'week' ? this.startOfWeekMonday(date) : this.startOfDay(date);
+    return base.toISOString().slice(0, 10);
+  }
+
+  private deriveStageProbabilities(stages: Array<Pick<CrmStage, 'id' | 'order' | 'isClosedWon' | 'isClosedLost'>>): Map<string, number> {
+    const openStages = (stages || [])
+      .filter((s) => !s.isClosedWon && !s.isClosedLost)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const map = new Map<string, number>();
+    if (openStages.length === 0) return map;
+    // Simple linear probability ladder: (index+1)/(n+1)
+    const n = openStages.length;
+    for (let i = 0; i < n; i += 1) {
+      map.set(openStages[i].id, (i + 1) / (n + 1));
+    }
+    return map;
+  }
+
+  private async getStageTransitionMetrics(
+    tenantId: string,
+    user: CurrentUser,
+    range: { start?: Date; end?: Date } | null,
+  ): Promise<{
+    range: { start: string | null; end: string | null };
+    avgDaysInStage: Array<{ stageId: string; count: number; avgDays: number }>;
+    transitions: Array<{ fromStageId: string | null; toStageId: string; count: number; avgDays: number }>;
+  }> {
+    const now = new Date();
+    const defaultEnd = now;
+    const defaultStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const effectiveRange = range || ({ start: defaultStart, end: defaultEnd } as const);
+
+    const qb = this.oppStageHistoryRepo
+      .createQueryBuilder('h')
+      .innerJoin(CrmOpportunity, 'o', 'o.id = h.opportunityId AND o.tenantId = h.tenantId')
+      .where('h.tenantId = :tenantId', { tenantId });
+
+    if (!this.isAdmin(user)) {
+      qb.leftJoin(
+        CrmOpportunityMember,
+        'm',
+        'm.opportunityId = o.id AND m.tenantId = o.tenantId',
+      ).andWhere(
+        new Brackets((q) => {
+          q.where('o.ownerUserId = :userId', { userId: user.id }).orWhere(
+            'm.userId = :userId',
+            { userId: user.id },
+          );
+        }),
+      );
+    }
+
+    if (effectiveRange.start) qb.andWhere('h.changedAt >= :start', { start: effectiveRange.start });
+    if (effectiveRange.end) qb.andWhere('h.changedAt <= :end', { end: effectiveRange.end });
+
+    qb.select(['h.opportunityId AS opportunityId', 'h.fromStageId AS fromStageId', 'h.toStageId AS toStageId', 'h.changedAt AS changedAt'])
+      .orderBy('h.opportunityId', 'ASC')
+      .addOrderBy('h.changedAt', 'ASC');
+
+    const rows: Array<{ opportunityid?: string; opportunityId?: string; fromstageid?: string | null; fromStageId?: string | null; tostageid?: string; toStageId?: string; changedat?: string; changedAt?: string }>
+      = await qb.getRawMany();
+
+    // Normalize casing
+    const normalized = rows.map((r: any) => ({
+      opportunityId: r.opportunityId ?? r.opportunityid,
+      fromStageId: r.fromStageId ?? r.fromstageid ?? null,
+      toStageId: r.toStageId ?? r.tostageid,
+      changedAt: new Date(r.changedAt ?? r.changedat),
+    })).filter((r) => r.opportunityId && r.toStageId && Number.isFinite(r.changedAt.getTime()));
+
+    const durationsByStage = new Map<string, { totalDays: number; count: number }>();
+    const durationsByTransition = new Map<string, { fromStageId: string | null; toStageId: string; totalDays: number; count: number }>();
+
+    // For each opportunity: duration in a stage ~= time between "entered stage" events.
+    for (let i = 0; i < normalized.length - 1; i += 1) {
+      const cur = normalized[i];
+      const next = normalized[i + 1];
+      if (cur.opportunityId !== next.opportunityId) continue;
+      const days = this.diffDays(cur.changedAt, next.changedAt);
+      if (!Number.isFinite(days) || days < 0) continue;
+
+      const stageAgg = durationsByStage.get(cur.toStageId) || { totalDays: 0, count: 0 };
+      stageAgg.totalDays += days;
+      stageAgg.count += 1;
+      durationsByStage.set(cur.toStageId, stageAgg);
+
+      const key = `${cur.fromStageId ?? 'null'}->${cur.toStageId}`;
+      const trAgg = durationsByTransition.get(key) || {
+        fromStageId: cur.fromStageId ?? null,
+        toStageId: cur.toStageId,
+        totalDays: 0,
+        count: 0,
+      };
+      trAgg.totalDays += days;
+      trAgg.count += 1;
+      durationsByTransition.set(key, trAgg);
+    }
+
+    const avgDaysInStage = Array.from(durationsByStage.entries()).map(([stageId, v]) => ({
+      stageId,
+      count: v.count,
+      avgDays: v.count > 0 ? v.totalDays / v.count : 0,
+    }));
+
+    const transitions = Array.from(durationsByTransition.values()).map((v) => ({
+      fromStageId: v.fromStageId,
+      toStageId: v.toStageId,
+      count: v.count,
+      avgDays: v.count > 0 ? v.totalDays / v.count : 0,
+    }));
+
+    return {
+      range: {
+        start: effectiveRange.start ? effectiveRange.start.toISOString() : null,
+        end: effectiveRange.end ? effectiveRange.end.toISOString() : null,
+      },
+      avgDaysInStage,
+      transitions,
+    };
+  }
+
+  private sumAmountsByCurrency(
+    items: Array<{ amount?: unknown; currency?: unknown }>,
+  ): Record<string, number> {
+    const totals: Record<string, number> = {};
+    for (const it of items) {
+      const currency = String(it.currency ?? 'TRY').trim().toUpperCase() || 'TRY';
+      const amount = Number(it.amount) || 0;
+      totals[currency] = (totals[currency] || 0) + amount;
+    }
+    return totals;
+  }
+
+  private async listAllAccessibleOpportunities(
+    tenantId: string,
+    user: CurrentUser,
+    opts: {
+      status?: CrmOpportunityStatus;
+      startDate?: string;
+      endDate?: string;
+    },
+  ): Promise<Array<Pick<CrmOpportunity, 'id' | 'stageId' | 'amount' | 'currency' | 'probability' | 'updatedAt' | 'createdAt' | 'status' | 'wonAt' | 'lostAt' | 'expectedCloseDate'>>> {
+    const items: Array<any> = [];
+    const limit = 200;
+    let offset = 0;
+
+    for (let i = 0; i < 2000; i += 1) {
+      const page = await this.listOpportunities(tenantId, user, {
+        status: opts.status,
+        startDate: opts.startDate,
+        endDate: opts.endDate,
+        limit,
+        offset,
+      });
+      items.push(...(page.items || []));
+      if (!page.items?.length) break;
+      offset += page.items.length;
+      if (typeof page.total === 'number' && items.length >= page.total) break;
+    }
+
+    return items;
+  }
+
+  async getPipelineHealthReport(
+    tenantId: string,
+    user: CurrentUser,
+    opts?: {
+      staleDays?: number;
+      closedStartDate?: string;
+      closedEndDate?: string;
+    },
+  ) {
+    const staleDays = this.clampInt(opts?.staleDays, 30, 1, 3650);
+    const now = new Date();
+    const staleBefore = new Date(now.getTime() - staleDays * 24 * 60 * 60 * 1000);
+
+    const [stages, openOpps] = await Promise.all([
+      this.listStages(tenantId),
+      this.listAllAccessibleOpportunities(tenantId, user, {
+        status: CrmOpportunityStatus.OPEN,
+      }),
+    ]);
+
+    const stageNameById = new Map<string, string>(
+      (stages || []).map((s) => [s.id, s.name]),
+    );
+
+    const byStageMap = new Map<
+      string,
+      {
+        stageId: string;
+        stageName: string;
+        count: number;
+        totalsByCurrency: Record<string, number>;
+        avgAgeDays: number;
+        staleCount: number;
+      }
+    >();
+
+    for (const opp of openOpps) {
+      const stageId = String((opp as any).stageId || '').trim();
+      if (!stageId) continue;
+      const row =
+        byStageMap.get(stageId) ||
+        ({
+          stageId,
+          stageName: stageNameById.get(stageId) || stageId,
+          count: 0,
+          totalsByCurrency: {},
+          avgAgeDays: 0,
+          staleCount: 0,
+        } satisfies any);
+
+      row.count += 1;
+
+      const currency = String((opp as any).currency ?? 'TRY').trim().toUpperCase() || 'TRY';
+      const amount = Number((opp as any).amount) || 0;
+      row.totalsByCurrency[currency] = (row.totalsByCurrency[currency] || 0) + amount;
+
+      const updatedAt = (opp as any).updatedAt ? new Date((opp as any).updatedAt) : now;
+      const ageDays = this.diffDays(updatedAt, now);
+      row.avgAgeDays += ageDays;
+
+      if (updatedAt.getTime() < staleBefore.getTime()) {
+        row.staleCount += 1;
+      }
+
+      byStageMap.set(stageId, row);
+    }
+
+    const byStage = Array.from(byStageMap.values())
+      .map((s) => ({
+        ...s,
+        avgAgeDays: s.count > 0 ? Math.round((s.avgAgeDays / s.count) * 10) / 10 : 0,
+      }))
+      .sort((a, b) => {
+        const aOrder = (stages || []).find((s) => s.id === a.stageId)?.order ?? 0;
+        const bOrder = (stages || []).find((s) => s.id === b.stageId)?.order ?? 0;
+        return aOrder - bOrder;
+      });
+
+    const totalsByCurrency = this.sumAmountsByCurrency(openOpps as any);
+    const staleDealsCount = openOpps.filter((o: any) => {
+      const updatedAt = o?.updatedAt ? new Date(o.updatedAt) : null;
+      if (!updatedAt) return false;
+      return updatedAt.getTime() < staleBefore.getTime();
+    }).length;
+
+    // Win-rate (optional date range; defaults to last 90 days)
+    const defaultClosedEnd = now;
+    const defaultClosedStart = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const closedRange = this.normalizeDateRange(
+      opts?.closedStartDate,
+      opts?.closedEndDate,
+    ) || { start: defaultClosedStart, end: defaultClosedEnd };
+
+    const qb = this.oppRepo.createQueryBuilder('opp');
+    qb.where('opp.tenantId = :tenantId', { tenantId })
+      .andWhere('opp.status IN (:...statuses)', {
+        statuses: [CrmOpportunityStatus.WON, CrmOpportunityStatus.LOST],
+      });
+
+    if (closedRange.start) {
+      qb.andWhere(
+        new Brackets((q) => {
+          q.where('opp.wonAt >= :closedStart', { closedStart: closedRange.start })
+            .orWhere('opp.lostAt >= :closedStart', { closedStart: closedRange.start });
+        }),
+      );
+    }
+    if (closedRange.end) {
+      qb.andWhere(
+        new Brackets((q) => {
+          q.where('opp.wonAt <= :closedEnd', { closedEnd: closedRange.end })
+            .orWhere('opp.lostAt <= :closedEnd', { closedEnd: closedRange.end });
+        }),
+      );
+    }
+
+    if (!this.isAdmin(user)) {
+      qb.leftJoin(
+        CrmOpportunityMember,
+        'm',
+        'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+      ).andWhere(
+        new Brackets((q) => {
+          q.where('opp.ownerUserId = :userId', { userId: user.id }).orWhere(
+            'm.userId = :userId',
+            { userId: user.id },
+          );
+        }),
+      );
+    }
+
+    const closedOpps = await qb
+      .select([
+        'opp.id',
+        'opp.status',
+        'opp.ownerUserId',
+        'opp.stageId',
+      ])
+      .getMany();
+
+    const wonCount = closedOpps.filter(
+      (o) => o.status === CrmOpportunityStatus.WON,
+    ).length;
+    const lostCount = closedOpps.filter(
+      (o) => o.status === CrmOpportunityStatus.LOST,
+    ).length;
+    const winRate =
+      wonCount + lostCount > 0 ? wonCount / (wonCount + lostCount) : null;
+
+    const byOwnerAgg = new Map<string, { won: number; lost: number }>();
+    const byStageAgg = new Map<string, { won: number; lost: number }>();
+    const closedOppIds: string[] = [];
+
+    for (const opp of closedOpps as any[]) {
+      if (!opp?.id) continue;
+      closedOppIds.push(String(opp.id));
+
+      const isWon = opp.status === CrmOpportunityStatus.WON;
+      const isLost = opp.status === CrmOpportunityStatus.LOST;
+      if (!isWon && !isLost) continue;
+
+      const ownerId = String(opp.ownerUserId || '').trim();
+      if (ownerId) {
+        const a = byOwnerAgg.get(ownerId) || { won: 0, lost: 0 };
+        if (isWon) a.won += 1;
+        if (isLost) a.lost += 1;
+        byOwnerAgg.set(ownerId, a);
+      }
+
+      const stageId = String(opp.stageId || '').trim();
+      if (stageId) {
+        const a = byStageAgg.get(stageId) || { won: 0, lost: 0 };
+        if (isWon) a.won += 1;
+        if (isLost) a.lost += 1;
+        byStageAgg.set(stageId, a);
+      }
+    }
+
+    const byTeamAgg = new Map<string, { won: number; lost: number }>();
+    if (closedOppIds.length > 0) {
+      const members = await this.oppMemberRepo.find({
+        where: { tenantId, opportunityId: In(closedOppIds) },
+        select: { opportunityId: true, userId: true },
+      });
+
+      const oppMembers = new Map<string, Set<string>>();
+      for (const m of members as any[]) {
+        const oppId = String(m.opportunityId || '').trim();
+        const userId = String(m.userId || '').trim();
+        if (!oppId || !userId) continue;
+        const set = oppMembers.get(oppId) || new Set<string>();
+        set.add(userId);
+        oppMembers.set(oppId, set);
+      }
+
+      for (const opp of closedOpps as any[]) {
+        const oppId = String(opp?.id || '').trim();
+        if (!oppId) continue;
+        const isWon = opp.status === CrmOpportunityStatus.WON;
+        const isLost = opp.status === CrmOpportunityStatus.LOST;
+        if (!isWon && !isLost) continue;
+
+        const membersForOpp = oppMembers.get(oppId);
+        if (!membersForOpp || membersForOpp.size === 0) continue;
+
+        for (const userId of membersForOpp) {
+          const a = byTeamAgg.get(userId) || { won: 0, lost: 0 };
+          if (isWon) a.won += 1;
+          if (isLost) a.lost += 1;
+          byTeamAgg.set(userId, a);
+        }
+      }
+    }
+
+    const toWinRateRow = (won: number, lost: number) => {
+      const total = won + lost;
+      return { won, lost, total, winRate: total > 0 ? won / total : null };
+    };
+
+    const winRateBreakdown = {
+      byOwner: Array.from(byOwnerAgg.entries())
+        .map(([ownerUserId, v]) => ({ ownerUserId, ...toWinRateRow(v.won, v.lost) }))
+        .sort((a, b) => (b.total ?? 0) - (a.total ?? 0)),
+      byTeamMember: Array.from(byTeamAgg.entries())
+        .map(([userId, v]) => ({ userId, ...toWinRateRow(v.won, v.lost) }))
+        .sort((a, b) => (b.total ?? 0) - (a.total ?? 0)),
+      byStage: Array.from(byStageAgg.entries())
+        .map(([stageId, v]) => ({
+          stageId,
+          stageName: stageNameById.get(stageId) || stageId,
+          ...toWinRateRow(v.won, v.lost),
+        }))
+        .sort((a, b) => (b.total ?? 0) - (a.total ?? 0)),
+    };
+
+    return {
+      staleDays,
+      openCount: openOpps.length,
+      totalsByCurrency,
+      byStage,
+      staleDealsCount,
+      winRate,
+      winRateBreakdown,
+      winRateRange: {
+        start: closedRange.start ? closedRange.start.toISOString() : null,
+        end: closedRange.end ? closedRange.end.toISOString() : null,
+      },
+    };
+  }
+
+  async getFunnelReport(
+    tenantId: string,
+    user: CurrentUser,
+    opts?: { startDate?: string; endDate?: string },
+  ) {
+    const now = new Date();
+    const defaultEnd = now;
+    const defaultStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const range =
+      this.normalizeDateRange(opts?.startDate, opts?.endDate) ||
+      ({ start: defaultStart, end: defaultEnd } as const);
+
+    // NOTE: Use query builder for stable start/end handling across DBs.
+    const leadsQb = this.leadRepo
+      .createQueryBuilder('lead')
+      .where('lead.tenantId = :tenantId', { tenantId });
+    if (!this.isAdmin(user)) {
+      leadsQb.andWhere('lead.createdByUserId = :userId', { userId: user.id });
+    }
+    if (range.start) leadsQb.andWhere('lead.createdAt >= :start', { start: range.start });
+    if (range.end) leadsQb.andWhere('lead.createdAt <= :end', { end: range.end });
+
+    const contactsQb = this.contactRepo
+      .createQueryBuilder('c')
+      .where('c.tenantId = :tenantId', { tenantId });
+    if (!this.isAdmin(user)) {
+      contactsQb.andWhere('c.createdByUserId = :userId', { userId: user.id });
+    }
+    if (range.start) contactsQb.andWhere('c.createdAt >= :start', { start: range.start });
+    if (range.end) contactsQb.andWhere('c.createdAt <= :end', { end: range.end });
+
+    const oppCreatedQb = this.oppRepo
+      .createQueryBuilder('opp')
+      .where('opp.tenantId = :tenantId', { tenantId });
+    if (!this.isAdmin(user)) {
+      oppCreatedQb.leftJoin(
+        CrmOpportunityMember,
+        'm',
+        'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+      ).andWhere(
+        new Brackets((q) => {
+          q.where('opp.ownerUserId = :userId', { userId: user.id }).orWhere(
+            'm.userId = :userId',
+            { userId: user.id },
+          );
+        }),
+      );
+    }
+    if (range.start) oppCreatedQb.andWhere('opp.createdAt >= :start', { start: range.start });
+    if (range.end) oppCreatedQb.andWhere('opp.createdAt <= :end', { end: range.end });
+
+    const wonQb = this.oppRepo
+      .createQueryBuilder('opp')
+      .where('opp.tenantId = :tenantId', { tenantId })
+      .andWhere('opp.status = :status', { status: CrmOpportunityStatus.WON });
+    const lostQb = this.oppRepo
+      .createQueryBuilder('opp')
+      .where('opp.tenantId = :tenantId', { tenantId })
+      .andWhere('opp.status = :status', { status: CrmOpportunityStatus.LOST });
+
+    if (!this.isAdmin(user)) {
+      for (const qb of [wonQb, lostQb]) {
+        qb.leftJoin(
+          CrmOpportunityMember,
+          'm',
+          'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+        ).andWhere(
+          new Brackets((q) => {
+            q.where('opp.ownerUserId = :userId', { userId: user.id }).orWhere(
+              'm.userId = :userId',
+              { userId: user.id },
+            );
+          }),
+        );
+      }
+    }
+
+    if (range.start) {
+      wonQb.andWhere('opp.wonAt >= :start', { start: range.start });
+      lostQb.andWhere('opp.lostAt >= :start', { start: range.start });
+    }
+    if (range.end) {
+      wonQb.andWhere('opp.wonAt <= :end', { end: range.end });
+      lostQb.andWhere('opp.lostAt <= :end', { end: range.end });
+    }
+
+    const [leads, contacts, opportunities, won, lost] = await Promise.all([
+      leadsQb.getCount(),
+      contactsQb.getCount(),
+      oppCreatedQb.getCount(),
+      wonQb.getCount(),
+      lostQb.getCount(),
+    ]);
+
+    const stageTransitions = await this.getStageTransitionMetrics(
+      tenantId,
+      user,
+      range,
+    );
+
+    const closed = won + lost;
+    const winRate = closed > 0 ? won / closed : null;
+
+    return {
+      range: {
+        start: range.start ? range.start.toISOString() : null,
+        end: range.end ? range.end.toISOString() : null,
+      },
+      counts: {
+        leads,
+        contacts,
+        opportunities,
+        won,
+        lost,
+      },
+      rates: {
+        contactPerLead: leads > 0 ? contacts / leads : null,
+        opportunityPerContact: contacts > 0 ? opportunities / contacts : null,
+        winRate,
+      },
+      stageTransitions,
+    };
+  }
+
+  async getForecastReport(
+    tenantId: string,
+    user: CurrentUser,
+    opts?: { startDate?: string; endDate?: string },
+  ) {
+    const now = new Date();
+    const defaultStart = now;
+    const defaultEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const range =
+      this.normalizeDateRange(opts?.startDate, opts?.endDate) ||
+      ({ start: defaultStart, end: defaultEnd } as const);
+
+    const stages = await this.listStages(tenantId);
+    const stageProb = this.deriveStageProbabilities(stages);
+
+    const openOpps = await this.listAllAccessibleOpportunities(tenantId, user, {
+      status: CrmOpportunityStatus.OPEN,
+      startDate: range.start ? range.start.toISOString() : undefined,
+      endDate: range.end ? range.end.toISOString() : undefined,
+    });
+
+    const items = (openOpps || []).filter((o) => o.expectedCloseDate != null);
+
+    const totalsByCurrency: Record<string, { raw: number; weighted: number; count: number }> = {};
+    const byBucket: Record<string, Record<string, { raw: number; weighted: number; count: number }>> = {};
+
+    for (const opp of items as any[]) {
+      const currency = String(opp.currency ?? 'TRY').trim().toUpperCase() || 'TRY';
+      const amount = Number(opp.amount) || 0;
+      const expectedCloseDate = opp.expectedCloseDate instanceof Date ? opp.expectedCloseDate : new Date(opp.expectedCloseDate);
+      if (!Number.isFinite(expectedCloseDate.getTime())) continue;
+      const p = this.clampProbability(opp.probability) ?? stageProb.get(String(opp.stageId)) ?? null;
+      const prob = p == null ? 0 : p;
+      const weighted = amount * prob;
+
+      totalsByCurrency[currency] = totalsByCurrency[currency] || { raw: 0, weighted: 0, count: 0 };
+      totalsByCurrency[currency].raw += amount;
+      totalsByCurrency[currency].weighted += weighted;
+      totalsByCurrency[currency].count += 1;
+
+      const bucket = this.bucketKey(expectedCloseDate, 'week');
+      byBucket[bucket] = byBucket[bucket] || {};
+      byBucket[bucket][currency] = byBucket[bucket][currency] || { raw: 0, weighted: 0, count: 0 };
+      byBucket[bucket][currency].raw += amount;
+      byBucket[bucket][currency].weighted += weighted;
+      byBucket[bucket][currency].count += 1;
+    }
+
+    const bucketKeys = Object.keys(byBucket).sort();
+    return {
+      range: {
+        start: range.start ? range.start.toISOString() : null,
+        end: range.end ? range.end.toISOString() : null,
+      },
+      totalsByCurrency,
+      byWeek: bucketKeys.map((week) => ({ week, totalsByCurrency: byBucket[week] })),
+    };
+  }
+
+  async getActivityReport(
+    tenantId: string,
+    user: CurrentUser,
+    opts?: { startDate?: string; endDate?: string; bucket?: 'day' | 'week' },
+  ) {
+    const now = new Date();
+    const defaultEnd = now;
+    const defaultStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const range =
+      this.normalizeDateRange(opts?.startDate, opts?.endDate) ||
+      ({ start: defaultStart, end: defaultEnd } as const);
+    const bucket = opts?.bucket === 'day' ? 'day' : 'week';
+
+    const activityQb = this.activityRepo
+      .createQueryBuilder('a')
+      .select(['a.createdAt AS createdAt', 'a.createdByUserId AS userId']);
+    activityQb.where('a.tenantId = :tenantId', { tenantId });
+    if (!this.isAdmin(user)) {
+      activityQb.andWhere('a.createdByUserId = :userId', { userId: user.id });
+    }
+    if (range.start) activityQb.andWhere('a.createdAt >= :start', { start: range.start });
+    if (range.end) activityQb.andWhere('a.createdAt <= :end', { end: range.end });
+
+    const taskQb = this.taskRepo
+      .createQueryBuilder('t')
+      .select(['t.createdAt AS createdAt', 't.createdByUserId AS userId', 't.completed AS completed']);
+    taskQb.where('t.tenantId = :tenantId', { tenantId });
+    if (!this.isAdmin(user)) {
+      taskQb.andWhere('t.createdByUserId = :userId', { userId: user.id });
+    }
+    if (range.start) taskQb.andWhere('t.createdAt >= :start', { start: range.start });
+    if (range.end) taskQb.andWhere('t.createdAt <= :end', { end: range.end });
+
+    const [activityRows, taskRows] = await Promise.all([
+      activityQb.getRawMany(),
+      taskQb.getRawMany(),
+    ]);
+
+    const totalsByUser: Record<string, { activities: number; tasksCreated: number; tasksCompleted: number }> = {};
+    const series: Record<string, { activities: number; tasksCreated: number; tasksCompleted: number }> = {};
+
+    for (const r of activityRows as any[]) {
+      const createdAt = new Date(r.createdAt);
+      if (!Number.isFinite(createdAt.getTime())) continue;
+      const userId = String(r.userId || '').trim();
+      if (!userId) continue;
+      totalsByUser[userId] = totalsByUser[userId] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      totalsByUser[userId].activities += 1;
+      const k = this.bucketKey(createdAt, bucket);
+      series[k] = series[k] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      series[k].activities += 1;
+    }
+
+    for (const r of taskRows as any[]) {
+      const createdAt = new Date(r.createdAt);
+      if (!Number.isFinite(createdAt.getTime())) continue;
+      const userId = String(r.userId || '').trim();
+      if (!userId) continue;
+      const completed = Boolean(r.completed);
+      totalsByUser[userId] = totalsByUser[userId] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      totalsByUser[userId].tasksCreated += 1;
+      if (completed) totalsByUser[userId].tasksCompleted += 1;
+      const k = this.bucketKey(createdAt, bucket);
+      series[k] = series[k] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      series[k].tasksCreated += 1;
+      if (completed) series[k].tasksCompleted += 1;
+    }
+
+    const seriesKeys = Object.keys(series).sort();
+
+    return {
+      range: {
+        start: range.start ? range.start.toISOString() : null,
+        end: range.end ? range.end.toISOString() : null,
+      },
+      bucket,
+      totalsByUser,
+      series: seriesKeys.map((k) => ({ bucketStart: k, ...series[k] })),
+    };
+  }
+
+  async logReportExport(
+    tenantId: string,
+    user: CurrentUser,
+    payload: { report: string; params?: Record<string, unknown> },
+  ) {
+    try {
+      await this.auditService.log({
+        tenantId,
+        userId: user?.id,
+        entity: 'crm_report_export',
+        action: AuditAction.CREATE,
+        diff: payload,
+      });
+    } catch {
+      // best-effort only
+    }
+  }
 
   private async isCurrentOrgAdminOrOwner(user: CurrentUser): Promise<boolean> {
     const orgId = user?.currentOrgId;
@@ -1153,6 +1890,8 @@ export class CrmService {
       ? new Date(dto.expectedCloseDate)
       : null;
 
+    const probability = this.clampProbability(dto.probability);
+
     const accountId = dto.accountId ? String(dto.accountId).trim() : '';
     if (accountId) {
       const customer = await this.customerRepo.findOne({
@@ -1171,6 +1910,7 @@ export class CrmService {
         name: dto.name,
         amount: Number(dto.amount ?? 0),
         currency: dto.currency ?? 'TRY',
+        probability,
         expectedCloseDate,
         status: CrmOpportunityStatus.OPEN,
         wonAt: null,
@@ -1178,6 +1918,22 @@ export class CrmService {
         lostReason: null,
       }),
     );
+
+    // Seed initial stage history (best-effort)
+    try {
+      await this.oppStageHistoryRepo.save(
+        this.oppStageHistoryRepo.create({
+          tenantId,
+          opportunityId: opp.id,
+          fromStageId: null,
+          toStageId: opp.stageId,
+          changedByUserId: user.id,
+          changedAt: opp.createdAt,
+        }),
+      );
+    } catch {
+      // best-effort only
+    }
 
     const uniqTeam = Array.from(
       new Set([...(dto.teamUserIds ?? []).filter(Boolean), user.id]),
@@ -1199,6 +1955,7 @@ export class CrmService {
       name: opp.name,
       amount: opp.amount,
       currency: opp.currency,
+      probability: opp.probability == null ? null : Number(opp.probability),
       stageId: opp.stageId,
       accountId: opp.accountId,
       ownerUserId: opp.ownerUserId,
@@ -1247,6 +2004,8 @@ export class CrmService {
       throw new BadRequestException('Invalid stage');
     }
 
+    const fromStageId = opp.stageId;
+
     opp.stageId = stage.id;
     if (stage.isClosedWon) {
       opp.status = CrmOpportunityStatus.WON;
@@ -1263,6 +2022,22 @@ export class CrmService {
     }
 
     const saved = await this.oppRepo.save(opp);
+
+    // Record stage transition (best-effort)
+    try {
+      await this.oppStageHistoryRepo.save(
+        this.oppStageHistoryRepo.create({
+          tenantId,
+          opportunityId: saved.id,
+          fromStageId,
+          toStageId: saved.stageId,
+          changedByUserId: user.id,
+          changedAt: new Date(),
+        }),
+      );
+    } catch {
+      // best-effort only
+    }
     const teamUserIds = await this.getTeamUserIdsForOpportunity(
       tenantId,
       saved.id,
@@ -1272,6 +2047,7 @@ export class CrmService {
       name: saved.name,
       amount: saved.amount,
       currency: saved.currency,
+      probability: saved.probability == null ? null : Number(saved.probability),
       stageId: saved.stageId,
       accountId: saved.accountId,
       ownerUserId: saved.ownerUserId,
@@ -1346,6 +2122,7 @@ export class CrmService {
       name: safeOpp.name,
       amount: safeOpp.amount,
       currency: safeOpp.currency,
+      probability: safeOpp.probability == null ? null : Number(safeOpp.probability),
       stageId: safeOpp.stageId,
       accountId: safeOpp.accountId,
       ownerUserId: safeOpp.ownerUserId,
@@ -1410,6 +2187,14 @@ export class CrmService {
       }
     }
 
+    if ('probability' in dto) {
+      if (dto.probability == null) {
+        opp.probability = null;
+      } else {
+        opp.probability = this.clampProbability(dto.probability);
+      }
+    }
+
     const saved = await this.oppRepo.save(opp);
     const teamUserIds = await this.getTeamUserIdsForOpportunity(
       tenantId,
@@ -1420,6 +2205,7 @@ export class CrmService {
       name: saved.name,
       amount: saved.amount,
       currency: saved.currency,
+      probability: saved.probability == null ? null : Number(saved.probability),
       stageId: saved.stageId,
       accountId: saved.accountId,
       ownerUserId: saved.ownerUserId,

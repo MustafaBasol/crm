@@ -776,6 +776,113 @@ http_json PATCH "$API_BASE/crm/tasks/$TASK_ID" "$TASK_UPDATE" "$TOKEN" | tee "$T
 http_json DELETE "$API_BASE/crm/tasks/$TASK_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.task.deleted.json" >/dev/null
 http_json DELETE "$API_BASE/crm/tasks/$TASK2_ID" "" "$TOKEN" | tee "$TMP_DIR/smoke.task2.deleted.json" >/dev/null
 
+# Reports (basic coverage)
+echo "== CRM: reports (pipeline health) =="
+PIPELINE_HEALTH_JSON="$TMP_DIR/smoke.crm.report.pipeline-health.json"
+PIPELINE_HEALTH_STATUS="$(http_status GET "$API_BASE/crm/reports/pipeline-health?staleDays=30" "" "$TOKEN" "$PIPELINE_HEALTH_JSON")"
+[[ "$PIPELINE_HEALTH_STATUS" == "200" ]] || fail "Expected 200 for pipeline health report, got $PIPELINE_HEALTH_STATUS: $PIPELINE_HEALTH_JSON"
+PH_HAS_OPEN_COUNT="$(json_get "$PIPELINE_HEALTH_JSON" "typeof j.openCount === 'number'")"
+[[ "$PH_HAS_OPEN_COUNT" == "true" ]] || fail "pipeline health missing openCount number: $PIPELINE_HEALTH_JSON"
+PH_HAS_BY_STAGE="$(json_get "$PIPELINE_HEALTH_JSON" "Array.isArray(j.byStage)")"
+[[ "$PH_HAS_BY_STAGE" == "true" ]] || fail "pipeline health missing byStage array: $PIPELINE_HEALTH_JSON"
+
+echo "== CRM: reports (funnel) =="
+FUNNEL_JSON="$TMP_DIR/smoke.crm.report.funnel.json"
+FUNNEL_STATUS="$(http_status GET "$API_BASE/crm/reports/funnel?startDate=2000-01-01&endDate=2100-01-01" "" "$TOKEN" "$FUNNEL_JSON")"
+[[ "$FUNNEL_STATUS" == "200" ]] || fail "Expected 200 for funnel report, got $FUNNEL_STATUS: $FUNNEL_JSON"
+FUNNEL_HAS_LEADS="$(json_get "$FUNNEL_JSON" "typeof (j.counts && j.counts.leads) === 'number'")"
+[[ "$FUNNEL_HAS_LEADS" == "true" ]] || fail "funnel missing leads number: $FUNNEL_JSON"
+FUNNEL_HAS_CONVERSION="$(json_get "$FUNNEL_JSON" "(j.rates && (typeof j.rates.contactPerLead === 'number' || j.rates.contactPerLead === null))")"
+[[ "$FUNNEL_HAS_CONVERSION" == "true" ]] || fail "funnel missing contactPerLead number|null: $FUNNEL_JSON"
+FUNNEL_HAS_STAGE_TRANSITIONS="$(json_get "$FUNNEL_JSON" "j.stageTransitions && Array.isArray(j.stageTransitions.avgDaysInStage) && Array.isArray(j.stageTransitions.transitions)")"
+[[ "$FUNNEL_HAS_STAGE_TRANSITIONS" == "true" ]] || fail "funnel missing stageTransitions arrays: $FUNNEL_JSON"
+
+echo "== CRM: reports (forecast) =="
+FORECAST_JSON="$TMP_DIR/smoke.crm.report.forecast.json"
+FORECAST_STATUS="$(http_status GET "$API_BASE/crm/reports/forecast?startDate=2000-01-01&endDate=2100-01-01" "" "$TOKEN" "$FORECAST_JSON")"
+[[ "$FORECAST_STATUS" == "200" ]] || fail "Expected 200 for forecast report, got $FORECAST_STATUS: $FORECAST_JSON"
+FORECAST_HAS_TOTALS="$(json_get "$FORECAST_JSON" "j.totalsByCurrency && typeof j.totalsByCurrency === 'object'")"
+[[ "$FORECAST_HAS_TOTALS" == "true" ]] || fail "forecast missing totalsByCurrency object: $FORECAST_JSON"
+FORECAST_HAS_BY_WEEK="$(json_get "$FORECAST_JSON" "Array.isArray(j.byWeek)")"
+[[ "$FORECAST_HAS_BY_WEEK" == "true" ]] || fail "forecast missing byWeek array: $FORECAST_JSON"
+
+echo "== CRM: reports (activity) =="
+ACTIVITY_JSON="$TMP_DIR/smoke.crm.report.activity.json"
+ACTIVITY_STATUS="$(http_status GET "$API_BASE/crm/reports/activity?startDate=2000-01-01&endDate=2100-01-01&bucket=week" "" "$TOKEN" "$ACTIVITY_JSON")"
+[[ "$ACTIVITY_STATUS" == "200" ]] || fail "Expected 200 for activity report, got $ACTIVITY_STATUS: $ACTIVITY_JSON"
+ACTIVITY_HAS_BUCKET="$(json_get "$ACTIVITY_JSON" "j.bucket === 'week' || j.bucket === 'day'")"
+[[ "$ACTIVITY_HAS_BUCKET" == "true" ]] || fail "activity missing bucket value: $ACTIVITY_JSON"
+ACTIVITY_HAS_SERIES="$(json_get "$ACTIVITY_JSON" "Array.isArray(j.series)")"
+[[ "$ACTIVITY_HAS_SERIES" == "true" ]] || fail "activity missing series array: $ACTIVITY_JSON"
+
+echo "== CRM: reports (pipeline health export csv) =="
+PIPELINE_HEALTH_CSV="$TMP_DIR/smoke.crm.report.pipeline-health.csv"
+PIPELINE_HEALTH_CSV_HEADERS="$TMP_DIR/smoke.crm.report.pipeline-health.csv.headers.txt"
+curl -sS -D "$PIPELINE_HEALTH_CSV_HEADERS" -o "$PIPELINE_HEALTH_CSV" \
+  -H "Authorization: Bearer $TOKEN" \
+  "$API_BASE/crm/reports/pipeline-health/export-csv?staleDays=30" >/dev/null
+
+CSV_STATUS="$(awk 'NR==1{print $2}' "$PIPELINE_HEALTH_CSV_HEADERS" | tr -d '\r')"
+[[ "$CSV_STATUS" == "200" ]] || fail "Expected 200 for pipeline health CSV export, got $CSV_STATUS: $PIPELINE_HEALTH_CSV_HEADERS"
+
+CSV_HEADER_LINE="$(head -n 1 "$PIPELINE_HEALTH_CSV" | sed '1s/^\xEF\xBB\xBF//')"
+[[ "$CSV_HEADER_LINE" == "Stage,Count,Avg Age (days),Stale Count,Totals By Currency (JSON)" ]] || fail "Unexpected CSV header: '$CSV_HEADER_LINE' ($PIPELINE_HEALTH_CSV)"
+
+echo "== CRM: reports (funnel export csv) =="
+FUNNEL_CSV="$TMP_DIR/smoke.crm.report.funnel.csv"
+FUNNEL_CSV_HEADERS="$TMP_DIR/smoke.crm.report.funnel.csv.headers.txt"
+curl -sS -D "$FUNNEL_CSV_HEADERS" -o "$FUNNEL_CSV" \
+  -H "Authorization: Bearer $TOKEN" \
+  "$API_BASE/crm/reports/funnel/export-csv?startDate=2000-01-01&endDate=2100-01-01" >/dev/null
+
+FUNNEL_CSV_STATUS="$(awk 'NR==1{print $2}' "$FUNNEL_CSV_HEADERS" | tr -d '\r')"
+[[ "$FUNNEL_CSV_STATUS" == "200" ]] || fail "Expected 200 for funnel CSV export, got $FUNNEL_CSV_STATUS: $FUNNEL_CSV_HEADERS"
+FUNNEL_CSV_HEADER_LINE="$(head -n 1 "$FUNNEL_CSV" | sed '1s/^\xEF\xBB\xBF//')"
+[[ "$FUNNEL_CSV_HEADER_LINE" == "Section,Key,Value,Extra" ]] || fail "Unexpected funnel CSV header: '$FUNNEL_CSV_HEADER_LINE' ($FUNNEL_CSV)"
+
+echo "== CRM: reports (forecast export csv) =="
+FORECAST_CSV="$TMP_DIR/smoke.crm.report.forecast.csv"
+FORECAST_CSV_HEADERS="$TMP_DIR/smoke.crm.report.forecast.csv.headers.txt"
+curl -sS -D "$FORECAST_CSV_HEADERS" -o "$FORECAST_CSV" \
+  -H "Authorization: Bearer $TOKEN" \
+  "$API_BASE/crm/reports/forecast/export-csv?startDate=2000-01-01&endDate=2100-01-01" >/dev/null
+
+FORECAST_CSV_STATUS="$(awk 'NR==1{print $2}' "$FORECAST_CSV_HEADERS" | tr -d '\r')"
+[[ "$FORECAST_CSV_STATUS" == "200" ]] || fail "Expected 200 for forecast CSV export, got $FORECAST_CSV_STATUS: $FORECAST_CSV_HEADERS"
+FORECAST_CSV_HEADER_LINE="$(head -n 1 "$FORECAST_CSV" | sed '1s/^\xEF\xBB\xBF//')"
+[[ "$FORECAST_CSV_HEADER_LINE" == "Week,Currency,Raw,Weighted,Count" ]] || fail "Unexpected forecast CSV header: '$FORECAST_CSV_HEADER_LINE' ($FORECAST_CSV)"
+
+echo "== CRM: reports (activity export csv) =="
+ACTIVITY_CSV="$TMP_DIR/smoke.crm.report.activity.csv"
+ACTIVITY_CSV_HEADERS="$TMP_DIR/smoke.crm.report.activity.csv.headers.txt"
+curl -sS -D "$ACTIVITY_CSV_HEADERS" -o "$ACTIVITY_CSV" \
+  -H "Authorization: Bearer $TOKEN" \
+  "$API_BASE/crm/reports/activity/export-csv?startDate=2000-01-01&endDate=2100-01-01&bucket=week" >/dev/null
+
+ACTIVITY_CSV_STATUS="$(awk 'NR==1{print $2}' "$ACTIVITY_CSV_HEADERS" | tr -d '\r')"
+[[ "$ACTIVITY_CSV_STATUS" == "200" ]] || fail "Expected 200 for activity CSV export, got $ACTIVITY_CSV_STATUS: $ACTIVITY_CSV_HEADERS"
+ACTIVITY_CSV_HEADER_LINE="$(head -n 1 "$ACTIVITY_CSV" | sed '1s/^\xEF\xBB\xBF//')"
+[[ "$ACTIVITY_CSV_HEADER_LINE" == "BucketStart,Activities,TasksCreated,TasksCompleted" ]] || fail "Unexpected activity CSV header: '$ACTIVITY_CSV_HEADER_LINE' ($ACTIVITY_CSV)"
+
+echo "== Audit: crm_report_export recorded =="
+AUDIT_EXPORT_JSON="$TMP_DIR/smoke.audit.crm_report_export.json"
+AUDIT_EXPORT_STATUS="$(http_status GET "$API_BASE/audit/logs?entity=crm_report_export&limit=50" "" "$TOKEN" "$AUDIT_EXPORT_JSON")"
+if [[ "$AUDIT_EXPORT_STATUS" == "200" ]]; then
+  FOUND_EXPORT_LOG_PH="$(json_get "$AUDIT_EXPORT_JSON" "Array.isArray(j.data) && j.data.some(x => x && x.entity === 'crm_report_export' && x.action === 'CREATE' && x.diff && x.diff.report === 'pipeline-health')")"
+  [[ "$FOUND_EXPORT_LOG_PH" == "true" ]] || fail "Expected crm_report_export audit log for pipeline-health export not found: $AUDIT_EXPORT_JSON"
+
+  FOUND_EXPORT_LOG_FUNNEL="$(json_get "$AUDIT_EXPORT_JSON" "Array.isArray(j.data) && j.data.some(x => x && x.entity === 'crm_report_export' && x.action === 'CREATE' && x.diff && x.diff.report === 'funnel')")"
+  [[ "$FOUND_EXPORT_LOG_FUNNEL" == "true" ]] || fail "Expected crm_report_export audit log for funnel export not found: $AUDIT_EXPORT_JSON"
+
+  FOUND_EXPORT_LOG_FORECAST="$(json_get "$AUDIT_EXPORT_JSON" "Array.isArray(j.data) && j.data.some(x => x && x.entity === 'crm_report_export' && x.action === 'CREATE' && x.diff && x.diff.report === 'forecast')")"
+  [[ "$FOUND_EXPORT_LOG_FORECAST" == "true" ]] || fail "Expected crm_report_export audit log for forecast export not found: $AUDIT_EXPORT_JSON"
+
+  FOUND_EXPORT_LOG_ACTIVITY="$(json_get "$AUDIT_EXPORT_JSON" "Array.isArray(j.data) && j.data.some(x => x && x.entity === 'crm_report_export' && x.action === 'CREATE' && x.diff && x.diff.report === 'activity')")"
+  [[ "$FOUND_EXPORT_LOG_ACTIVITY" == "true" ]] || fail "Expected crm_report_export audit log for activity export not found: $AUDIT_EXPORT_JSON"
+else
+  fail "Expected 200 for /audit/logs export check, got $AUDIT_EXPORT_STATUS: $AUDIT_EXPORT_JSON"
+fi
+
 cat > "$CONTACT_UPDATE" <<JSON
 {"company":"ACME Updated"}
 JSON

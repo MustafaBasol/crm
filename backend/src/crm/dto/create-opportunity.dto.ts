@@ -8,6 +8,7 @@ import {
   IsIn,
   IsDateString,
   IsArray,
+  Max,
 } from 'class-validator';
 
 export class CreateOpportunityDto {
@@ -31,6 +32,12 @@ export class CreateOpportunityDto {
   @IsOptional()
   @IsDateString()
   expectedCloseDate?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  probability?: number | null;
 
   @IsOptional()
   @IsUUID()

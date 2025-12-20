@@ -26,6 +26,80 @@
     "dashboard": {
       "subtitle": "Eine Übersicht für Pipeline und Aktivitäten."
     },
+    "reports": {
+      "title": "CRM-Berichte",
+      "subtitle": "Pipeline-Health und Funnel-Metriken.",
+      "refresh": "Aktualisieren",
+      "exportCsv": "CSV herunterladen",
+      "pipelineHealth": {
+        "title": "Pipeline-Health",
+        "staleDays": "Stale (Tage)",
+        "openDeals": "Offene Deals",
+        "staleDeals": "Stale Deals",
+        "totalsByCurrency": "Summen nach Währung",
+        "stage": "Phase",
+        "count": "Anzahl",
+        "avgAgeDays": "Ø Alter (Tage)",
+        "staleCount": "Stale Anzahl",
+        "amount": "Betrag",
+        "closed": "Geschlossen (Gewonnen+Verloren)",
+        "winRate": "Win-Rate",
+        "winRateByStage": "Win-Rate nach Phase",
+        "winRateByOwner": "Win-Rate nach Owner",
+        "winRateByTeam": "Win-Rate nach Team",
+        "owner": "Owner",
+        "teamMember": "Teammitglied",
+        "ownerNote": "Hinweis: Owner/Team werden als userId angezeigt.",
+        "teamNote": "Hinweis: Team-Win-Rate ordnet Deals allen Teammitgliedern zu.",
+        "note": "Hinweis: Das Phasenalter wird näherungsweise über den letzten Änderungszeitpunkt berechnet."
+      },
+      "funnel": {
+        "title": "Funnel",
+        "start": "Start",
+        "end": "Ende",
+        "leads": "Leads",
+        "contacts": "Kontakte",
+        "opportunities": "Chancen",
+        "winRate": "Win-Rate",
+        "metric": "Metrik",
+        "value": "Wert",
+        "contactPerLead": "Kontakt / Lead",
+        "opportunityPerContact": "Chance / Kontakt",
+        "closed": "Geschlossen (Gewonnen+Verloren)",
+        "stageTransitions": {
+          "title": "Phasenwechsel-Dauern",
+          "avgDaysInStage": "Ø Tage pro Phase",
+          "transitions": "Wechsel",
+          "from": "Von",
+          "to": "Nach",
+          "count": "Anzahl",
+          "avgDays": "Ø Tage"
+        },
+        "note": "Hinweis: Funnel-Metriken sind aktuell zählbasiert."
+      },
+      "forecast": {
+        "title": "Forecast (Gewichtet)",
+        "rawTotal": "Summe (raw)",
+        "weightedTotal": "Summe (gewichtet)",
+        "week": "Woche",
+        "currency": "Währung",
+        "raw": "Raw",
+        "weighted": "Gewichtet",
+        "count": "Anzahl",
+        "note": "Hinweis: Gewichtete Summen basieren auf der Opportunity-Wahrscheinlichkeit (opportunity.probability falls gesetzt; sonst aus der Phase abgeleitet)."
+      },
+      "activity": {
+        "title": "Aktivitätsmetriken",
+        "bucket": "Bucket",
+        "day": "Täglich",
+        "week": "Wöchentlich",
+        "bucketStart": "Datum",
+        "activities": "Aktivitäten",
+        "tasksCreated": "Aufgaben erstellt",
+        "tasksCompleted": "Aufgaben erledigt",
+        "note": "Hinweis: Für Nicht-Admins sind Metriken auf den Benutzer beschränkt."
+      }
+    },
     "pipeline": {
       "title": "Pipeline",
       "defaultName": "Standard-Pipeline",
@@ -1171,6 +1245,7 @@
     "crmContacts": "Kontakte",
     "crmActivities": "Aktivitäten",
     "crmTasks": "Aufgaben",
+    "crmReports": "CRM-Berichte",
     "quotes": "Angebote",
     "reports": "Berichte",
     "accounting": "Buchhaltung",

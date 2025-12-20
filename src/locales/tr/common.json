@@ -41,6 +41,80 @@
     "dashboard": {
       "subtitle": "Pipeline ve aktiviteler için özet görünüm."
     },
+    "reports": {
+      "title": "CRM Raporları",
+      "subtitle": "Pipeline sağlığı ve funnel metrikleri.",
+      "refresh": "Yenile",
+      "exportCsv": "CSV İndir",
+      "pipelineHealth": {
+        "title": "Pipeline Sağlığı",
+        "staleDays": "Stale (gün)",
+        "openDeals": "Açık fırsatlar",
+        "staleDeals": "Stale fırsatlar",
+        "totalsByCurrency": "Para birimine göre toplam",
+        "stage": "Aşama",
+        "count": "Adet",
+        "avgAgeDays": "Ort. yaş (gün)",
+        "staleCount": "Stale adet",
+        "amount": "Tutar",
+        "closed": "Kapalı (Won+Lost)",
+        "winRate": "Win rate",
+        "winRateByStage": "Aşamaya göre win rate",
+        "winRateByOwner": "Owner'a göre win rate",
+        "winRateByTeam": "Takıma göre win rate",
+        "owner": "Owner",
+        "teamMember": "Takım üyesi",
+        "ownerNote": "Not: Owner/team listeleri userId bazlı gösterilir.",
+        "teamNote": "Not: Team win-rate, fırsat takım üyelerine dağıtılmıştır.",
+        "note": "Not: Aşama yaşı, son güncellenme tarihine göre yaklaşık hesaplanır."
+      },
+      "funnel": {
+        "title": "Funnel",
+        "start": "Başlangıç",
+        "end": "Bitiş",
+        "leads": "Lead",
+        "contacts": "Kişi",
+        "opportunities": "Fırsat",
+        "winRate": "Win rate",
+        "metric": "Metrik",
+        "value": "Değer",
+        "contactPerLead": "Contact / Lead",
+        "opportunityPerContact": "Opportunity / Contact",
+        "closed": "Kapalı (Won+Lost)",
+        "stageTransitions": {
+          "title": "Aşama Geçiş Süreleri",
+          "avgDaysInStage": "Aşamada ortalama bekleme (gün)",
+          "transitions": "Geçişler",
+          "from": "Nereden",
+          "to": "Nereye",
+          "count": "Adet",
+          "avgDays": "Ort. gün"
+        },
+        "note": "Not: Funnel metrikleri şimdilik sayım bazlıdır."
+      },
+      "forecast": {
+        "title": "Forecast (Weighted)",
+        "rawTotal": "Toplam (raw)",
+        "weightedTotal": "Toplam (weighted)",
+        "week": "Hafta",
+        "currency": "Para birimi",
+        "raw": "Raw",
+        "weighted": "Weighted",
+        "count": "Adet",
+        "note": "Not: Weighted toplamlar, fırsat olasılığına göre hesaplanır (opportunity.probability varsa; yoksa aşamadan türetilir)."
+      },
+      "activity": {
+        "title": "Aktivite Metrikleri",
+        "bucket": "Bucket",
+        "day": "Günlük",
+        "week": "Haftalık",
+        "bucketStart": "Tarih",
+        "activities": "Aktiviteler",
+        "tasksCreated": "Oluşan görev",
+        "tasksCompleted": "Tamamlanan görev",
+        "note": "Not: Admin olmayan kullanıcılar için metrikler kullanıcı bazında kısıtlıdır."
+      }
+    },
     "pipeline": {
       "title": "Satış Süreci",
       "defaultName": "Varsayılan Pipeline",
@@ -815,6 +889,7 @@
     "crmContacts": "Kişiler",
     "crmActivities": "Aktiviteler",
     "crmTasks": "Görevler",
+    "crmReports": "CRM Raporları",
     "quotes": "Teklifler",
     "reports": "Raporlar",
     "accounting": "Muhasebe",

@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
 } from 'class-validator';
 
@@ -30,4 +31,10 @@ export class UpdateOpportunityDto {
   @IsOptional()
   @IsDateString()
   expectedCloseDate?: string | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  probability?: number | null;
 }

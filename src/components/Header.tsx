@@ -154,6 +154,7 @@ const Header: React.FC<HeaderProps> = ({
       'crm-contacts': 'sidebar.crmContacts',
       'crm-activities': 'sidebar.crmActivities',
       'crm-tasks': 'sidebar.crmTasks',
+      'crm-reports': 'sidebar.crmReports',
       'quotes': 'sidebar.quotes',
       'reports': 'sidebar.reports',
       'general-ledger': 'sidebar.accounting',

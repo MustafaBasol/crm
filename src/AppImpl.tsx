@@ -102,6 +102,7 @@ import CrmContactsPage from "./components/crm/CrmContactsPage";
 import CrmActivitiesPage from "./components/crm/CrmActivitiesPage";
 import CrmTasksPage from "./components/crm/CrmTasksPage";
 import CrmDashboardPage from "./components/crm/CrmDashboardPage";
+import CrmReportsPage from "./components/crm/CrmReportsPage";
 import SummaryPage from "./components/summary/SummaryPage";
 import QuoteCreateModal, { type QuoteCreatePayload } from "./components/QuoteCreateModal";
 import FiscalPeriodsWidget from "./components/FiscalPeriodsWidget";
@@ -336,6 +337,7 @@ const HASH_SYNC_PAGES = [
   'crm-activities',
   'crm-tasks',
   'crm-pipeline',
+  'crm-reports',
   'quotes',
   'reports',
   'general-ledger',
@@ -348,6 +350,23 @@ const HASH_SYNC_PAGES = [
 const HASH_SYNC_PAGE_SET = new Set<string>(HASH_SYNC_PAGES);
 
 type AppArea = 'summary' | 'crm' | 'finance';
+
+const FINANCE_ONLY_PAGES = new Set<string>([
+  'dashboard',
+  'invoices',
+  'expenses',
+  'products',
+  'suppliers',
+  'banks',
+  'sales',
+  'reports',
+  'general-ledger',
+  'chart-of-accounts',
+  'archive',
+  'settings',
+  'fiscal-periods',
+  'admin',
+]);
 
 const inferAreaFromPage = (page: string): AppArea => {
   if (page === 'summary') return 'summary';
@@ -523,6 +542,13 @@ const AppContent: React.FC = () => {
     }
     if (currentPage === 'crm-pipeline' || currentPage.startsWith('crm-')) {
       setAppArea('crm');
+      return;
+    }
+
+    // Finans-özel sayfalara gidildiyse otomatik finance alanına dön.
+    // customers/quotes gibi paylaşılan sayfalarda alanı zorlamıyoruz.
+    if (FINANCE_ONLY_PAGES.has(currentPage)) {
+      setAppArea('finance');
     }
   }, [currentPage]);
 
@@ -5629,6 +5655,8 @@ const AppContent: React.FC = () => {
         return <CrmActivitiesPage />;
       case "crm-tasks":
         return <CrmTasksPage />;
+      case "crm-reports":
+        return <CrmReportsPage />;
       case "customers":
         return (
           <CustomerList
