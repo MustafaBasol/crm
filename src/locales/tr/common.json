@@ -175,9 +175,14 @@
       "filters": {
         "search": "Arama",
         "account": "Hesap",
+        "owner": "Sahip",
         "status": "Durum",
         "stage": "Aşama",
+        "amountMin": "Min tutar",
+        "amountMax": "Maks tutar",
         "allAccounts": "Tüm hesaplar",
+        "allOwners": "Tüm sahipler",
+        "me": "Ben",
         "allStages": "Tüm aşamalar"
       },
       "status": {

@@ -175,9 +175,14 @@
       "filters": {
         "search": "Search",
         "account": "Account",
+        "owner": "Owner",
         "status": "Status",
         "stage": "Stage",
+        "amountMin": "Min amount",
+        "amountMax": "Max amount",
         "allAccounts": "All accounts",
+        "allOwners": "All owners",
+        "me": "Me",
         "allStages": "All stages"
       },
       "status": {

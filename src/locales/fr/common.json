@@ -191,9 +191,14 @@
       "filters": {
         "search": "Recherche",
         "account": "Compte",
+        "owner": "Owner",
         "status": "Statut",
         "stage": "Étape",
+        "amountMin": "Montant min.",
+        "amountMax": "Montant max.",
         "allAccounts": "Tous les comptes",
+        "allOwners": "Tous les owners",
+        "me": "Moi",
         "allStages": "Toutes les étapes"
       },
       "status": {

@@ -744,6 +744,27 @@ OPPS_LIST_HAS_OPP="$(json_get "$OPPS_LIST_JSON" "Array.isArray(j?.items) && j.it
 OPPS_LIST_HAS_TS_FIELDS="$(json_get "$OPPS_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID' && String(o.createdAt||'').length > 0 && String(o.updatedAt||'').length > 0)")"
 [[ "$OPPS_LIST_HAS_TS_FIELDS" == "true" ]] || fail "Owner opportunities list missing createdAt/updatedAt fields: $OPPS_LIST_JSON"
 
+echo "== CRM: opportunities list filters (ownerUserId=me) =="
+OPPS_ME_LIST_JSON="$TMP_DIR/smoke.crm.opps.list.me.json"
+http_json GET "$API_BASE/crm/opportunities?ownerUserId=me&limit=50&offset=0" "" "$TOKEN" | tee "$OPPS_ME_LIST_JSON" >/dev/null
+OPPS_ME_HAS_OPP="$(json_get "$OPPS_ME_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_ID')")"
+[[ "$OPPS_ME_HAS_OPP" == "true" ]] || fail "Expected ownerUserId=me opportunities list to include created opportunity: $OPPS_ME_LIST_JSON"
+
+echo "== CRM: opportunities list filters (amountMin/amountMax) =="
+OPP_AMOUNT_CREATE="$TMP_DIR/smoke.opportunity.amount.create.json"
+cat > "$OPP_AMOUNT_CREATE" <<JSON
+{"accountId":"$CUSTOMER_ID","name":"Opp Amount Filter $TS","amount":123,"currency":"TRY"}
+JSON
+OPP_AMOUNT_CREATED_JSON="$TMP_DIR/smoke.opportunity.amount.created.json"
+http_json POST "$API_BASE/crm/opportunities" "$OPP_AMOUNT_CREATE" "$TOKEN" | tee "$OPP_AMOUNT_CREATED_JSON" >/dev/null
+OPP_AMOUNT_ID="$(json_get "$OPP_AMOUNT_CREATED_JSON" "j.id")"
+[[ -n "$OPP_AMOUNT_ID" ]] || fail "Opportunity id missing in amount-filter create response: $OPP_AMOUNT_CREATED_JSON"
+
+OPPS_AMOUNT_LIST_JSON="$TMP_DIR/smoke.crm.opps.list.amount.json"
+http_json GET "$API_BASE/crm/opportunities?amountMin=100&amountMax=200&limit=50&offset=0" "" "$TOKEN" | tee "$OPPS_AMOUNT_LIST_JSON" >/dev/null
+OPPS_AMOUNT_HAS_OPP="$(json_get "$OPPS_AMOUNT_LIST_JSON" "Array.isArray(j?.items) && j.items.some(o => o && o.id === '$OPP_AMOUNT_ID')")"
+[[ "$OPPS_AMOUNT_HAS_OPP" == "true" ]] || fail "Expected amountMin/amountMax opportunities list to include amount-filter opportunity: $OPPS_AMOUNT_LIST_JSON"
+
 echo "== CRM: opportunities list sorting (name ASC) =="
 OPP_SORT_Q="OppSort$TS"
 OPP_SORT_A_CREATE="$TMP_DIR/smoke.opportunity.sort.a.create.json"

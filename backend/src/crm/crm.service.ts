@@ -6,7 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, In, Repository } from 'typeorm';
+import {
+  Brackets,
+  DataSource,
+  In,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { CrmPipeline } from './entities/crm-pipeline.entity';
 import { CrmStage } from './entities/crm-stage.entity';
 import {
@@ -134,10 +140,48 @@ export class CrmService {
     @InjectRepository(Invoice)
     private readonly invoiceRepo: Repository<Invoice>,
 
+    private readonly dataSource: DataSource,
+
     private readonly auditService: AuditService,
 
     private readonly notificationsService: NotificationsService,
   ) {}
+
+  private isPostgres(): boolean {
+    return this.dataSource.options.type === 'postgres';
+  }
+
+  private applyTextSearch(
+    qb: SelectQueryBuilder<any>,
+    columns: string[],
+    q: string,
+  ) {
+    const trimmed = String(q ?? '').trim();
+    if (!trimmed) return;
+
+    const lower = trimmed.toLowerCase();
+    const qLike = `%${lower}%`;
+
+    if (this.isPostgres()) {
+      const vectorExpr = columns
+        .map((c) => `COALESCE(LOWER(${c}), '')`)
+        .join(" || ' ' || ");
+
+      qb.andWhere(
+        `to_tsvector('simple', ${vectorExpr}) @@ plainto_tsquery('simple', :qts)`,
+        { qts: lower },
+      );
+      return;
+    }
+
+    qb.andWhere(
+      new Brackets((inner) => {
+        for (const col of columns) {
+          inner.orWhere(`LOWER(${col}) LIKE :q`, { q: qLike });
+        }
+      }),
+    );
+  }
 
   private readonly AUTOMATION_SOURCE_STALE_DEAL = 'automation_stale_deal';
   private readonly AUTOMATION_SOURCE_OVERDUE_TASK = 'automation_overdue_task';
@@ -2593,18 +2637,18 @@ export class CrmService {
 
     this.applyDateRangeToQb(qb, 'l.createdAt', dateRange);
 
-    const q = String(opts?.q ?? '')
-      .trim()
-      .toLowerCase();
+    const q = String(opts?.q ?? '').trim();
     if (q) {
-      qb.andWhere(
-        new Brackets((b) => {
-          b.where('LOWER(l.name) LIKE :q', { q: `%${q}%` })
-            .orWhere("LOWER(COALESCE(l.email, '')) LIKE :q", { q: `%${q}%` })
-            .orWhere("LOWER(COALESCE(l.phone, '')) LIKE :q", { q: `%${q}%` })
-            .orWhere("LOWER(COALESCE(l.company, '')) LIKE :q", { q: `%${q}%` })
-            .orWhere("LOWER(COALESCE(l.status, '')) LIKE :q", { q: `%${q}%` });
-        }),
+      this.applyTextSearch(
+        qb,
+        [
+          'l.name',
+          "COALESCE(l.email, '')",
+          "COALESCE(l.phone, '')",
+          "COALESCE(l.company, '')",
+          "COALESCE(l.status, '')",
+        ],
+        q,
       );
     }
 
@@ -2748,14 +2792,16 @@ export class CrmService {
         'cust.id = c.accountId AND cust.tenantId = c.tenantId',
       );
 
-      qb.andWhere(
-        new Brackets((b) => {
-          b.where('LOWER(c.name) LIKE :q', { q: `%${q}%` })
-            .orWhere("LOWER(COALESCE(c.email, '')) LIKE :q", { q: `%${q}%` })
-            .orWhere("LOWER(COALESCE(c.phone, '')) LIKE :q", { q: `%${q}%` })
-            .orWhere("LOWER(COALESCE(c.company, '')) LIKE :q", { q: `%${q}%` })
-            .orWhere("LOWER(COALESCE(cust.name, '')) LIKE :q", { q: `%${q}%` });
-        }),
+      this.applyTextSearch(
+        qb,
+        [
+          'c.name',
+          "COALESCE(c.email, '')",
+          "COALESCE(c.phone, '')",
+          "COALESCE(c.company, '')",
+          "COALESCE(cust.name, '')",
+        ],
+        q,
       );
     };
 
@@ -2944,10 +2990,7 @@ export class CrmService {
     const accountId = options?.accountId?.trim() || undefined;
     const { limit, offset } = this.normalizePagination(options);
     const completed = this.normalizeCompletionFilter(options?.status);
-    const q = String(options?.q ?? '')
-      .trim()
-      .toLowerCase();
-    const qLike = q ? `%${q}%` : '';
+    const q = String(options?.q ?? '').trim();
     const dateRange = this.normalizeDateRange(
       options?.startDate,
       options?.endDate,
@@ -2984,13 +3027,8 @@ export class CrmService {
       qb: ReturnType<Repository<CrmTask>['createQueryBuilder']>,
     ) => {
       if (!q) return;
-      qb.andWhere(
-        new Brackets((b) => {
-          b.where('LOWER(t.title) LIKE :q').orWhere(
-            "LOWER(COALESCE(t.dueAt, '')) LIKE :q",
-          );
-        }),
-      ).setParameter('q', qLike);
+
+      this.applyTextSearch(qb, ['t.title', "COALESCE(t.dueAt, '')"], q);
     };
 
     if (opportunityId && accountId) {
@@ -3194,7 +3232,9 @@ export class CrmService {
 
     // Notification: assigned task (best-effort)
     try {
-      const assigneeId = saved.assigneeUserId ? String(saved.assigneeUserId) : '';
+      const assigneeId = saved.assigneeUserId
+        ? String(saved.assigneeUserId)
+        : '';
       if (assigneeId && assigneeId !== user.id) {
         await this.notificationsService.createOne({
           tenantId,
@@ -3283,9 +3323,15 @@ export class CrmService {
 
     // Notification: assignment changed (best-effort)
     try {
-      const nextAssignee = saved.assigneeUserId ? String(saved.assigneeUserId) : '';
+      const nextAssignee = saved.assigneeUserId
+        ? String(saved.assigneeUserId)
+        : '';
       const prevAssignee = prevAssigneeUserId ? String(prevAssigneeUserId) : '';
-      if (nextAssignee && nextAssignee !== user.id && nextAssignee !== prevAssignee) {
+      if (
+        nextAssignee &&
+        nextAssignee !== user.id &&
+        nextAssignee !== prevAssignee
+      ) {
         await this.notificationsService.createOne({
           tenantId,
           userId: nextAssignee,
@@ -3669,11 +3715,16 @@ export class CrmService {
       }
     }
 
-    const teamUserIds = await this.getTeamUserIdsForOpportunity(tenantId, saved.id);
+    const teamUserIds = await this.getTeamUserIdsForOpportunity(
+      tenantId,
+      saved.id,
+    );
 
     // Notification: stage change (best-effort)
     try {
-      const notifyUserIds = (teamUserIds || []).filter((uid) => uid && uid !== user.id);
+      const notifyUserIds = (teamUserIds || []).filter(
+        (uid) => uid && uid !== user.id,
+      );
       if (notifyUserIds.length > 0) {
         await this.notificationsService.createForUsers({
           tenantId,
@@ -3897,10 +3948,7 @@ export class CrmService {
     const contactId = options?.contactId?.trim() || undefined;
     const { limit, offset } = this.normalizePagination(options);
     const completed = this.normalizeCompletionFilter(options?.status);
-    const q = String(options?.q ?? '')
-      .trim()
-      .toLowerCase();
-    const qLike = q ? `%${q}%` : '';
+    const q = String(options?.q ?? '').trim();
     const dateRange = this.normalizeDateRange(
       options?.startDate,
       options?.endDate,
@@ -3937,13 +3985,12 @@ export class CrmService {
       qb: ReturnType<Repository<CrmActivity>['createQueryBuilder']>,
     ) => {
       if (!q) return;
-      qb.andWhere(
-        new Brackets((b) => {
-          b.where('LOWER(a.title) LIKE :q')
-            .orWhere("LOWER(COALESCE(a.type, '')) LIKE :q")
-            .orWhere("LOWER(COALESCE(a.dueAt, '')) LIKE :q");
-        }),
-      ).setParameter('q', qLike);
+
+      this.applyTextSearch(
+        qb,
+        ['a.title', "COALESCE(a.type, '')", "COALESCE(a.dueAt, '')"],
+        q,
+      );
     };
 
     const filterCount = [opportunityId, accountId, contactId].filter(
@@ -4473,9 +4520,12 @@ export class CrmService {
     user: CurrentUser,
     opts?: {
       q?: string;
+      ownerUserId?: string;
       stageId?: string;
       accountId?: string;
       status?: CrmOpportunityStatus;
+      amountMin?: number;
+      amountMax?: number;
       startDate?: string;
       endDate?: string;
       sortBy?: string;
@@ -4517,9 +4567,10 @@ export class CrmService {
       .where('o.tenantId = :tenantId', { tenantId })
       .andWhere('o.pipelineId = :pipelineId', { pipelineId: pipeline.id });
 
+    // Advanced date filter: updatedAt range (supports startDate/endDate)
     const dateRange = this.normalizeDateRange(opts?.startDate, opts?.endDate);
-    this.applyDateRangeToQb(qb, 'o.expectedCloseDate', dateRange, {
-      requireNotNull: true,
+    this.applyDateRangeToQb(qb, 'o.updatedAt', dateRange, {
+      requireNotNull: false,
     });
 
     const applySort = (
@@ -4558,6 +4609,16 @@ export class CrmService {
       );
     }
 
+    if (opts?.ownerUserId) {
+      const raw = String(opts.ownerUserId).trim();
+      const resolvedOwnerUserId = raw === 'me' ? user.id : raw;
+      if (resolvedOwnerUserId) {
+        qb.andWhere('o.ownerUserId = :ownerUserId', {
+          ownerUserId: resolvedOwnerUserId,
+        });
+      }
+    }
+
     if (opts?.stageId) {
       qb.andWhere('o.stageId = :stageId', { stageId: opts.stageId });
     }
@@ -4567,10 +4628,26 @@ export class CrmService {
     if (opts?.status) {
       qb.andWhere('o.status = :status', { status: opts.status });
     }
+
+    const amountMin =
+      typeof opts?.amountMin === 'number' && Number.isFinite(opts.amountMin)
+        ? opts.amountMin
+        : undefined;
+    const amountMax =
+      typeof opts?.amountMax === 'number' && Number.isFinite(opts.amountMax)
+        ? opts.amountMax
+        : undefined;
+    if (amountMin != null) {
+      qb.andWhere('o.amount >= :amountMin', { amountMin });
+    }
+    if (amountMax != null) {
+      qb.andWhere('o.amount <= :amountMax', { amountMax });
+    }
+
     if (opts?.q) {
       const q = String(opts.q).trim();
       if (q) {
-        qb.andWhere('LOWER(o.name) LIKE :q', { q: `%${q.toLowerCase()}%` });
+        this.applyTextSearch(qb, ['o.name'], q);
       }
     }
 
@@ -4844,16 +4921,14 @@ export class CrmService {
       };
     }
 
-    const qLower = q.toLowerCase();
-    const qLike = `%${qLower}%`;
-
     const accountsPromise = (async () => {
       if (this.isAdmin(user)) {
-        const rows = await this.customerRepo
+        const qb = this.customerRepo
           .createQueryBuilder('cust')
           .select(['cust.id AS id', 'cust.name AS name'])
-          .where('cust.tenantId = :tenantId', { tenantId })
-          .andWhere('LOWER(cust.name) LIKE :q', { q: qLike })
+          .where('cust.tenantId = :tenantId', { tenantId });
+        this.applyTextSearch(qb, ['cust.name'], q);
+        const rows = await qb
           .orderBy('cust.updatedAt', 'DESC')
           .limit(limit)
           .getRawMany<{ id: string; name: string }>();
@@ -4869,14 +4944,15 @@ export class CrmService {
       if (!accessibleAccountIds.length)
         return { items: [] as Array<{ id: string; name: string }> };
 
-      const rows = await this.customerRepo
+      const qb = this.customerRepo
         .createQueryBuilder('cust')
         .select(['cust.id AS id', 'cust.name AS name'])
         .where('cust.tenantId = :tenantId', { tenantId })
         .andWhere('cust.id IN (:...accountIds)', {
           accountIds: accessibleAccountIds,
-        })
-        .andWhere('LOWER(cust.name) LIKE :q', { q: qLike })
+        });
+      this.applyTextSearch(qb, ['cust.name'], q);
+      const rows = await qb
         .orderBy('cust.updatedAt', 'DESC')
         .limit(limit)
         .getRawMany<{ id: string; name: string }>();

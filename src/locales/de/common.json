@@ -170,9 +170,14 @@
       "filters": {
         "search": "Suche",
         "account": "Account",
+        "owner": "Owner",
         "status": "Status",
         "stage": "Phase",
+        "amountMin": "Min. Betrag",
+        "amountMax": "Max. Betrag",
         "allAccounts": "Alle Accounts",
+        "allOwners": "Alle Owner",
+        "me": "Ich",
         "allStages": "Alle Phasen"
       },
       "status": {
@@ -211,9 +216,14 @@
       "subtitleForContact": "Aktivitäten für \"{{contactName}}\"",
       "empty": "Noch keine Aktivitäten.",
         "account": "Account",
+        "owner": "Owner",
       "dueAtPlaceholder": "z. B. 2025-12-15",
       "filters": {
+        "amountMin": "Min. Betrag",
+        "amountMax": "Max. Betrag",
         "allAccounts": "Alle Accounts",
+        "allOwners": "Alle Owner",
+        "me": "Ich",
         "all": "Alle",
         "open": "Offen",
         "completed": "Erledigt"

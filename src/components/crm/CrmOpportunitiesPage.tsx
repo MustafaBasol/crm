@@ -15,8 +15,11 @@ type Props = {
 type StoredPageState = {
   q?: string;
   accountId?: string;
+  ownerUserId?: string;
   status?: StatusFilter;
   stageId?: string;
+  amountMin?: string;
+  amountMax?: string;
   startDate?: string;
   endDate?: string;
   sortKey?: string;
@@ -74,11 +77,21 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
     if (initialAccountId) return initialAccountId;
     return typeof restored?.accountId === 'string' ? restored.accountId : '';
   });
+  const [ownerUserId, setOwnerUserId] = useState<string>(() =>
+    typeof restored?.ownerUserId === 'string' ? restored.ownerUserId : '',
+  );
   const [status, setStatus] = useState<StatusFilter>(() => {
     const v = restored?.status;
     return v === 'open' || v === 'won' || v === 'lost' || v === 'all' ? v : 'all';
   });
   const [stageId, setStageId] = useState<string>(() => (typeof restored?.stageId === 'string' ? restored.stageId : ''));
+
+  const [amountMin, setAmountMin] = useState<string>(() =>
+    typeof restored?.amountMin === 'string' ? restored.amountMin : '',
+  );
+  const [amountMax, setAmountMax] = useState<string>(() =>
+    typeof restored?.amountMax === 'string' ? restored.amountMax : '',
+  );
 
   const [startDate, setStartDate] = useState(() =>
     typeof restored?.startDate === 'string' ? restored.startDate : '',
@@ -159,8 +172,11 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
         {
           q,
           accountId,
+          ownerUserId,
           status,
           stageId,
+          amountMin,
+          amountMax,
           startDate,
           endDate,
           sortKey,
@@ -168,7 +184,7 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
         } satisfies StoredPageState,
       ),
     );
-  }, [q, accountId, status, stageId, startDate, endDate, sortKey, limit]);
+  }, [q, accountId, ownerUserId, status, stageId, amountMin, amountMax, startDate, endDate, sortKey, limit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -204,7 +220,7 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
 
   useEffect(() => {
     setOffset(0);
-  }, [debouncedQ, accountId, status, stageId, startDate, endDate, sortKey, limit]);
+  }, [debouncedQ, accountId, ownerUserId, status, stageId, amountMin, amountMax, startDate, endDate, sortKey, limit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -218,7 +234,10 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
           q: debouncedQ || undefined,
           stageId: stageId || undefined,
           accountId: accountId || undefined,
+          ownerUserId: ownerUserId || undefined,
           status: status === 'all' ? undefined : status,
+          amountMin: Number.isFinite(Number(amountMin)) && String(amountMin).trim() ? Number(amountMin) : undefined,
+          amountMax: Number.isFinite(Number(amountMax)) && String(amountMax).trim() ? Number(amountMax) : undefined,
           startDate: startDate || undefined,
           endDate: endDate || undefined,
           ...(sortKey === 'updatedAsc'
@@ -254,7 +273,7 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQ, accountId, stageId, status, startDate, endDate, sortKey, limit, offset]);
+  }, [debouncedQ, accountId, ownerUserId, stageId, status, amountMin, amountMax, startDate, endDate, sortKey, limit, offset]);
 
   const total = page.total;
   const pageNumber = Math.floor(offset / limit) + 1;
@@ -333,6 +352,17 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
           ))}
         </select>
 
+        <label className="sr-only">{t('crm.opportunities.filters.owner')}</label>
+        <select
+          value={ownerUserId}
+          onChange={(e) => setOwnerUserId(e.target.value)}
+          className="w-full lg:w-44 border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          aria-label={t('crm.opportunities.filters.owner') as string}
+        >
+          <option value="">{t('crm.opportunities.filters.allOwners')}</option>
+          <option value="me">{t('crm.opportunities.filters.me')}</option>
+        </select>
+
         <label className="sr-only">{t('crm.opportunities.filters.status')}</label>
         <select
           value={status}
@@ -361,6 +391,25 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
           ))}
         </select>
 
+        <div className="flex w-full gap-2 lg:w-auto">
+          <label className="sr-only">{t('crm.opportunities.filters.amountMin')}</label>
+          <input
+            type="number"
+            value={amountMin}
+            onChange={(e) => setAmountMin(e.target.value)}
+            placeholder={t('crm.opportunities.filters.amountMin') as string}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          />
+          <label className="sr-only">{t('crm.opportunities.filters.amountMax')}</label>
+          <input
+            type="number"
+            value={amountMax}
+            onChange={(e) => setAmountMax(e.target.value)}
+            placeholder={t('crm.opportunities.filters.amountMax') as string}
+            className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+          />
+        </div>
+
         <label className="sr-only">{t('app.sort.label')}</label>
         <select
           value={sortKey}
@@ -379,13 +428,14 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
         <div className="lg:ml-auto flex items-center">
           <SavedViewsBar
             listType="crm_opportunities"
-            getState={() => ({ q, accountId, status, stageId, startDate, endDate, sortKey, pageSize: limit })}
+            getState={() => ({ q, accountId, ownerUserId, status, stageId, amountMin, amountMax, startDate, endDate, sortKey, pageSize: limit })}
             applyState={(state) => {
               if (!state) return;
               setQ(state.q ?? '');
               setStartDate(state.startDate ?? '');
               setEndDate(state.endDate ?? '');
               if (!initialAccountId) setAccountId(state.accountId ?? '');
+              setOwnerUserId(state.ownerUserId ?? '');
               if (typeof state.status === 'string') {
                 const allowed: StatusFilter[] = ['all', 'open', 'won', 'lost'];
                 setStatus((allowed as string[]).includes(state.status) ? (state.status as StatusFilter) : 'all');
@@ -393,6 +443,8 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
                 setStatus('all');
               }
               setStageId(state.stageId ?? '');
+              setAmountMin(state.amountMin ?? '');
+              setAmountMax(state.amountMax ?? '');
               if (typeof state.sortKey === 'string') {
                 const allowed: OpportunitySortKey[] = ['updatedDesc', 'updatedAsc', 'createdDesc', 'createdAsc', 'nameAsc', 'nameDesc'];
                 if ((allowed as string[]).includes(state.sortKey)) setSortKey(state.sortKey as OpportunitySortKey);
@@ -428,7 +480,10 @@ export default function CrmOpportunitiesPage({ initialAccountId }: Props) {
         const hasActiveFilters =
           Boolean(q.trim()) ||
           Boolean(accountId) ||
+          Boolean(ownerUserId) ||
           Boolean(stageId) ||
+          Boolean(String(amountMin).trim()) ||
+          Boolean(String(amountMax).trim()) ||
           Boolean(startDate) ||
           Boolean(endDate) ||
           status !== 'all';

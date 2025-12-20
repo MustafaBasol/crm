@@ -53,9 +53,11 @@ Hedef: günlük kullanımda daha az sürtünme, daha iyi görünürlük, daha g�
 - API: `GET /api/crm/search?q=...&limit=...`
 - Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “CRM: global search endpoint (/crm/search)” adımı
 - Gelişmiş filtreler:
-  - Çoklu kriter (owner, stage, amount range, updatedAt range)
-  - Kaydedilmiş filtreler (Saved views)
-- Full-text arama (DB destekli): PostgreSQL `tsvector` ile title/notes araması.
+  - Durum: Uygulandı (opportunities listesinde owner + amount range + updatedAt range + stage/account/status)
+  - Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “opportunities list filters (ownerUserId=me)” ve “opportunities list filters (amountMin/amountMax)” adımları
+  - Kaydedilmiş filtreler (Saved views): Uygulandı (opportunities sayfası)
+- Full-text arama (DB destekli):
+  - Durum: Uygulandı (Postgres ise `to_tsvector`/`plainto_tsquery`, değilse `LIKE` fallback)
 
 ## 5) Yetkilendirme (RBAC) & Veri Erişimi
 

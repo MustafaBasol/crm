@@ -130,9 +130,12 @@ export const getOpportunity = async (opportunityId: string): Promise<CrmOpportun
 
 export const listOpportunities = async (params?: {
   q?: string;
+  ownerUserId?: string;
   stageId?: string;
   accountId?: string;
   status?: 'open' | 'won' | 'lost';
+  amountMin?: number;
+  amountMax?: number;
   startDate?: string;
   endDate?: string;
   sortBy?: 'updatedAt' | 'createdAt' | 'name';
@@ -144,7 +147,13 @@ export const listOpportunities = async (params?: {
   if (params?.q) search.set('q', params.q);
   if (params?.stageId) search.set('stageId', params.stageId);
   if (params?.accountId) search.set('accountId', params.accountId);
-  if (params?.status) search.set('status', params.status);
+  if (params?.ownerUserId) search.set('ownerUserId', params.ownerUserId);
+  if (typeof params?.amountMin === 'number' && Number.isFinite(params.amountMin)) {
+    search.set('amountMin', String(params.amountMin));
+  }
+  if (typeof params?.amountMax === 'number' && Number.isFinite(params.amountMax)) {
+    search.set('amountMax', String(params.amountMax));
+  }
   if (params?.startDate) search.set('startDate', params.startDate);
   if (params?.endDate) search.set('endDate', params.endDate);
   if (params?.sortBy) search.set('sortBy', params.sortBy);

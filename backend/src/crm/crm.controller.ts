@@ -771,9 +771,12 @@ export class CrmController {
   async listOpportunities(
     @User() user: CurrentUser,
     @Query('q') q?: string,
+    @Query('ownerUserId') ownerUserId?: string,
     @Query('stageId') stageId?: string,
     @Query('accountId') accountId?: string,
     @Query('status') status?: string,
+    @Query('amountMin') amountMin?: string,
+    @Query('amountMax') amountMax?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('sortBy') sortBy?: string,
@@ -790,9 +793,12 @@ export class CrmController {
 
     return this.crmService.listOpportunities(user.tenantId, user, {
       q,
+      ownerUserId,
       stageId,
       accountId,
       status: statusValue,
+      amountMin: amountMin ? Number(amountMin) : undefined,
+      amountMax: amountMax ? Number(amountMax) : undefined,
       startDate,
       endDate,
       sortBy,
