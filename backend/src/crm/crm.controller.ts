@@ -96,6 +96,22 @@ type ActivityReport = {
 export class CrmController {
   constructor(private readonly crmService: CrmService) {}
 
+  @Get('search')
+  @ApiOperation({
+    summary:
+      'Global CRM search (accounts/contacts/leads/opportunities/tasks/activities)',
+  })
+  async globalSearch(
+    @User() user: CurrentUser,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.crmService.globalSearch(user.tenantId, user, {
+      q,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
   @Get('reports/pipeline-health')
   @ApiOperation({
     summary:

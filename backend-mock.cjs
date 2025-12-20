@@ -452,6 +452,110 @@ const server = createServer((req, res) => {
     });
   }
 
+  if (path === '/api/crm/search' && req.method === 'GET') {
+    const url = new URL(req.url, 'http://localhost');
+    const q = String(url.searchParams.get('q') || '').trim();
+    const limitRaw = Number(url.searchParams.get('limit') || 5);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(25, Math.floor(limitRaw))) : 5;
+
+    if (!q || q.length < 2) {
+      return json(res, 200, {
+        q,
+        limit,
+        accounts: { items: [] },
+        contacts: { items: [] },
+        leads: { items: [] },
+        opportunities: { items: [] },
+        tasks: { items: [] },
+        activities: { items: [] },
+      });
+    }
+
+    const qLower = q.toLowerCase();
+    const includes = (v) => String(v || '').toLowerCase().includes(qLower);
+
+    const accounts = (customers || [])
+      .filter((c) => c && includes(c.name))
+      .slice(0, limit)
+      .map((c) => ({ id: String(c.id), name: String(c.name) }));
+
+    const opportunities = (crmOpportunities || [])
+      .filter((o) => o && includes(o.name))
+      .slice(0, limit)
+      .map((o) => ({
+        id: String(o.id),
+        name: String(o.name),
+        stageId: String(o.stageId || ''),
+        status: String(o.status || 'open'),
+        updatedAt: String(o.updatedAt || o.createdAt || new Date().toISOString()),
+        accountId: o.accountId ? String(o.accountId) : null,
+      }));
+
+    const contacts = (crmContacts || [])
+      .filter((c) => c && (includes(c.name) || includes(c.email) || includes(c.phone) || includes(c.company)))
+      .slice(0, limit)
+      .map((c) => ({
+        id: String(c.id),
+        name: String(c.name),
+        email: c.email ? String(c.email) : null,
+        phone: c.phone ? String(c.phone) : null,
+        company: c.company ? String(c.company) : null,
+        accountId: c.accountId ? String(c.accountId) : null,
+        updatedAt: String(c.updatedAt || c.createdAt || new Date().toISOString()),
+      }));
+
+    const leads = (crmLeads || [])
+      .filter((l) => l && (includes(l.name) || includes(l.email) || includes(l.phone) || includes(l.company) || includes(l.status)))
+      .slice(0, limit)
+      .map((l) => ({
+        id: String(l.id),
+        name: String(l.name),
+        email: l.email ? String(l.email) : null,
+        phone: l.phone ? String(l.phone) : null,
+        company: l.company ? String(l.company) : null,
+        status: l.status ? String(l.status) : null,
+        updatedAt: String(l.updatedAt || l.createdAt || new Date().toISOString()),
+      }));
+
+    const tasks = (crmTasks || [])
+      .filter((t) => t && (includes(t.title) || includes(t.dueAt)))
+      .slice(0, limit)
+      .map((t) => ({
+        id: String(t.id),
+        title: String(t.title),
+        completed: Boolean(t.completed),
+        dueAt: t.dueAt ? String(t.dueAt) : null,
+        opportunityId: t.opportunityId ? String(t.opportunityId) : null,
+        accountId: t.accountId ? String(t.accountId) : null,
+        updatedAt: String(t.updatedAt || t.createdAt || new Date().toISOString()),
+      }));
+
+    const activities = (crmActivities || [])
+      .filter((a) => a && (includes(a.title) || includes(a.type) || includes(a.dueAt)))
+      .slice(0, limit)
+      .map((a) => ({
+        id: String(a.id),
+        title: String(a.title),
+        type: a.type ? String(a.type) : null,
+        completed: Boolean(a.completed),
+        dueAt: a.dueAt ? String(a.dueAt) : null,
+        opportunityId: a.opportunityId ? String(a.opportunityId) : null,
+        accountId: a.accountId ? String(a.accountId) : null,
+        updatedAt: String(a.updatedAt || a.createdAt || new Date().toISOString()),
+      }));
+
+    return json(res, 200, {
+      q,
+      limit,
+      accounts: { items: accounts },
+      contacts: { items: contacts },
+      leads: { items: leads },
+      opportunities: { items: opportunities },
+      tasks: { items: tasks },
+      activities: { items: activities },
+    });
+  }
+
   // CRM Reports (mock)
   if (path === '/api/crm/reports/pipeline-health' && req.method === 'GET') {
     const url = new URL(req.url, 'http://localhost');

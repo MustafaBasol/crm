@@ -23,13 +23,22 @@ Hedef: günlük kullanımda daha az sürtünme, daha iyi görünürlük, daha g�
     - API: `GET/POST/PATCH /api/crm/automation/stage-task-rules`
     - Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “opportunity move triggers automation task” adımı
   - Deal won olunca follow-up checklist
+    - Durum: Uygulandı (WON stage’e geçişte checklist görevleri oluşturma + dedupe)
+    - API: `GET/POST/PATCH /api/crm/automation/won-checklist-rules`
+    - Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “automation (won checklist creates tasks)” adımı
   - Stale deal için hatırlatma
     - Durum: Uygulandı (staleDays + optional stage filtresi + cooldown ile dedupe)
     - API: `GET/POST/PATCH /api/crm/automation/stale-deal-rules`, `POST /api/crm/automation/run/stale-deals`
     - Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “automation (stale deal reminder creates task)” adımı
 - Sıralı görev akışları (sequence-lite):
   - “3 gün sonra ara, 7 gün sonra e-posta gönder” gibi zincirler.
+  - Durum: Uygulandı (stage change ile sequence başlatma + zincir item’lar için görev oluşturma)
+  - API: `GET/POST/PATCH /api/crm/automation/stage-sequence-rules`
+  - Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “automation (stage->sequence creates tasks)” adımı
 - SLA ve görev eskalasyonu: due date aşımı → owner + manager bilgilendirme.
+  - Durum: Uygulandı (overdue tespit edip escalation görevi oluşturma + cooldown ile dedupe)
+  - API: `GET/POST/PATCH /api/crm/automation/overdue-task-rules`, `POST /api/crm/automation/run/overdue-tasks`
+  - Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “automation (overdue tasks -> escalation)” adımı
 
 ## 3) Bildirimler & Hatırlatmalar
 

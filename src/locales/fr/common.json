@@ -47,6 +47,22 @@
     "dashboard": {
       "subtitle": "Une vue d’ensemble du pipeline et de l’activité."
     },
+    "search": {
+      "title": "Recherche globale",
+      "placeholder": "Rechercher : compte, contact, deal, tâche…",
+      "hint": "Saisissez au moins 2 caractères.",
+      "loading": "Recherche…",
+      "noResults": "Aucun résultat",
+      "error": "Échec de la recherche",
+      "sections": {
+        "accounts": "Comptes",
+        "opportunities": "Opportunités",
+        "contacts": "Contacts",
+        "leads": "Prospects",
+        "tasks": "Tâches",
+        "activities": "Activités"
+      }
+    },
     "reports": {
       "title": "Rapports CRM",
       "subtitle": "Santé du pipeline et métriques de funnel.",

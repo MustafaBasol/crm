@@ -403,6 +403,27 @@ OPP_OWNER_ID="$(json_get "$OPP_CREATED_JSON" "j.ownerUserId")"
 [[ -n "$OPP_ID" ]] || fail "Opportunity id missing in create response: $OPP_CREATED_JSON"
 echo "Opportunity ID: $OPP_ID"
 
+echo "== CRM: global search endpoint (/crm/search) =="
+LEAD_SEARCH_CREATE="$TMP_DIR/smoke.lead.search.create.json"
+cat > "$LEAD_SEARCH_CREATE" <<JSON
+{"name":"Lead Search Smoke $TS","email":"lead.search.$TS@example.com","phone":"+90506$TS","company":"ACME","status":"new"}
+JSON
+LEAD_SEARCH_CREATED_JSON="$TMP_DIR/smoke.lead.search.created.json"
+http_json POST "$API_BASE/crm/leads" "$LEAD_SEARCH_CREATE" "$TOKEN" | tee "$LEAD_SEARCH_CREATED_JSON" >/dev/null
+LEAD_SEARCH_ID="$(json_get "$LEAD_SEARCH_CREATED_JSON" "j.id")"
+[[ -n "$LEAD_SEARCH_ID" ]] || fail "Lead search id missing in create response: $LEAD_SEARCH_CREATED_JSON"
+
+SEARCH_JSON="$TMP_DIR/smoke.crm.search.json"
+http_json GET "$API_BASE/crm/search?q=Smoke%20$TS&limit=5" "" "$TOKEN" | tee "$SEARCH_JSON" >/dev/null
+SEARCH_HAS_ACCOUNT="$(json_get "$SEARCH_JSON" "j && j.accounts && Array.isArray(j.accounts.items) && j.accounts.items.some(a => a && typeof a.name === 'string' && a.name.includes('Customer Smoke'))")"
+SEARCH_HAS_OPP="$(json_get "$SEARCH_JSON" "j && j.opportunities && Array.isArray(j.opportunities.items) && j.opportunities.items.some(o => o && typeof o.name === 'string' && o.name.includes('Opp Smoke'))")"
+SEARCH_HAS_CONTACT="$(json_get "$SEARCH_JSON" "j && j.contacts && Array.isArray(j.contacts.items) && j.contacts.items.some(c => c && typeof c.name === 'string' && c.name.includes('Contact Smoke'))")"
+SEARCH_HAS_LEAD="$(json_get "$SEARCH_JSON" "j && j.leads && Array.isArray(j.leads.items) && j.leads.items.some(l => l && typeof l.name === 'string' && l.name.includes('Lead Search Smoke'))")"
+[[ "$SEARCH_HAS_ACCOUNT" == "true" ]] || fail "Expected global search to include Customer Smoke: $SEARCH_JSON"
+[[ "$SEARCH_HAS_OPP" == "true" ]] || fail "Expected global search to include Opp Smoke: $SEARCH_JSON"
+[[ "$SEARCH_HAS_CONTACT" == "true" ]] || fail "Expected global search to include Contact Smoke: $SEARCH_JSON"
+[[ "$SEARCH_HAS_LEAD" == "true" ]] || fail "Expected global search to include Lead Search Smoke: $SEARCH_JSON"
+
 echo "== CRM: opportunity move triggers automation task =="
 OPP_MOVE_PAYLOAD="$TMP_DIR/smoke.crm.opp.move.json"
 cat > "$OPP_MOVE_PAYLOAD" <<JSON

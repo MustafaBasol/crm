@@ -4692,4 +4692,234 @@ export class CrmService {
       return enriched;
     });
   }
+
+  async globalSearch(
+    tenantId: string,
+    user: CurrentUser,
+    opts?: {
+      q?: string;
+      limit?: number;
+    },
+  ) {
+    const q = String(opts?.q ?? '').trim();
+    const limit = this.clampInt(opts?.limit, 5, 1, 25);
+
+    if (!q || q.length < 2) {
+      return {
+        q,
+        limit,
+        accounts: { items: [] as Array<{ id: string; name: string }> },
+        contacts: {
+          items: [] as Array<{
+            id: string;
+            name: string;
+            email: string | null;
+            phone: string | null;
+            company: string | null;
+            accountId: string | null;
+            updatedAt: string;
+          }>,
+        },
+        leads: {
+          items: [] as Array<{
+            id: string;
+            name: string;
+            email: string | null;
+            phone: string | null;
+            company: string | null;
+            status: string | null;
+            updatedAt: string;
+          }>,
+        },
+        opportunities: {
+          items: [] as Array<{
+            id: string;
+            name: string;
+            stageId: string;
+            status: CrmOpportunityStatus;
+            updatedAt: string;
+            accountId: string | null;
+          }>,
+        },
+        tasks: {
+          items: [] as Array<{
+            id: string;
+            title: string;
+            completed: boolean;
+            dueAt: string | null;
+            opportunityId: string | null;
+            accountId: string | null;
+            updatedAt: string;
+          }>,
+        },
+        activities: {
+          items: [] as Array<{
+            id: string;
+            title: string;
+            type: string | null;
+            completed: boolean;
+            dueAt: string | null;
+            opportunityId: string | null;
+            accountId: string | null;
+            updatedAt: string;
+          }>,
+        },
+      };
+    }
+
+    const qLower = q.toLowerCase();
+    const qLike = `%${qLower}%`;
+
+    const accountsPromise = (async () => {
+      if (this.isAdmin(user)) {
+        const rows = await this.customerRepo
+          .createQueryBuilder('cust')
+          .select(['cust.id AS id', 'cust.name AS name'])
+          .where('cust.tenantId = :tenantId', { tenantId })
+          .andWhere('LOWER(cust.name) LIKE :q', { q: qLike })
+          .orderBy('cust.updatedAt', 'DESC')
+          .limit(limit)
+          .getRawMany<{ id: string; name: string }>();
+        return {
+          items: rows.map((r) => ({ id: String(r.id), name: String(r.name) })),
+        };
+      }
+
+      const accessibleAccountIds = await this.getAccessibleAccountIdsForUser(
+        tenantId,
+        user,
+      );
+      if (!accessibleAccountIds.length)
+        return { items: [] as Array<{ id: string; name: string }> };
+
+      const rows = await this.customerRepo
+        .createQueryBuilder('cust')
+        .select(['cust.id AS id', 'cust.name AS name'])
+        .where('cust.tenantId = :tenantId', { tenantId })
+        .andWhere('cust.id IN (:...accountIds)', {
+          accountIds: accessibleAccountIds,
+        })
+        .andWhere('LOWER(cust.name) LIKE :q', { q: qLike })
+        .orderBy('cust.updatedAt', 'DESC')
+        .limit(limit)
+        .getRawMany<{ id: string; name: string }>();
+
+      return {
+        items: rows.map((r) => ({ id: String(r.id), name: String(r.name) })),
+      };
+    })();
+
+    const [contacts, leads, opportunities, tasks, activities, accounts] =
+      await Promise.all([
+        this.listContacts(tenantId, user, {
+          q,
+          sortBy: 'updatedAt',
+          sortDir: 'desc',
+          limit,
+          offset: 0,
+        }),
+        this.listLeads(tenantId, {
+          q,
+          sortBy: 'updatedAt',
+          sortDir: 'desc',
+          limit,
+          offset: 0,
+        }),
+        this.listOpportunities(tenantId, user, {
+          q,
+          sortBy: 'updatedAt',
+          sortDir: 'desc',
+          limit,
+          offset: 0,
+        }),
+        this.listTasks(tenantId, user, {
+          q,
+          sortBy: 'updatedAt',
+          sortDir: 'desc',
+          limit,
+          offset: 0,
+        }),
+        this.listActivities(tenantId, user, {
+          q,
+          sortBy: 'updatedAt',
+          sortDir: 'desc',
+          limit,
+          offset: 0,
+        }),
+        accountsPromise,
+      ]);
+
+    return {
+      q,
+      limit,
+      accounts,
+      contacts: {
+        items: (contacts.items || []).map((c) => ({
+          id: c.id,
+          name: c.name,
+          email: c.email ?? null,
+          phone: c.phone ?? null,
+          company: c.company ?? null,
+          accountId: c.accountId ?? null,
+          updatedAt:
+            c.updatedAt instanceof Date
+              ? c.updatedAt.toISOString()
+              : String(c.updatedAt),
+        })),
+      },
+      leads: {
+        items: (leads.items || []).map((l) => ({
+          id: l.id,
+          name: l.name,
+          email: l.email ?? null,
+          phone: l.phone ?? null,
+          company: l.company ?? null,
+          status: l.status ?? null,
+          updatedAt:
+            l.updatedAt instanceof Date
+              ? l.updatedAt.toISOString()
+              : String(l.updatedAt),
+        })),
+      },
+      opportunities: {
+        items: (opportunities.items || []).map((o) => ({
+          id: o.id,
+          name: o.name,
+          stageId: o.stageId,
+          status: o.status,
+          updatedAt: o.updatedAt,
+          accountId: o.accountId ?? null,
+        })),
+      },
+      tasks: {
+        items: (tasks.items || []).map((t) => ({
+          id: t.id,
+          title: t.title,
+          completed: Boolean(t.completed),
+          dueAt: t.dueAt ? String(t.dueAt) : null,
+          opportunityId: t.opportunityId ?? null,
+          accountId: t.accountId ?? null,
+          updatedAt:
+            t.updatedAt instanceof Date
+              ? t.updatedAt.toISOString()
+              : String(t.updatedAt),
+        })),
+      },
+      activities: {
+        items: (activities.items || []).map((a) => ({
+          id: a.id,
+          title: a.title,
+          type: a.type ?? null,
+          completed: Boolean(a.completed),
+          dueAt: a.dueAt ? String(a.dueAt) : null,
+          opportunityId: a.opportunityId ?? null,
+          accountId: a.accountId ?? null,
+          updatedAt:
+            a.updatedAt instanceof Date
+              ? a.updatedAt.toISOString()
+              : String(a.updatedAt),
+        })),
+      },
+    };
+  }
 }

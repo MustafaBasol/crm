@@ -41,6 +41,22 @@
     "dashboard": {
       "subtitle": "An overview of the pipeline and activity."
     },
+    "search": {
+      "title": "Global Search",
+      "placeholder": "Search: account, contact, deal, task…",
+      "hint": "Type at least 2 characters.",
+      "loading": "Searching…",
+      "noResults": "No results",
+      "error": "Search failed",
+      "sections": {
+        "accounts": "Accounts",
+        "opportunities": "Opportunities",
+        "contacts": "Contacts",
+        "leads": "Leads",
+        "tasks": "Tasks",
+        "activities": "Activities"
+      }
+    },
     "reports": {
       "title": "CRM Reports",
       "subtitle": "Pipeline health and funnel metrics.",

@@ -41,6 +41,22 @@
     "dashboard": {
       "subtitle": "Pipeline ve aktiviteler için özet görünüm."
     },
+    "search": {
+      "title": "Global Arama",
+      "placeholder": "Ara: müşteri, kişi, fırsat, görev…",
+      "hint": "En az 2 karakter yazın.",
+      "loading": "Aranıyor…",
+      "noResults": "Sonuç bulunamadı",
+      "error": "Arama başarısız",
+      "sections": {
+        "accounts": "Müşteriler",
+        "opportunities": "Fırsatlar",
+        "contacts": "Kişiler",
+        "leads": "Lead'ler",
+        "tasks": "Görevler",
+        "activities": "Aktiviteler"
+      }
+    },
     "reports": {
       "title": "CRM Raporları",
       "subtitle": "Pipeline sağlığı ve funnel metrikleri.",

@@ -40,6 +40,67 @@ export type CrmOpportunityListResponse = {
   offset: number;
 };
 
+export type CrmGlobalSearchResponse = {
+  q: string;
+  limit: number;
+  accounts: { items: Array<{ id: string; name: string }> };
+  contacts: {
+    items: Array<{
+      id: string;
+      name: string;
+      email: string | null;
+      phone: string | null;
+      company: string | null;
+      accountId: string | null;
+      updatedAt: string;
+    }>;
+  };
+  leads: {
+    items: Array<{
+      id: string;
+      name: string;
+      email: string | null;
+      phone: string | null;
+      company: string | null;
+      status: string | null;
+      updatedAt: string;
+    }>;
+  };
+  opportunities: {
+    items: Array<{
+      id: string;
+      name: string;
+      stageId: string;
+      status: 'open' | 'won' | 'lost';
+      updatedAt: string;
+      accountId: string | null;
+    }>;
+  };
+  tasks: {
+    items: Array<{
+      id: string;
+      title: string;
+      completed: boolean;
+      dueAt: string | null;
+      opportunityId: string | null;
+      accountId: string | null;
+      updatedAt: string;
+    }>;
+  };
+  activities: {
+    items: Array<{
+      id: string;
+      title: string;
+      type: string | null;
+      completed: boolean;
+      dueAt: string | null;
+      opportunityId: string | null;
+      accountId: string | null;
+      updatedAt: string;
+    }>;
+  };
+};
+
 export type CreateOpportunityRequest = {
   accountId: string;
   name: string;
@@ -127,5 +188,15 @@ export const getOpportunityInvoices = async (opportunityId: string): Promise<Crm
   const res = await apiClient.get<CrmOpportunityLinkedInvoice[]>(
     `/crm/opportunities/${encodeURIComponent(String(opportunityId))}/invoices`
   );
+  return res.data;
+};
+
+export const globalSearch = async (params: {
+  q: string;
+  limit?: number;
+}): Promise<CrmGlobalSearchResponse> => {
+  const res = await apiClient.get<CrmGlobalSearchResponse>('/crm/search', {
+    params: { q: params.q, limit: params.limit },
+  });
   return res.data;
 };
