@@ -34,6 +34,9 @@ export default function CrmAutomationsSettingsTab() {
       refresh: 'Yenile',
       loading: 'Yükleniyor…',
       errorPrefix: 'Hata:',
+      validation: {
+        requiredField: (fieldLabel: string) => `${fieldLabel} zorunlu`,
+      },
       sections: {
         stage: { title: 'Stage → Otomatik Görev', new: 'Yeni kural' },
         stale: { title: 'Stale Deal → Hatırlatma Görevi', new: 'Yeni kural' },
@@ -74,6 +77,9 @@ export default function CrmAutomationsSettingsTab() {
       refresh: 'Refresh',
       loading: 'Loading…',
       errorPrefix: 'Error:',
+      validation: {
+        requiredField: (fieldLabel: string) => `${fieldLabel} is required`,
+      },
       sections: {
         stage: { title: 'Stage → Create Task', new: 'New rule' },
         stale: { title: 'Stale Deal → Reminder Task', new: 'New rule' },
@@ -108,7 +114,96 @@ export default function CrmAutomationsSettingsTab() {
       },
     };
 
-    return lang === 'tr' ? tr : en;
+    const fr = {
+      title: 'Automatisations',
+      subtitle: 'Gérez les règles d’automatisation CRM.',
+      refresh: 'Actualiser',
+      loading: 'Chargement…',
+      errorPrefix: 'Erreur :',
+      validation: {
+        requiredField: (fieldLabel: string) => `${fieldLabel} est requis`,
+      },
+      sections: {
+        stage: { title: 'Étape → Créer une tâche', new: 'Nouvelle règle' },
+        stale: { title: 'Deal inactif → Tâche de rappel', new: 'Nouvelle règle' },
+      },
+      fields: {
+        enabled: 'Actif',
+        fromStage: 'Étape source',
+        toStage: 'Étape cible',
+        any: 'Tous',
+        titleTemplate: 'Modèle de titre de tâche',
+        dueInDays: 'Échéance (jours)',
+        staleDays: 'Inactivité (jours)',
+        stageFilter: 'Filtre d’étape',
+        cooldownDays: 'Cooldown (jours)',
+        assigneeTarget: 'Attribution',
+        assigneeUserId: 'Utilisateur',
+      },
+      targets: {
+        owner: 'Propriétaire du deal',
+        mover: 'Exécutant (acteur)',
+        specific: 'Utilisateur spécifique',
+      },
+      actions: {
+        edit: 'Modifier',
+        cancel: 'Annuler',
+        save: 'Enregistrer',
+        create: 'Créer',
+      },
+      hints: {
+        stageTemplate: 'ex. Tâche auto : {{toStageName}}',
+        staleTemplate: 'ex. Tâche inactive : {{opportunityName}}',
+      },
+    };
+
+    const de = {
+      title: 'Automatisierungen',
+      subtitle: 'CRM-Automatisierungsregeln verwalten.',
+      refresh: 'Aktualisieren',
+      loading: 'Wird geladen…',
+      errorPrefix: 'Fehler:',
+      validation: {
+        requiredField: (fieldLabel: string) => `${fieldLabel} ist erforderlich`,
+      },
+      sections: {
+        stage: { title: 'Phase → Aufgabe erstellen', new: 'Neue Regel' },
+        stale: { title: 'Stale Deal → Erinnerungsaufgabe', new: 'Neue Regel' },
+      },
+      fields: {
+        enabled: 'Aktiv',
+        fromStage: 'Von Phase',
+        toStage: 'Zu Phase',
+        any: 'Alle',
+        titleTemplate: 'Aufgabentitel-Vorlage',
+        dueInDays: 'Fällig in Tagen',
+        staleDays: 'Stale Tage',
+        stageFilter: 'Phasenfilter',
+        cooldownDays: 'Cooldown Tage',
+        assigneeTarget: 'Zuweisung',
+        assigneeUserId: 'Benutzer',
+      },
+      targets: {
+        owner: 'Deal-Besitzer',
+        mover: 'Ausführender (Akteur)',
+        specific: 'Bestimmter Benutzer',
+      },
+      actions: {
+        edit: 'Bearbeiten',
+        cancel: 'Abbrechen',
+        save: 'Speichern',
+        create: 'Erstellen',
+      },
+      hints: {
+        stageTemplate: 'z.B. Auto-Aufgabe: {{toStageName}}',
+        staleTemplate: 'z.B. Stale-Aufgabe: {{opportunityName}}',
+      },
+    };
+
+    if (lang === 'tr') return tr;
+    if (lang === 'fr') return fr;
+    if (lang === 'de') return de;
+    return en;
   }, [lang]);
 
   const [loading, setLoading] = useState(true);
@@ -261,15 +356,15 @@ export default function CrmAutomationsSettingsTab() {
     const assigneeTarget = normalizeTarget(stageForm.assigneeTarget);
 
     if (!toStageId) {
-      setError(`${text.fields.toStage} zorunlu`);
+      setError(text.validation.requiredField(text.fields.toStage));
       return;
     }
     if (!titleTemplate) {
-      setError(`${text.fields.titleTemplate} zorunlu`);
+      setError(text.validation.requiredField(text.fields.titleTemplate));
       return;
     }
     if (assigneeTarget === 'specific' && !stageForm.assigneeUserId) {
-      setError(`${text.fields.assigneeUserId} zorunlu`);
+      setError(text.validation.requiredField(text.fields.assigneeUserId));
       return;
     }
 
@@ -303,11 +398,11 @@ export default function CrmAutomationsSettingsTab() {
     const assigneeTarget = normalizeTarget(staleForm.assigneeTarget);
 
     if (!titleTemplate) {
-      setError(`${text.fields.titleTemplate} zorunlu`);
+      setError(text.validation.requiredField(text.fields.titleTemplate));
       return;
     }
     if (assigneeTarget === 'specific' && !staleForm.assigneeUserId) {
-      setError(`${text.fields.assigneeUserId} zorunlu`);
+      setError(text.validation.requiredField(text.fields.assigneeUserId));
       return;
     }
 
