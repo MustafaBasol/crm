@@ -19,6 +19,9 @@ Hedef: günlük kullanımda daha az sürtünme, daha iyi görünürlük, daha g�
 
 - Kurallı otomasyon (basit):
   - Stage değişince otomatik görev oluşturma
+    - Durum: Uygulandı (backend rule engine + stage move tetiklemesi)
+    - API: `GET/POST/PATCH /api/crm/automation/stage-task-rules`
+    - Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “opportunity move triggers automation task” adımı
   - Deal won olunca follow-up checklist
   - Stale deal için hatırlatma
 - Sıralı görev akışları (sequence-lite):

@@ -289,6 +289,16 @@ STAGE_0_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.sta
 STAGE_1_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.stageIds[1]")"
 STAGE_2_ID="$(json_get "$CRM_BOOTSTRAP_JSON" "Array.isArray(j.stageIds) && j.stageIds[2]")"
 
+echo "== CRM: automation (stage change creates task) =="
+AUTO_RULE_CREATE="$TMP_DIR/smoke.crm.auto.rule.create.json"
+cat > "$AUTO_RULE_CREATE" <<JSON
+{"enabled":true,"fromStageId":null,"toStageId":"$STAGE_1_ID","titleTemplate":"Auto task: {{toStageName}}","dueInDays":3,"assigneeTarget":"owner"}
+JSON
+AUTO_RULE_CREATED_JSON="$TMP_DIR/smoke.crm.auto.rule.created.json"
+http_json POST "$API_BASE/crm/automation/stage-task-rules" "$AUTO_RULE_CREATE" "$TOKEN" | tee "$AUTO_RULE_CREATED_JSON" >/dev/null
+AUTO_RULE_ID="$(json_get "$AUTO_RULE_CREATED_JSON" "j.id")"
+[[ -n "$AUTO_RULE_ID" ]] || fail "Automation rule id missing in create response: $AUTO_RULE_CREATED_JSON"
+
 echo "== CRM: stages-only endpoint (/crm/stages) =="
 STAGES_JSON="$TMP_DIR/smoke.crm.stages.json"
 http_json GET "$API_BASE/crm/stages" "" "$TOKEN" | tee "$STAGES_JSON" >/dev/null
@@ -389,8 +399,28 @@ OPP_CREATED_JSON="$TMP_DIR/smoke.opportunity.created.json"
 http_json POST "$API_BASE/crm/opportunities" "$OPP_CREATE" "$TOKEN" | tee "$OPP_CREATED_JSON" >/dev/null
 OPP_ID="$(json_get "$OPP_CREATED_JSON" "j.id")"
 OPP_STAGE_ID="$(json_get "$OPP_CREATED_JSON" "j.stageId")"
+OPP_OWNER_ID="$(json_get "$OPP_CREATED_JSON" "j.ownerUserId")"
 [[ -n "$OPP_ID" ]] || fail "Opportunity id missing in create response: $OPP_CREATED_JSON"
 echo "Opportunity ID: $OPP_ID"
+
+echo "== CRM: opportunity move triggers automation task =="
+OPP_MOVE_PAYLOAD="$TMP_DIR/smoke.crm.opp.move.json"
+cat > "$OPP_MOVE_PAYLOAD" <<JSON
+{"stageId":"$STAGE_1_ID"}
+JSON
+OPP_MOVED_JSON="$TMP_DIR/smoke.crm.opp.moved.json"
+http_json POST "$API_BASE/crm/opportunities/$OPP_ID/move" "$OPP_MOVE_PAYLOAD" "$TOKEN" | tee "$OPP_MOVED_JSON" >/dev/null
+OPP_MOVED_STAGE_ID="$(json_get "$OPP_MOVED_JSON" "j.stageId")"
+[[ "$OPP_MOVED_STAGE_ID" == "$STAGE_1_ID" ]] || fail "Expected moved stageId to be $STAGE_1_ID, got $OPP_MOVED_STAGE_ID: $OPP_MOVED_JSON"
+
+AUTO_TASKS_JSON="$TMP_DIR/smoke.crm.tasks.after.move.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$AUTO_TASKS_JSON" >/dev/null
+AUTO_TASK_FOUND="$(json_get "$AUTO_TASKS_JSON" "Array.isArray(j.items) && j.items.some(t => t && typeof t.title === 'string' && t.title.startsWith('Auto task:') )")"
+[[ "$AUTO_TASK_FOUND" == "true" ]] || fail "Expected automation task to be created after stage move: $AUTO_TASKS_JSON"
+if [[ -n "$OPP_OWNER_ID" ]]; then
+  AUTO_TASK_ASSIGNEE_OK="$(json_get "$AUTO_TASKS_JSON" "Array.isArray(j.items) && j.items.some(t => t && typeof t.title === 'string' && t.title.startsWith('Auto task:') && String(t.assigneeUserId||'') === '$OPP_OWNER_ID')")"
+  [[ "$AUTO_TASK_ASSIGNEE_OK" == "true" ]] || fail "Expected automation task to be assigned to owner ($OPP_OWNER_ID): $AUTO_TASKS_JSON"
+fi
 
 echo "== CRM: opportunity detail endpoint (/crm/opportunities/:id) =="
 OPP_DETAIL_JSON="$TMP_DIR/smoke.crm.opp.detail.json"

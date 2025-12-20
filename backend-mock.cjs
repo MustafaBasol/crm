@@ -200,6 +200,7 @@ let crmTasks = [
     dueAt: null,
     completed: false,
     assigneeUserId: 'user-2',
+    createdByUserId: mockUser.id,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -210,6 +211,24 @@ let crmTasks = [
     accountId: 'cust-2',
     dueAt: null,
     completed: false,
+    assigneeUserId: null,
+    createdByUserId: mockUser.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+// CRM automation (stage change -> create task)
+let crmAutomationStageTaskRules = [
+  {
+    id: 'rule-1',
+    tenantId: mockTenant.id,
+    enabled: false,
+    fromStageId: null,
+    toStageId: 'st-2',
+    titleTemplate: 'Auto task: {{toStage}}',
+    dueInDays: 2,
+    assigneeTarget: 'owner',
     assigneeUserId: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -651,9 +670,113 @@ const server = createServer((req, res) => {
         probability: (probability != null && Number.isFinite(probability)) ? Math.max(0, Math.min(1, probability)) : null,
         status: 'open',
         teamUserIds: Array.from(new Set([mockUser.id, ...teamUserIds])),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
       crmOpportunities = [opp, ...crmOpportunities];
       return json(res, 200, opp);
+    });
+  }
+
+  // CRM Automation - stage task rules
+  if (path === '/api/crm/automation/stage-task-rules' && req.method === 'GET') {
+    return json(res, 200, Array.isArray(crmAutomationStageTaskRules) ? crmAutomationStageTaskRules : []);
+  }
+  if (path === '/api/crm/automation/stage-task-rules' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const toStageId = typeof body.toStageId === 'string' ? body.toStageId.trim() : '';
+      if (!toStageId || !ensureStageExists(toStageId)) {
+        return json(res, 400, { message: 'toStageId geçersiz' });
+      }
+
+      const fromStageId = typeof body.fromStageId === 'string' ? body.fromStageId.trim() : null;
+      if (fromStageId && !ensureStageExists(fromStageId)) {
+        return json(res, 400, { message: 'fromStageId geçersiz' });
+      }
+
+      const enabled = typeof body.enabled === 'boolean' ? body.enabled : true;
+      const titleTemplate = typeof body.titleTemplate === 'string' && body.titleTemplate.trim()
+        ? body.titleTemplate.trim()
+        : 'Auto task: {{toStage}}';
+
+      const dueInDaysRaw = (typeof body.dueInDays === 'number' || typeof body.dueInDays === 'string')
+        ? Number(body.dueInDays)
+        : 0;
+      const dueInDays = Number.isFinite(dueInDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(dueInDaysRaw))) : 0;
+
+      const assigneeTargetRaw = typeof body.assigneeTarget === 'string' ? body.assigneeTarget : 'owner';
+      const assigneeTarget = ['owner', 'mover', 'specific'].includes(assigneeTargetRaw) ? assigneeTargetRaw : 'owner';
+      const assigneeUserId = typeof body.assigneeUserId === 'string' ? body.assigneeUserId : null;
+      if (assigneeTarget === 'specific' && !assigneeUserId) {
+        return json(res, 400, { message: 'assigneeTarget=specific için assigneeUserId zorunlu' });
+      }
+
+      const rule = {
+        id: randomId('rule'),
+        tenantId: mockTenant.id,
+        enabled,
+        fromStageId: fromStageId || null,
+        toStageId,
+        titleTemplate,
+        dueInDays,
+        assigneeTarget,
+        assigneeUserId: assigneeUserId || null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      crmAutomationStageTaskRules = [rule, ...(Array.isArray(crmAutomationStageTaskRules) ? crmAutomationStageTaskRules : [])];
+      return json(res, 200, rule);
+    });
+  }
+  const crmAutomationRuleMatch = path.match(/^\/api\/crm\/automation\/stage-task-rules\/([^/]+)$/);
+  if (crmAutomationRuleMatch && req.method === 'PATCH') {
+    const id = crmAutomationRuleMatch[1];
+    return readJsonBody(req).then((body) => {
+      const list = Array.isArray(crmAutomationStageTaskRules) ? crmAutomationStageTaskRules : [];
+      const idx = list.findIndex((r) => r.id === id);
+      if (idx < 0) return json(res, 404, { message: 'Rule bulunamadı' });
+
+      const next = { ...list[idx] };
+      if (typeof body.enabled === 'boolean') next.enabled = body.enabled;
+
+      if (typeof body.toStageId === 'string') {
+        const v = body.toStageId.trim();
+        if (!v || !ensureStageExists(v)) return json(res, 400, { message: 'toStageId geçersiz' });
+        next.toStageId = v;
+      }
+
+      if (typeof body.fromStageId === 'string') {
+        const v = body.fromStageId.trim();
+        if (!v || !ensureStageExists(v)) return json(res, 400, { message: 'fromStageId geçersiz' });
+        next.fromStageId = v;
+      }
+      if (body.fromStageId === null) next.fromStageId = null;
+
+      if (typeof body.titleTemplate === 'string' && body.titleTemplate.trim()) {
+        next.titleTemplate = body.titleTemplate.trim();
+      }
+
+      if (typeof body.dueInDays === 'number' || typeof body.dueInDays === 'string') {
+        const v = Number(body.dueInDays);
+        if (!Number.isFinite(v)) return json(res, 400, { message: 'dueInDays geçersiz' });
+        next.dueInDays = Math.max(0, Math.min(3650, Math.floor(v)));
+      }
+
+      if (typeof body.assigneeTarget === 'string') {
+        const v = body.assigneeTarget;
+        if (!['owner', 'mover', 'specific'].includes(v)) return json(res, 400, { message: 'assigneeTarget geçersiz' });
+        next.assigneeTarget = v;
+      }
+
+      if (typeof body.assigneeUserId === 'string') next.assigneeUserId = body.assigneeUserId;
+      if (body.assigneeUserId === null) next.assigneeUserId = null;
+      if (next.assigneeTarget === 'specific' && !next.assigneeUserId) {
+        return json(res, 400, { message: 'assigneeTarget=specific için assigneeUserId zorunlu' });
+      }
+
+      next.updatedAt = new Date().toISOString();
+      crmAutomationStageTaskRules[idx] = next;
+      return json(res, 200, next);
     });
   }
   const crmMoveMatch = path.match(/^\/api\/crm\/opportunities\/([^/]+)\/move$/);
@@ -666,8 +789,56 @@ const server = createServer((req, res) => {
       }
       const idx = crmOpportunities.findIndex((o) => o.id === oppId);
       if (idx < 0) return json(res, 404, { message: 'Opportunity bulunamadı' });
-      crmOpportunities[idx] = { ...crmOpportunities[idx], stageId };
-      return json(res, 200, crmOpportunities[idx]);
+      const prevStageId = crmOpportunities[idx].stageId;
+      const updated = { ...crmOpportunities[idx], stageId, updatedAt: new Date().toISOString() };
+      crmOpportunities[idx] = updated;
+
+      // Best-effort automation: never block stage move
+      try {
+        const rules = Array.isArray(crmAutomationStageTaskRules) ? crmAutomationStageTaskRules : [];
+        const toStage = crmStages.find((s) => s.id === stageId);
+        const toStageName = toStage?.name || stageId;
+
+        const matches = rules.filter((r) => {
+          if (!r || r.enabled !== true) return false;
+          if (String(r.toStageId) !== String(stageId)) return false;
+          if (r.fromStageId == null) return true;
+          return String(r.fromStageId) === String(prevStageId);
+        });
+
+        for (const rule of matches) {
+          const title = String(rule.titleTemplate || 'Auto task: {{toStage}}')
+            .replaceAll('{{toStage}}', toStageName);
+
+          const dueAt = rule.dueInDays > 0
+            ? new Date(Date.now() + Number(rule.dueInDays) * 24 * 60 * 60 * 1000).toISOString()
+            : null;
+
+          const assigneeUserId = rule.assigneeTarget === 'owner'
+            ? (updated.ownerUserId || null)
+            : (rule.assigneeTarget === 'mover'
+              ? mockUser.id
+              : (rule.assigneeTarget === 'specific' ? (rule.assigneeUserId || null) : null));
+
+          const task = {
+            id: randomId('task'),
+            title,
+            opportunityId: updated.id,
+            accountId: null,
+            dueAt,
+            completed: false,
+            assigneeUserId,
+            createdByUserId: mockUser.id,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          crmTasks = [task, ...(Array.isArray(crmTasks) ? crmTasks : [])];
+        }
+      } catch {
+        // ignore
+      }
+
+      return json(res, 200, updated);
     });
   }
   const crmTeamMatch = path.match(/^\/api\/crm\/opportunities\/([^/]+)\/team$/);
@@ -932,6 +1103,7 @@ const server = createServer((req, res) => {
         dueAt: typeof body.dueAt === 'string' ? body.dueAt : null,
         completed: !!body.completed,
         assigneeUserId: typeof body.assigneeUserId === 'string' ? body.assigneeUserId : null,
+        createdByUserId: mockUser.id,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

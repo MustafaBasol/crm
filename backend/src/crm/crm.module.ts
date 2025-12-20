@@ -11,6 +11,7 @@ import { CrmTask } from './entities/crm-task.entity';
 import { CrmLead } from './entities/crm-lead.entity';
 import { CrmContact } from './entities/crm-contact.entity';
 import { CrmOpportunityStageHistory } from './entities/crm-opportunity-stage-history.entity';
+import { CrmAutomationStageTaskRule } from './entities/crm-automation-rule.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { OrganizationMember } from '../organizations/entities/organization-member.entity';
 import { Quote } from '../quotes/entities/quote.entity';
@@ -35,6 +36,7 @@ import { AuditModule } from '../audit/audit.module';
       Sale,
       Invoice,
       CrmOpportunityStageHistory,
+      CrmAutomationStageTaskRule,
     ]),
     AuditModule,
   ],

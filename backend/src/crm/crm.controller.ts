@@ -28,6 +28,8 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
+import { CreateAutomationStageTaskRuleDto } from './dto/create-automation-stage-task-rule.dto';
+import { UpdateAutomationStageTaskRuleDto } from './dto/update-automation-stage-task-rule.dto';
 import { CrmOpportunityStatus } from './entities/crm-opportunity.entity';
 
 type CsvPrimitive = string | number | boolean | Date | null | undefined;
@@ -431,6 +433,32 @@ export class CrmController {
   @ApiOperation({ summary: 'List default pipeline stages' })
   async listStages(@User() user: CurrentUser) {
     return this.crmService.listStages(user.tenantId);
+  }
+
+  // === Automation (simple rule engine) ===
+  @Get('automation/stage-task-rules')
+  @ApiOperation({ summary: 'List automation rules: stage change -> create task' })
+  async listAutomationStageTaskRules(@User() user: CurrentUser) {
+    return this.crmService.listAutomationStageTaskRules(user.tenantId, user);
+  }
+
+  @Post('automation/stage-task-rules')
+  @ApiOperation({ summary: 'Create automation rule: stage change -> create task' })
+  async createAutomationStageTaskRule(
+    @User() user: CurrentUser,
+    @Body() dto: CreateAutomationStageTaskRuleDto,
+  ) {
+    return this.crmService.createAutomationStageTaskRule(user.tenantId, user, dto);
+  }
+
+  @Patch('automation/stage-task-rules/:id')
+  @ApiOperation({ summary: 'Update automation rule: stage change -> create task' })
+  async updateAutomationStageTaskRule(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateAutomationStageTaskRuleDto,
+  ) {
+    return this.crmService.updateAutomationStageTaskRule(user.tenantId, user, id, dto);
   }
 
   @Get('board')

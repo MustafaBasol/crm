@@ -14,6 +14,10 @@ import {
 } from './entities/crm-opportunity.entity';
 import { CrmOpportunityMember } from './entities/crm-opportunity-member.entity';
 import { CrmOpportunityStageHistory } from './entities/crm-opportunity-stage-history.entity';
+import {
+  CrmAutomationAssigneeTarget,
+  CrmAutomationStageTaskRule,
+} from './entities/crm-automation-rule.entity';
 import { CrmActivity } from './entities/crm-activity.entity';
 import { CrmTask } from './entities/crm-task.entity';
 import { CrmLead } from './entities/crm-lead.entity';
@@ -72,6 +76,9 @@ export class CrmService {
 
     @InjectRepository(CrmOpportunityStageHistory)
     private readonly oppStageHistoryRepo: Repository<CrmOpportunityStageHistory>,
+
+    @InjectRepository(CrmAutomationStageTaskRule)
+    private readonly automationStageTaskRuleRepo: Repository<CrmAutomationStageTaskRule>,
 
     @InjectRepository(CrmActivity)
     private readonly activityRepo: Repository<CrmActivity>,
@@ -829,6 +836,231 @@ export class CrmService {
       });
     } catch {
       // best-effort only
+    }
+  }
+
+  private async assertCanManageAutomations(user: CurrentUser): Promise<void> {
+    if (this.isAdmin(user)) return;
+    const ok = await this.isCurrentOrgAdminOrOwner(user);
+    if (!ok) throw new ForbiddenException('Not allowed');
+  }
+
+  private renderAutomationTitle(
+    template: string,
+    ctx: { opportunityName: string; toStageName: string },
+  ): string {
+    const safe = String(template || '').trim();
+    if (!safe) return 'Follow up';
+    return safe
+      .replaceAll('{{opportunityName}}', ctx.opportunityName)
+      .replaceAll('{{toStageName}}', ctx.toStageName)
+      .slice(0, 220);
+  }
+
+  private resolveAutomationAssignee(
+    rule: Pick<CrmAutomationStageTaskRule, 'assigneeTarget' | 'assigneeUserId'>,
+    ctx: { ownerUserId: string; moverUserId: string },
+  ): string | null {
+    const target = (rule.assigneeTarget || 'owner') as CrmAutomationAssigneeTarget;
+    if (target === 'mover') return ctx.moverUserId;
+    if (target === 'specific') {
+      return rule.assigneeUserId ? String(rule.assigneeUserId) : null;
+    }
+    return ctx.ownerUserId;
+  }
+
+  private addDaysDateOnly(days: number): string {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + (Number.isFinite(days) ? days : 0));
+    return d.toISOString().slice(0, 10);
+  }
+
+  async listAutomationStageTaskRules(tenantId: string, user: CurrentUser) {
+    await this.assertCanManageAutomations(user);
+    const rules = await this.automationStageTaskRuleRepo.find({
+      where: { tenantId },
+      order: { createdAt: 'DESC' },
+    });
+    return { items: rules };
+  }
+
+  async createAutomationStageTaskRule(
+    tenantId: string,
+    user: CurrentUser,
+    dto: {
+      enabled?: boolean;
+      fromStageId?: string | null;
+      toStageId: string;
+      titleTemplate: string;
+      dueInDays?: number;
+      assigneeTarget?: CrmAutomationAssigneeTarget;
+      assigneeUserId?: string | null;
+    },
+  ) {
+    await this.assertCanManageAutomations(user);
+
+    const enabled = dto.enabled ?? true;
+    const dueInDays = this.clampInt(dto.dueInDays, 0, 0, 3650);
+    const assigneeTarget = (dto.assigneeTarget || 'owner') as CrmAutomationAssigneeTarget;
+    const titleTemplate = String(dto.titleTemplate || '').trim();
+    if (!titleTemplate) throw new BadRequestException('titleTemplate required');
+
+    if (assigneeTarget === 'specific' && !dto.assigneeUserId) {
+      throw new BadRequestException('assigneeUserId required for specific');
+    }
+
+    const [toStage, fromStage] = await Promise.all([
+      this.stageRepo.findOne({ where: { tenantId, id: dto.toStageId } }),
+      dto.fromStageId
+        ? this.stageRepo.findOne({ where: { tenantId, id: dto.fromStageId } })
+        : Promise.resolve(null),
+    ]);
+    if (!toStage) throw new BadRequestException('Invalid toStageId');
+    if (dto.fromStageId && !fromStage) throw new BadRequestException('Invalid fromStageId');
+
+    const rule = await this.automationStageTaskRuleRepo.save(
+      this.automationStageTaskRuleRepo.create({
+        tenantId,
+        enabled,
+        fromStageId: dto.fromStageId ? String(dto.fromStageId) : null,
+        toStageId: String(dto.toStageId),
+        titleTemplate,
+        dueInDays,
+        assigneeTarget,
+        assigneeUserId:
+          assigneeTarget === 'specific' && dto.assigneeUserId
+            ? String(dto.assigneeUserId)
+            : null,
+      }),
+    );
+
+    return rule;
+  }
+
+  async updateAutomationStageTaskRule(
+    tenantId: string,
+    user: CurrentUser,
+    id: string,
+    dto: {
+      enabled?: boolean;
+      fromStageId?: string | null;
+      toStageId?: string;
+      titleTemplate?: string;
+      dueInDays?: number;
+      assigneeTarget?: CrmAutomationAssigneeTarget;
+      assigneeUserId?: string | null;
+    },
+  ) {
+    await this.assertCanManageAutomations(user);
+
+    const rule = await this.automationStageTaskRuleRepo.findOne({
+      where: { tenantId, id },
+    });
+    if (!rule) throw new NotFoundException('Rule not found');
+
+    if ('enabled' in dto && dto.enabled != null) {
+      rule.enabled = Boolean(dto.enabled);
+    }
+
+    if ('fromStageId' in dto) {
+      rule.fromStageId = dto.fromStageId ? String(dto.fromStageId) : null;
+    }
+
+    if (dto.toStageId) {
+      const toStage = await this.stageRepo.findOne({
+        where: { tenantId, id: dto.toStageId },
+      });
+      if (!toStage) throw new BadRequestException('Invalid toStageId');
+      rule.toStageId = String(dto.toStageId);
+    }
+
+    if (dto.titleTemplate != null) {
+      const title = String(dto.titleTemplate || '').trim();
+      if (!title) throw new BadRequestException('titleTemplate required');
+      rule.titleTemplate = title;
+    }
+
+    if (dto.dueInDays != null) {
+      rule.dueInDays = this.clampInt(dto.dueInDays, rule.dueInDays ?? 0, 0, 3650);
+    }
+
+    if (dto.assigneeTarget != null) {
+      rule.assigneeTarget = dto.assigneeTarget;
+    }
+    if ('assigneeUserId' in dto) {
+      rule.assigneeUserId = dto.assigneeUserId ? String(dto.assigneeUserId) : null;
+    }
+
+    if (rule.assigneeTarget === 'specific' && !rule.assigneeUserId) {
+      throw new BadRequestException('assigneeUserId required for specific');
+    }
+    if (rule.assigneeTarget !== 'specific') {
+      rule.assigneeUserId = null;
+    }
+
+    if (rule.fromStageId) {
+      const fromStage = await this.stageRepo.findOne({
+        where: { tenantId, id: rule.fromStageId },
+      });
+      if (!fromStage) throw new BadRequestException('Invalid fromStageId');
+    }
+
+    return this.automationStageTaskRuleRepo.save(rule);
+  }
+
+  private async applyStageChangeTaskRules(
+    tenantId: string,
+    mover: CurrentUser,
+    ctx: {
+      opportunityId: string;
+      opportunityName: string;
+      accountId: string | null;
+      ownerUserId: string;
+      fromStageId: string | null;
+      toStageId: string;
+    },
+  ): Promise<void> {
+    const rules = await this.automationStageTaskRuleRepo.find({
+      where: { tenantId, enabled: true, toStageId: ctx.toStageId },
+    });
+    if (!rules.length) return;
+
+    const stages = await this.stageRepo.find({ where: { tenantId } });
+    const toStageName =
+      stages.find((s) => s.id === ctx.toStageId)?.name || ctx.toStageId;
+
+    const matching = rules.filter(
+      (r) => !r.fromStageId || r.fromStageId === ctx.fromStageId,
+    );
+
+    for (const rule of matching) {
+      const assigneeUserId = this.resolveAutomationAssignee(rule, {
+        ownerUserId: ctx.ownerUserId,
+        moverUserId: mover.id,
+      });
+      const dueAt = rule.dueInDays > 0 ? this.addDaysDateOnly(rule.dueInDays) : null;
+      const title = this.renderAutomationTitle(rule.titleTemplate, {
+        opportunityName: ctx.opportunityName,
+        toStageName,
+      });
+
+      try {
+        await this.taskRepo.save(
+          this.taskRepo.create({
+            tenantId,
+            title,
+            opportunityId: ctx.opportunityId,
+            accountId: ctx.accountId,
+            dueAt,
+            completed: false,
+            assigneeUserId,
+            createdByUserId: mover.id,
+            updatedByUserId: mover.id,
+          }),
+        );
+      } catch {
+        // best-effort: automation should not block stage move
+      }
     }
   }
 
@@ -2035,6 +2267,20 @@ export class CrmService {
           changedAt: new Date(),
         }),
       );
+    } catch {
+      // best-effort only
+    }
+
+    // Automation: create follow-up tasks on stage change (best-effort)
+    try {
+      await this.applyStageChangeTaskRules(tenantId, user, {
+        opportunityId: saved.id,
+        opportunityName: saved.name,
+        accountId: saved.accountId,
+        ownerUserId: saved.ownerUserId,
+        fromStageId,
+        toStageId: saved.stageId,
+      });
     } catch {
       // best-effort only
     }
