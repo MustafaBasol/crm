@@ -272,6 +272,23 @@ let crmAutomationStaleDealRules = [
   },
 ];
 
+// CRM automation (overdue tasks -> escalation task)
+let crmAutomationOverdueTaskRules = [
+  {
+    id: 'overdue-rule-1',
+    tenantId: mockTenant.id,
+    enabled: false,
+    overdueDays: 1,
+    titleTemplate: 'Overdue: {{opportunityName}} ({{overdueCount}})',
+    dueInDays: 0,
+    assigneeTarget: 'owner',
+    assigneeUserId: null,
+    cooldownDays: 7,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
 // CRM automation (won -> follow-up checklist)
 let crmAutomationWonChecklistRules = [
   {
@@ -957,6 +974,12 @@ const server = createServer((req, res) => {
     return json(res, 200, { items: rules });
   }
 
+  // CRM Automation - overdue task rules
+  if (path === '/api/crm/automation/overdue-task-rules' && req.method === 'GET') {
+    const rules = Array.isArray(crmAutomationOverdueTaskRules) ? crmAutomationOverdueTaskRules : [];
+    return json(res, 200, { items: rules });
+  }
+
   // CRM Automation - won checklist rules
   if (path === '/api/crm/automation/won-checklist-rules' && req.method === 'GET') {
     const rules = Array.isArray(crmAutomationWonChecklistRules) ? crmAutomationWonChecklistRules : [];
@@ -1109,6 +1132,55 @@ const server = createServer((req, res) => {
     });
   }
 
+  if (path === '/api/crm/automation/overdue-task-rules' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const enabled = typeof body.enabled === 'boolean' ? body.enabled : true;
+
+      const overdueDaysRaw = (typeof body.overdueDays === 'number' || typeof body.overdueDays === 'string')
+        ? Number(body.overdueDays)
+        : 1;
+      const overdueDays = Number.isFinite(overdueDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(overdueDaysRaw))) : 1;
+
+      const titleTemplate = typeof body.titleTemplate === 'string' && body.titleTemplate.trim()
+        ? body.titleTemplate.trim()
+        : 'Overdue: {{opportunityName}} ({{overdueCount}})';
+
+      const dueInDaysRaw = (typeof body.dueInDays === 'number' || typeof body.dueInDays === 'string')
+        ? Number(body.dueInDays)
+        : 0;
+      const dueInDays = Number.isFinite(dueInDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(dueInDaysRaw))) : 0;
+
+      const cooldownDaysRaw = (typeof body.cooldownDays === 'number' || typeof body.cooldownDays === 'string')
+        ? Number(body.cooldownDays)
+        : 7;
+      const cooldownDays = Number.isFinite(cooldownDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(cooldownDaysRaw))) : 7;
+
+      const assigneeTargetRaw = typeof body.assigneeTarget === 'string' ? body.assigneeTarget : 'owner';
+      const assigneeTarget = ['owner', 'mover', 'specific'].includes(assigneeTargetRaw) ? assigneeTargetRaw : 'owner';
+      const assigneeUserId = typeof body.assigneeUserId === 'string' ? body.assigneeUserId : null;
+      if (assigneeTarget === 'specific' && !assigneeUserId) {
+        return json(res, 400, { message: 'assigneeTarget=specific için assigneeUserId zorunlu' });
+      }
+
+      const rule = {
+        id: randomId('overdue-rule'),
+        tenantId: mockTenant.id,
+        enabled,
+        overdueDays,
+        titleTemplate,
+        dueInDays,
+        assigneeTarget,
+        assigneeUserId: assigneeTarget === 'specific' ? (assigneeUserId || null) : null,
+        cooldownDays,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      crmAutomationOverdueTaskRules = [rule, ...(Array.isArray(crmAutomationOverdueTaskRules) ? crmAutomationOverdueTaskRules : [])];
+      return json(res, 200, rule);
+    });
+  }
+
   const crmStaleRuleMatch = path.match(/^\/api\/crm\/automation\/stale-deal-rules\/([^/]+)$/);
   if (crmStaleRuleMatch && req.method === 'PATCH') {
     const id = crmStaleRuleMatch[1];
@@ -1167,6 +1239,61 @@ const server = createServer((req, res) => {
 
       next.updatedAt = new Date().toISOString();
       crmAutomationStaleDealRules[idx] = next;
+      return json(res, 200, next);
+    });
+  }
+
+  const crmOverdueRuleMatch = path.match(/^\/api\/crm\/automation\/overdue-task-rules\/([^/]+)$/);
+  if (crmOverdueRuleMatch && req.method === 'PATCH') {
+    const id = crmOverdueRuleMatch[1];
+    return readJsonBody(req).then((body) => {
+      const list = Array.isArray(crmAutomationOverdueTaskRules) ? crmAutomationOverdueTaskRules : [];
+      const idx = list.findIndex((r) => r.id === id);
+      if (idx < 0) return json(res, 404, { message: 'Rule bulunamadı' });
+
+      const next = { ...list[idx] };
+      if (typeof body.enabled === 'boolean') next.enabled = body.enabled;
+
+      if (typeof body.overdueDays === 'number' || typeof body.overdueDays === 'string') {
+        const v = Number(body.overdueDays);
+        if (!Number.isFinite(v)) return json(res, 400, { message: 'overdueDays geçersiz' });
+        next.overdueDays = Math.max(0, Math.min(3650, Math.floor(v)));
+      }
+
+      if (typeof body.titleTemplate === 'string' && body.titleTemplate.trim()) {
+        next.titleTemplate = body.titleTemplate.trim();
+      }
+
+      if (typeof body.dueInDays === 'number' || typeof body.dueInDays === 'string') {
+        const v = Number(body.dueInDays);
+        if (!Number.isFinite(v)) return json(res, 400, { message: 'dueInDays geçersiz' });
+        next.dueInDays = Math.max(0, Math.min(3650, Math.floor(v)));
+      }
+
+      if (typeof body.cooldownDays === 'number' || typeof body.cooldownDays === 'string') {
+        const v = Number(body.cooldownDays);
+        if (!Number.isFinite(v)) return json(res, 400, { message: 'cooldownDays geçersiz' });
+        next.cooldownDays = Math.max(0, Math.min(3650, Math.floor(v)));
+      }
+
+      if (typeof body.assigneeTarget === 'string') {
+        const v = body.assigneeTarget;
+        if (!['owner', 'mover', 'specific'].includes(v)) return json(res, 400, { message: 'assigneeTarget geçersiz' });
+        next.assigneeTarget = v;
+      }
+
+      if ('assigneeUserId' in body) {
+        if (typeof body.assigneeUserId === 'string') next.assigneeUserId = body.assigneeUserId;
+        if (body.assigneeUserId === null) next.assigneeUserId = null;
+      }
+
+      if (next.assigneeTarget === 'specific' && !next.assigneeUserId) {
+        return json(res, 400, { message: 'assigneeTarget=specific için assigneeUserId zorunlu' });
+      }
+      if (next.assigneeTarget !== 'specific') next.assigneeUserId = null;
+
+      next.updatedAt = new Date().toISOString();
+      crmAutomationOverdueTaskRules[idx] = next;
       return json(res, 200, next);
     });
   }
@@ -1230,6 +1357,86 @@ const server = createServer((req, res) => {
           assigneeUserId,
           createdByUserId: mockUser.id,
           source: 'automation_stale_deal',
+          sourceRuleId: rule.id,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        crmTasks = [task, ...(Array.isArray(crmTasks) ? crmTasks : [])];
+        createdTasks += 1;
+      }
+    }
+
+    return json(res, 200, { rules: rules.length, scannedOpportunities, createdTasks });
+  }
+
+  if (path === '/api/crm/automation/run/overdue-tasks' && req.method === 'POST') {
+    const rules = (Array.isArray(crmAutomationOverdueTaskRules) ? crmAutomationOverdueTaskRules : []).filter((r) => r && r.enabled === true);
+    const now = Date.now();
+
+    let scannedOpportunities = 0;
+    let createdTasks = 0;
+
+    for (const rule of rules) {
+      const overdueDays = Math.max(0, Math.min(3650, Math.floor(Number(rule.overdueDays || 1))));
+      const cutoff = now - overdueDays * 24 * 60 * 60 * 1000;
+
+      // Group overdue tasks by opportunity
+      const overdueByOpp = new Map();
+      for (const t of (crmTasks || [])) {
+        if (!t || t.completed === true) continue;
+        if (!t.opportunityId) continue;
+        if (!t.dueAt) continue;
+        const dueTs = new Date(t.dueAt).getTime();
+        if (!Number.isFinite(dueTs)) continue;
+        if (dueTs > cutoff) continue;
+        overdueByOpp.set(String(t.opportunityId), (overdueByOpp.get(String(t.opportunityId)) || 0) + 1);
+      }
+
+      const opps = (crmOpportunities || []).filter((o) => o && String(o.status || 'open') === 'open' && overdueByOpp.has(String(o.id)));
+      scannedOpportunities += opps.length;
+
+      for (const opp of opps) {
+        const overdueCount = overdueByOpp.get(String(opp.id)) || 0;
+        if (!overdueCount) continue;
+
+        const cooldownDays = Math.max(0, Math.min(3650, Math.floor(Number(rule.cooldownDays || 7))));
+        const cooldownCutoff = now - cooldownDays * 24 * 60 * 60 * 1000;
+        const already = (crmTasks || []).some((t) => {
+          if (!t) return false;
+          if (String(t.opportunityId || '') !== String(opp.id)) return false;
+          if (String(t.source || '') !== 'automation_overdue_task') return false;
+          if (String(t.sourceRuleId || '') !== String(rule.id)) return false;
+          const createdAt = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+          return createdAt >= cooldownCutoff;
+        });
+        if (already) continue;
+
+        const assigneeUserId = rule.assigneeTarget === 'owner'
+          ? (opp.ownerUserId || null)
+          : (rule.assigneeTarget === 'mover'
+            ? mockUser.id
+            : (rule.assigneeTarget === 'specific' ? (rule.assigneeUserId || null) : null));
+        if (!assigneeUserId) continue;
+
+        const title = String(rule.titleTemplate || 'Overdue: {{opportunityName}} ({{overdueCount}})')
+          .replaceAll('{{opportunityName}}', String(opp.name || ''))
+          .replaceAll('{{overdueCount}}', String(overdueCount))
+          .slice(0, 220);
+
+        const dueAt = rule.dueInDays > 0
+          ? new Date(Date.now() + Number(rule.dueInDays) * 24 * 60 * 60 * 1000).toISOString()
+          : null;
+
+        const task = {
+          id: randomId('task'),
+          title,
+          opportunityId: opp.id,
+          accountId: opp.accountId || null,
+          dueAt,
+          completed: false,
+          assigneeUserId,
+          createdByUserId: mockUser.id,
+          source: 'automation_overdue_task',
           sourceRuleId: rule.id,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),

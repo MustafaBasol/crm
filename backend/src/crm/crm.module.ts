@@ -15,6 +15,7 @@ import { CrmAutomationStageTaskRule } from './entities/crm-automation-rule.entit
 import { CrmAutomationStaleDealRule } from './entities/crm-automation-stale-deal-rule.entity';
 import { CrmAutomationWonChecklistRule } from './entities/crm-automation-won-checklist-rule.entity';
 import { CrmAutomationStageSequenceRule } from './entities/crm-automation-stage-sequence-rule.entity';
+import { CrmAutomationOverdueTaskRule } from './entities/crm-automation-overdue-task-rule.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { OrganizationMember } from '../organizations/entities/organization-member.entity';
 import { Quote } from '../quotes/entities/quote.entity';
@@ -43,6 +44,7 @@ import { AuditModule } from '../audit/audit.module';
       CrmAutomationStaleDealRule,
       CrmAutomationWonChecklistRule,
       CrmAutomationStageSequenceRule,
+      CrmAutomationOverdueTaskRule,
     ]),
     AuditModule,
   ],

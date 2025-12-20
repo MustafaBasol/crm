@@ -449,6 +449,45 @@ http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$ST
 STALE_TASK_COUNT="$(json_get "$STALE_TASKS2_JSON" "Array.isArray(j.items) ? j.items.filter(t => t && typeof t.title === 'string' && t.title.startsWith('Stale task:')).length : 0")"
 [[ "$STALE_TASK_COUNT" == "1" ]] || fail "Expected stale-deal automation cooldown to prevent duplicates (count=1), got $STALE_TASK_COUNT: $STALE_TASKS2_JSON"
 
+echo "== CRM: automation (overdue tasks creates escalation task) =="
+
+PAST_DUE_AT="$(date -u -d '2 days ago' +%Y-%m-%d)"
+OVERDUE_SEED_TASK_PAYLOAD="$TMP_DIR/smoke.crm.task.overdue.seed.json"
+cat > "$OVERDUE_SEED_TASK_PAYLOAD" <<JSON
+{"title":"Seed overdue task $TS","opportunityId":"$OPP_ID","dueAt":"$PAST_DUE_AT","completed":false}
+JSON
+
+OVERDUE_SEED_TASK_CREATED_JSON="$TMP_DIR/smoke.crm.task.overdue.seed.created.json"
+http_json POST "$API_BASE/crm/tasks" "$OVERDUE_SEED_TASK_PAYLOAD" "$TOKEN" | tee "$OVERDUE_SEED_TASK_CREATED_JSON" >/dev/null
+OVERDUE_SEED_TASK_ID="$(json_get "$OVERDUE_SEED_TASK_CREATED_JSON" "j.id")"
+[[ -n "$OVERDUE_SEED_TASK_ID" ]] || fail "Overdue seed task id missing in create response: $OVERDUE_SEED_TASK_CREATED_JSON"
+
+OVERDUE_RULE_CREATE="$TMP_DIR/smoke.crm.overdue.rule.create.json"
+cat > "$OVERDUE_RULE_CREATE" <<JSON
+{"enabled":true,"overdueDays":1,"titleTemplate":"Overdue: {{opportunityName}} ({{overdueCount}})","dueInDays":0,"cooldownDays":7,"assigneeTarget":"owner"}
+JSON
+OVERDUE_RULE_CREATED_JSON="$TMP_DIR/smoke.crm.overdue.rule.created.json"
+http_json POST "$API_BASE/crm/automation/overdue-task-rules" "$OVERDUE_RULE_CREATE" "$TOKEN" | tee "$OVERDUE_RULE_CREATED_JSON" >/dev/null
+OVERDUE_RULE_ID="$(json_get "$OVERDUE_RULE_CREATED_JSON" "j.id")"
+[[ -n "$OVERDUE_RULE_ID" ]] || fail "Overdue-task automation rule id missing in create response: $OVERDUE_RULE_CREATED_JSON"
+
+OVERDUE_RUN_JSON="$TMP_DIR/smoke.crm.overdue.run.json"
+http_json POST "$API_BASE/crm/automation/run/overdue-tasks" "" "$TOKEN" | tee "$OVERDUE_RUN_JSON" >/dev/null
+
+OVERDUE_TASKS_JSON="$TMP_DIR/smoke.crm.tasks.after.overdue.run.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$OVERDUE_TASKS_JSON" >/dev/null
+OVERDUE_ESCALATION_FOUND="$(json_get "$OVERDUE_TASKS_JSON" "Array.isArray(j.items) && j.items.some(t => t && typeof t.title === 'string' && t.title.startsWith('Overdue:') )")"
+[[ "$OVERDUE_ESCALATION_FOUND" == "true" ]] || fail "Expected overdue task escalation to be created after run: $OVERDUE_TASKS_JSON"
+
+# Cooldown check
+OVERDUE_RUN2_JSON="$TMP_DIR/smoke.crm.overdue.run2.json"
+http_json POST "$API_BASE/crm/automation/run/overdue-tasks" "" "$TOKEN" | tee "$OVERDUE_RUN2_JSON" >/dev/null
+
+OVERDUE_TASKS2_JSON="$TMP_DIR/smoke.crm.tasks.after.overdue.run2.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$OVERDUE_TASKS2_JSON" >/dev/null
+OVERDUE_ESCALATION_COUNT="$(json_get "$OVERDUE_TASKS2_JSON" "Array.isArray(j.items) ? j.items.filter(t => t && typeof t.title === 'string' && t.title.startsWith('Overdue:')).length : 0")"
+[[ "$OVERDUE_ESCALATION_COUNT" == "1" ]] || fail "Expected overdue task automation cooldown to prevent duplicates (count=1), got $OVERDUE_ESCALATION_COUNT: $OVERDUE_TASKS2_JSON"
+
 echo "== CRM: automation (stage sequence creates multiple tasks) =="
 SEQ_RULE_CREATE="$TMP_DIR/smoke.crm.seq.rule.create.json"
 cat > "$SEQ_RULE_CREATE" <<JSON

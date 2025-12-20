@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,6 +20,7 @@ import {
   CrmAutomationStageTaskRule,
 } from './entities/crm-automation-rule.entity';
 import { CrmAutomationStaleDealRule } from './entities/crm-automation-stale-deal-rule.entity';
+import { CrmAutomationOverdueTaskRule } from './entities/crm-automation-overdue-task-rule.entity';
 import { CrmAutomationWonChecklistRule } from './entities/crm-automation-won-checklist-rule.entity';
 import {
   CrmAutomationStageSequenceItem,
@@ -42,7 +44,9 @@ import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { CreateAutomationStaleDealRuleDto } from './dto/create-automation-stale-deal-rule.dto';
+import { CreateAutomationOverdueTaskRuleDto } from './dto/create-automation-overdue-task-rule.dto';
 import { UpdateAutomationStaleDealRuleDto } from './dto/update-automation-stale-deal-rule.dto';
+import { UpdateAutomationOverdueTaskRuleDto } from './dto/update-automation-overdue-task-rule.dto';
 import type { CurrentUser } from '../common/decorators/user.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { OrganizationMember } from '../organizations/entities/organization-member.entity';
@@ -72,6 +76,8 @@ const DEFAULT_STAGES = [
 
 @Injectable()
 export class CrmService {
+  private readonly logger = new Logger(CrmService.name);
+
   constructor(
     @InjectRepository(CrmPipeline)
     private readonly pipelineRepo: Repository<CrmPipeline>,
@@ -90,6 +96,9 @@ export class CrmService {
 
     @InjectRepository(CrmAutomationStaleDealRule)
     private readonly automationStaleDealRuleRepo: Repository<CrmAutomationStaleDealRule>,
+
+    @InjectRepository(CrmAutomationOverdueTaskRule)
+    private readonly automationOverdueTaskRuleRepo: Repository<CrmAutomationOverdueTaskRule>,
 
     @InjectRepository(CrmAutomationWonChecklistRule)
     private readonly automationWonChecklistRuleRepo: Repository<CrmAutomationWonChecklistRule>,
@@ -128,6 +137,7 @@ export class CrmService {
   ) {}
 
   private readonly AUTOMATION_SOURCE_STALE_DEAL = 'automation_stale_deal';
+  private readonly AUTOMATION_SOURCE_OVERDUE_TASK = 'automation_overdue_task';
   private readonly AUTOMATION_SOURCE_WON_CHECKLIST = 'automation_won_checklist';
   private readonly AUTOMATION_SOURCE_STAGE_SEQUENCE =
     'automation_stage_sequence';
@@ -793,8 +803,7 @@ export class CrmService {
     if (!this.isAdmin(user)) {
       leadsQb.andWhere('lead.createdByUserId = :userId', { userId: user.id });
     }
-    if (range.start)
-      leadsQb.andWhere('lead.createdAt >= :start', { start: range.start });
+    leadsQb.andWhere('lead.createdAt >= :start', { start: range.start });
     if (range.end)
       leadsQb.andWhere('lead.createdAt <= :end', { end: range.end });
 
@@ -1686,6 +1695,304 @@ export class CrmService {
     }
 
     return this.automationStaleDealRuleRepo.save(rule);
+  }
+
+  async listAutomationOverdueTaskRules(tenantId: string, user: CurrentUser) {
+    await this.assertCanManageAutomations(user);
+    const rules = await this.automationOverdueTaskRuleRepo.find({
+      where: { tenantId },
+      order: { createdAt: 'DESC' },
+    });
+    return { items: rules };
+  }
+
+  async createAutomationOverdueTaskRule(
+    tenantId: string,
+    user: CurrentUser,
+    dto: CreateAutomationOverdueTaskRuleDto,
+  ) {
+    await this.assertCanManageAutomations(user);
+
+    const enabled = dto.enabled ?? true;
+    const overdueDays = this.clampInt(dto.overdueDays, 1, 0, 3650);
+    const dueInDays = this.clampInt(dto.dueInDays, 0, 0, 3650);
+    const cooldownDays = this.clampInt(dto.cooldownDays, 7, 0, 3650);
+    const assigneeTarget = (dto.assigneeTarget ||
+      'owner') as CrmAutomationAssigneeTarget;
+
+    const titleTemplate = String(dto.titleTemplate || '').trim();
+    if (!titleTemplate) throw new BadRequestException('titleTemplate required');
+
+    if (assigneeTarget === 'specific' && !dto.assigneeUserId) {
+      throw new BadRequestException('assigneeUserId required for specific');
+    }
+
+    const rule = await this.automationOverdueTaskRuleRepo.save(
+      this.automationOverdueTaskRuleRepo.create({
+        tenantId,
+        enabled,
+        overdueDays,
+        titleTemplate,
+        dueInDays,
+        cooldownDays,
+        assigneeTarget,
+        assigneeUserId:
+          assigneeTarget === 'specific' && dto.assigneeUserId
+            ? String(dto.assigneeUserId)
+            : null,
+      }),
+    );
+
+    return rule;
+  }
+
+  async updateAutomationOverdueTaskRule(
+    tenantId: string,
+    user: CurrentUser,
+    id: string,
+    dto: UpdateAutomationOverdueTaskRuleDto,
+  ) {
+    await this.assertCanManageAutomations(user);
+
+    const rule = await this.automationOverdueTaskRuleRepo.findOne({
+      where: { tenantId, id },
+    });
+    if (!rule) throw new NotFoundException('Rule not found');
+
+    if ('enabled' in dto && dto.enabled != null) {
+      rule.enabled = Boolean(dto.enabled);
+    }
+
+    if ('overdueDays' in dto && dto.overdueDays != null) {
+      rule.overdueDays = this.clampInt(
+        dto.overdueDays,
+        rule.overdueDays ?? 1,
+        0,
+        3650,
+      );
+    }
+
+    if (dto.titleTemplate != null) {
+      const title = String(dto.titleTemplate || '').trim();
+      if (!title) throw new BadRequestException('titleTemplate required');
+      rule.titleTemplate = title;
+    }
+
+    if (dto.dueInDays != null) {
+      rule.dueInDays = this.clampInt(
+        dto.dueInDays,
+        rule.dueInDays ?? 0,
+        0,
+        3650,
+      );
+    }
+
+    if (dto.cooldownDays != null) {
+      rule.cooldownDays = this.clampInt(
+        dto.cooldownDays,
+        rule.cooldownDays ?? 7,
+        0,
+        3650,
+      );
+    }
+
+    if (dto.assigneeTarget != null) {
+      rule.assigneeTarget = dto.assigneeTarget;
+    }
+    if ('assigneeUserId' in dto) {
+      rule.assigneeUserId = dto.assigneeUserId
+        ? String(dto.assigneeUserId)
+        : null;
+    }
+
+    if (rule.assigneeTarget === 'specific' && !rule.assigneeUserId) {
+      throw new BadRequestException('assigneeUserId required for specific');
+    }
+    if (rule.assigneeTarget !== 'specific') {
+      rule.assigneeUserId = null;
+    }
+
+    return this.automationOverdueTaskRuleRepo.save(rule);
+  }
+
+  async runOverdueTaskAutomations(tenantId: string, user: CurrentUser) {
+    await this.assertCanManageAutomations(user);
+
+    const rules = await this.automationOverdueTaskRuleRepo.find({
+      where: { tenantId, enabled: true },
+      order: { createdAt: 'ASC' },
+    });
+
+    let scannedOpportunities = 0;
+    let createdTasks = 0;
+
+    for (const rule of rules) {
+      const result = await this.applyOverdueTaskRule(tenantId, user, rule);
+      scannedOpportunities += result.scannedOpportunities;
+      createdTasks += result.createdTasks;
+    }
+
+    return { rules: rules.length, scannedOpportunities, createdTasks };
+  }
+
+  private renderOverdueTaskAutomationTitle(
+    template: string,
+    ctx: { opportunityName: string; overdueCount: number },
+  ): string {
+    const safe = String(template || '').trim();
+    if (!safe) return 'Follow up';
+    return safe
+      .replaceAll('{{opportunityName}}', ctx.opportunityName)
+      .replaceAll('{{overdueCount}}', String(ctx.overdueCount))
+      .slice(0, 220);
+  }
+
+  private async applyOverdueTaskRule(
+    tenantId: string,
+    runner: CurrentUser,
+    rule: CrmAutomationOverdueTaskRule,
+  ): Promise<{ scannedOpportunities: number; createdTasks: number }> {
+    const overdueDays = this.clampInt(rule.overdueDays, 1, 0, 3650);
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - overdueDays);
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+    const rows = await this.taskRepo
+      .createQueryBuilder('t')
+      .innerJoin('t.opportunity', 'o')
+      .where('t.tenantId = :tenantId', { tenantId })
+      .andWhere('t.completed = false')
+      .andWhere('t.opportunityId IS NOT NULL')
+      .andWhere('t.dueAt IS NOT NULL')
+      // dueAt is a free-form string (often ISO date). Keep automation DB-agnostic
+      // by filtering ISO-ish values and comparing the YYYY-MM-DD prefix.
+      .andWhere("t.dueAt LIKE '____-__-__%' ")
+      .andWhere('substr(t.dueAt, 1, 10) <= :cutoffDate', { cutoffDate })
+      .andWhere('o.status = :status', { status: CrmOpportunityStatus.OPEN })
+      .select([
+        'o.id AS "opportunityId"',
+        'o.name AS "opportunityName"',
+        'o.accountId AS "accountId"',
+        'o.ownerUserId AS "ownerUserId"',
+        'COUNT(t.id) AS "overdueCount"',
+        'MIN(t.dueAt) AS "minDueAt"',
+      ])
+      .groupBy('o.id')
+      .addGroupBy('o.name')
+      .addGroupBy('o.accountId')
+      .addGroupBy('o.ownerUserId')
+      .orderBy('"minDueAt"', 'ASC')
+      .limit(500)
+      .getRawMany<{
+        opportunityId: string;
+        opportunityName: string;
+        accountId: string | null;
+        ownerUserId: string;
+        overdueCount: string;
+        minDueAt: string | null;
+      }>();
+
+    let createdTasks = 0;
+    for (const r of rows) {
+      try {
+        const opportunityId = String(r.opportunityId || '').trim();
+        if (!opportunityId) continue;
+        const opportunityName = String(r.opportunityName || '').trim();
+        const overdueCount = Number(r.overdueCount) || 0;
+        if (overdueCount <= 0) continue;
+
+        const shouldCreate = await this.shouldCreateOverdueTaskEscalation(
+          tenantId,
+          opportunityId,
+          rule,
+        );
+        if (!shouldCreate) continue;
+
+        const assigneeUserId = this.resolveAutomationAssignee(rule, {
+          ownerUserId: String(r.ownerUserId || '').trim(),
+          moverUserId: runner.id,
+        });
+        const target = rule.assigneeTarget || 'owner';
+        const finalAssigneeUserId =
+          assigneeUserId || (target === 'owner' ? runner.id : null);
+        if (!finalAssigneeUserId) {
+          this.logger.warn(
+            `Overdue automation skipped (tenant=${tenantId}, rule=${rule.id}, opportunity=${opportunityId}): no assignee`,
+          );
+          continue;
+        }
+
+        const dueAt =
+          rule.dueInDays > 0 ? this.addDaysDateOnly(rule.dueInDays) : null;
+        const title = this.renderOverdueTaskAutomationTitle(
+          rule.titleTemplate,
+          {
+            opportunityName,
+            overdueCount,
+          },
+        );
+
+        await this.taskRepo.save(
+          this.taskRepo.create({
+            tenantId,
+            title,
+            opportunityId,
+            accountId: r.accountId ? String(r.accountId) : null,
+            dueAt,
+            completed: false,
+            assigneeUserId: finalAssigneeUserId,
+            createdByUserId: runner.id,
+            updatedByUserId: runner.id,
+            source: this.AUTOMATION_SOURCE_OVERDUE_TASK,
+            sourceRuleId: rule.id,
+          }),
+        );
+
+        createdTasks += 1;
+      } catch (err) {
+        // best-effort: one bad row should not block entire run
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `Overdue automation failed (tenant=${tenantId}, rule=${rule.id}, opportunity=${String(
+            (r as { opportunityId?: unknown }).opportunityId,
+          )}): ${msg}`,
+        );
+      }
+    }
+
+    return { scannedOpportunities: rows.length, createdTasks };
+  }
+
+  private async shouldCreateOverdueTaskEscalation(
+    tenantId: string,
+    opportunityId: string,
+    rule: CrmAutomationOverdueTaskRule,
+  ): Promise<boolean> {
+    const cooldownDays = this.clampInt(rule.cooldownDays, 7, 0, 3650);
+    const since = new Date(Date.now() - cooldownDays * 24 * 60 * 60 * 1000);
+
+    const existing = await this.taskRepo
+      .createQueryBuilder('t')
+      .where('t.tenantId = :tenantId', { tenantId })
+      .andWhere('t.opportunityId = :opportunityId', { opportunityId })
+      .andWhere('t.source = :source', {
+        source: this.AUTOMATION_SOURCE_OVERDUE_TASK,
+      })
+      .andWhere('t.sourceRuleId = :sourceRuleId', { sourceRuleId: rule.id })
+      .andWhere('t.createdAt >= :since', { since })
+      .select(['t.id AS id', 't.createdAt AS createdAt'])
+      .orderBy('t.createdAt', 'DESC')
+      .limit(1)
+      .getRawOne<{ id: string; createdAt: string }>();
+
+    if (existing?.id) {
+      this.logger.debug(
+        `Overdue automation skipped due to cooldown (tenant=${tenantId}, rule=${rule.id}, opportunity=${opportunityId}, existingTask=${existing.id})`,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   async runStaleDealAutomations(tenantId: string, user: CurrentUser) {

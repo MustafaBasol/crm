@@ -34,6 +34,8 @@ import { CreateAutomationStageSequenceRuleDto } from './dto/create-automation-st
 import { UpdateAutomationStageSequenceRuleDto } from './dto/update-automation-stage-sequence-rule.dto';
 import { CreateAutomationStaleDealRuleDto } from './dto/create-automation-stale-deal-rule.dto';
 import { UpdateAutomationStaleDealRuleDto } from './dto/update-automation-stale-deal-rule.dto';
+import { CreateAutomationOverdueTaskRuleDto } from './dto/create-automation-overdue-task-rule.dto';
+import { UpdateAutomationOverdueTaskRuleDto } from './dto/update-automation-overdue-task-rule.dto';
 import { CreateAutomationWonChecklistRuleDto } from './dto/create-automation-won-checklist-rule.dto';
 import { UpdateAutomationWonChecklistRuleDto } from './dto/update-automation-won-checklist-rule.dto';
 import { CrmOpportunityStatus } from './entities/crm-opportunity.entity';
@@ -678,6 +680,55 @@ export class CrmController {
   })
   async runAutomationStaleDeals(@User() user: CurrentUser) {
     return this.crmService.runStaleDealAutomations(user.tenantId, user);
+  }
+
+  @Get('automation/overdue-task-rules')
+  @ApiOperation({
+    summary: 'List automation rules: overdue tasks -> create escalation task',
+  })
+  async listAutomationOverdueTaskRules(@User() user: CurrentUser) {
+    return this.crmService.listAutomationOverdueTaskRules(user.tenantId, user);
+  }
+
+  @Post('automation/overdue-task-rules')
+  @ApiOperation({
+    summary: 'Create automation rule: overdue tasks -> create escalation task',
+  })
+  async createAutomationOverdueTaskRule(
+    @User() user: CurrentUser,
+    @Body() dto: CreateAutomationOverdueTaskRuleDto,
+  ) {
+    return this.crmService.createAutomationOverdueTaskRule(
+      user.tenantId,
+      user,
+      dto,
+    );
+  }
+
+  @Patch('automation/overdue-task-rules/:id')
+  @ApiOperation({
+    summary: 'Update automation rule: overdue tasks -> create escalation task',
+  })
+  async updateAutomationOverdueTaskRule(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateAutomationOverdueTaskRuleDto,
+  ) {
+    return this.crmService.updateAutomationOverdueTaskRule(
+      user.tenantId,
+      user,
+      id,
+      dto,
+    );
+  }
+
+  @Post('automation/run/overdue-tasks')
+  @ApiOperation({
+    summary:
+      'Run overdue task automation rules (best-effort) for current tenant',
+  })
+  async runAutomationOverdueTasks(@User() user: CurrentUser) {
+    return this.crmService.runOverdueTaskAutomations(user.tenantId, user);
   }
 
   @Get('board')

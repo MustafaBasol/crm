@@ -31,6 +31,20 @@ export type CrmAutomationStaleDealRule = {
   updatedAt: string;
 };
 
+export type CrmAutomationOverdueTaskRule = {
+  id: string;
+  tenantId: string;
+  enabled: boolean;
+  overdueDays: number;
+  titleTemplate: string;
+  dueInDays: number;
+  assigneeTarget: CrmAutomationAssigneeTarget;
+  assigneeUserId: string | null;
+  cooldownDays: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CrmAutomationStageSequenceItem = {
   titleTemplate: string;
   dueInDays: number;
@@ -148,6 +162,61 @@ export const crmAutomationsApi = {
     const res = await apiClient.get<{ items: CrmAutomationStaleDealRule[] }>(
       '/crm/automation/stale-deal-rules',
     );
+    return res.data;
+  },
+
+  async listOverdueTaskRules(): Promise<{ items: CrmAutomationOverdueTaskRule[] }> {
+    const res = await apiClient.get<{ items: CrmAutomationOverdueTaskRule[] }>(
+      '/crm/automation/overdue-task-rules',
+    );
+    return res.data;
+  },
+
+  async createOverdueTaskRule(payload: {
+    enabled?: boolean;
+    overdueDays: number;
+    titleTemplate: string;
+    dueInDays?: number;
+    cooldownDays?: number;
+    assigneeTarget?: CrmAutomationAssigneeTarget;
+    assigneeUserId?: string | null;
+  }): Promise<CrmAutomationOverdueTaskRule> {
+    const res = await apiClient.post<CrmAutomationOverdueTaskRule>(
+      '/crm/automation/overdue-task-rules',
+      payload,
+    );
+    return res.data;
+  },
+
+  async updateOverdueTaskRule(
+    id: string,
+    payload: {
+      enabled?: boolean;
+      overdueDays?: number;
+      titleTemplate?: string;
+      dueInDays?: number;
+      cooldownDays?: number;
+      assigneeTarget?: CrmAutomationAssigneeTarget;
+      assigneeUserId?: string | null;
+    },
+  ): Promise<CrmAutomationOverdueTaskRule> {
+    const res = await apiClient.patch<CrmAutomationOverdueTaskRule>(
+      `/crm/automation/overdue-task-rules/${encodeURIComponent(String(id))}`,
+      payload,
+    );
+    return res.data;
+  },
+
+  async runOverdueTaskAutomations(): Promise<{
+    rules: number;
+    scannedOpportunities: number;
+    createdTasks: number;
+  }> {
+    const res = await apiClient.post<{
+      rules: number;
+      scannedOpportunities: number;
+      createdTasks: number;
+    }>('/crm/automation/run/overdue-tasks');
     return res.data;
   },
 
