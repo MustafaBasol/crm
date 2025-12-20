@@ -32,6 +32,8 @@ import { CreateAutomationStageTaskRuleDto } from './dto/create-automation-stage-
 import { UpdateAutomationStageTaskRuleDto } from './dto/update-automation-stage-task-rule.dto';
 import { CreateAutomationStaleDealRuleDto } from './dto/create-automation-stale-deal-rule.dto';
 import { UpdateAutomationStaleDealRuleDto } from './dto/update-automation-stale-deal-rule.dto';
+import { CreateAutomationWonChecklistRuleDto } from './dto/create-automation-won-checklist-rule.dto';
+import { UpdateAutomationWonChecklistRuleDto } from './dto/update-automation-won-checklist-rule.dto';
 import { CrmOpportunityStatus } from './entities/crm-opportunity.entity';
 
 type CsvPrimitive = string | number | boolean | Date | null | undefined;
@@ -509,6 +511,46 @@ export class CrmController {
   @ApiOperation({ summary: 'List automation rules: stale deal -> create task' })
   async listAutomationStaleDealRules(@User() user: CurrentUser) {
     return this.crmService.listAutomationStaleDealRules(user.tenantId, user);
+  }
+
+  @Get('automation/won-checklist-rules')
+  @ApiOperation({
+    summary: 'List automation rules: WON -> create checklist tasks',
+  })
+  async listAutomationWonChecklistRules(@User() user: CurrentUser) {
+    return this.crmService.listAutomationWonChecklistRules(user.tenantId, user);
+  }
+
+  @Post('automation/won-checklist-rules')
+  @ApiOperation({
+    summary: 'Create automation rule: WON -> create checklist tasks',
+  })
+  async createAutomationWonChecklistRule(
+    @User() user: CurrentUser,
+    @Body() dto: CreateAutomationWonChecklistRuleDto,
+  ) {
+    return this.crmService.createAutomationWonChecklistRule(
+      user.tenantId,
+      user,
+      dto,
+    );
+  }
+
+  @Patch('automation/won-checklist-rules/:id')
+  @ApiOperation({
+    summary: 'Update automation rule: WON -> create checklist tasks',
+  })
+  async updateAutomationWonChecklistRule(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateAutomationWonChecklistRuleDto,
+  ) {
+    return this.crmService.updateAutomationWonChecklistRule(
+      user.tenantId,
+      user,
+      id,
+      dto,
+    );
   }
 
   @Post('automation/stale-deal-rules')

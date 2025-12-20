@@ -19,6 +19,7 @@ import {
   CrmAutomationStageTaskRule,
 } from './entities/crm-automation-rule.entity';
 import { CrmAutomationStaleDealRule } from './entities/crm-automation-stale-deal-rule.entity';
+import { CrmAutomationWonChecklistRule } from './entities/crm-automation-won-checklist-rule.entity';
 import { CrmActivity } from './entities/crm-activity.entity';
 import { CrmTask } from './entities/crm-task.entity';
 import { CrmLead } from './entities/crm-lead.entity';
@@ -86,6 +87,9 @@ export class CrmService {
     @InjectRepository(CrmAutomationStaleDealRule)
     private readonly automationStaleDealRuleRepo: Repository<CrmAutomationStaleDealRule>,
 
+    @InjectRepository(CrmAutomationWonChecklistRule)
+    private readonly automationWonChecklistRuleRepo: Repository<CrmAutomationWonChecklistRule>,
+
     @InjectRepository(CrmActivity)
     private readonly activityRepo: Repository<CrmActivity>,
 
@@ -117,6 +121,7 @@ export class CrmService {
   ) {}
 
   private readonly AUTOMATION_SOURCE_STALE_DEAL = 'automation_stale_deal';
+  private readonly AUTOMATION_SOURCE_WON_CHECKLIST = 'automation_won_checklist';
 
   private clampProbability(value: unknown): number | null {
     if (value == null) return null;
@@ -1199,6 +1204,121 @@ export class CrmService {
     return this.automationStageTaskRuleRepo.save(rule);
   }
 
+  async listAutomationWonChecklistRules(tenantId: string, user: CurrentUser) {
+    await this.assertCanManageAutomations(user);
+    const rules = await this.automationWonChecklistRuleRepo.find({
+      where: { tenantId },
+      order: { createdAt: 'DESC' },
+    });
+    return { items: rules };
+  }
+
+  async createAutomationWonChecklistRule(
+    tenantId: string,
+    user: CurrentUser,
+    dto: {
+      enabled?: boolean;
+      titleTemplates: string[];
+      dueInDays?: number;
+      assigneeTarget?: CrmAutomationAssigneeTarget;
+      assigneeUserId?: string | null;
+    },
+  ) {
+    await this.assertCanManageAutomations(user);
+
+    const enabled = dto.enabled ?? true;
+    const dueInDays = this.clampInt(dto.dueInDays, 0, 0, 3650);
+    const assigneeTarget = dto.assigneeTarget || 'owner';
+
+    const titleTemplates = Array.isArray(dto.titleTemplates)
+      ? dto.titleTemplates.map((t) => String(t || '').trim()).filter(Boolean)
+      : [];
+    if (!titleTemplates.length) {
+      throw new BadRequestException('titleTemplates required');
+    }
+
+    if (assigneeTarget === 'specific' && !dto.assigneeUserId) {
+      throw new BadRequestException('assigneeUserId required for specific');
+    }
+
+    const rule = await this.automationWonChecklistRuleRepo.save(
+      this.automationWonChecklistRuleRepo.create({
+        tenantId,
+        enabled,
+        titleTemplates,
+        dueInDays,
+        assigneeTarget,
+        assigneeUserId:
+          assigneeTarget === 'specific' && dto.assigneeUserId
+            ? String(dto.assigneeUserId)
+            : null,
+      }),
+    );
+
+    return rule;
+  }
+
+  async updateAutomationWonChecklistRule(
+    tenantId: string,
+    user: CurrentUser,
+    id: string,
+    dto: {
+      enabled?: boolean;
+      titleTemplates?: string[];
+      dueInDays?: number;
+      assigneeTarget?: CrmAutomationAssigneeTarget;
+      assigneeUserId?: string | null;
+    },
+  ) {
+    await this.assertCanManageAutomations(user);
+
+    const rule = await this.automationWonChecklistRuleRepo.findOne({
+      where: { tenantId, id },
+    });
+    if (!rule) throw new NotFoundException('Rule not found');
+
+    if ('enabled' in dto && dto.enabled != null) {
+      rule.enabled = Boolean(dto.enabled);
+    }
+
+    if (dto.titleTemplates != null) {
+      const titleTemplates = Array.isArray(dto.titleTemplates)
+        ? dto.titleTemplates.map((t) => String(t || '').trim()).filter(Boolean)
+        : [];
+      if (!titleTemplates.length) {
+        throw new BadRequestException('titleTemplates required');
+      }
+      rule.titleTemplates = titleTemplates;
+    }
+
+    if (dto.dueInDays != null) {
+      rule.dueInDays = this.clampInt(
+        dto.dueInDays,
+        rule.dueInDays ?? 0,
+        0,
+        3650,
+      );
+    }
+
+    if (dto.assigneeTarget != null) {
+      rule.assigneeTarget = dto.assigneeTarget as any;
+    }
+    if ('assigneeUserId' in dto) {
+      rule.assigneeUserId = dto.assigneeUserId
+        ? String(dto.assigneeUserId)
+        : null;
+    }
+
+    if (rule.assigneeTarget === 'specific' && !rule.assigneeUserId) {
+      throw new BadRequestException('assigneeUserId required for specific');
+    }
+    if (rule.assigneeTarget !== 'specific') {
+      rule.assigneeUserId = null;
+    }
+
+    return this.automationWonChecklistRuleRepo.save(rule);
+  }
+
   async listAutomationStaleDealRules(tenantId: string, user: CurrentUser) {
     await this.assertCanManageAutomations(user);
     const rules = await this.automationStaleDealRuleRepo.find({
@@ -1449,6 +1569,100 @@ export class CrmService {
       .getOne();
 
     return !existing;
+  }
+
+  private async shouldCreateWonChecklistTasks(
+    tenantId: string,
+    opportunityId: string,
+    rule: CrmAutomationWonChecklistRule,
+  ): Promise<boolean> {
+    const existing = await this.taskRepo
+      .createQueryBuilder('t')
+      .where('t.tenantId = :tenantId', { tenantId })
+      .andWhere('t.opportunityId = :opportunityId', { opportunityId })
+      .andWhere('t.source = :source', {
+        source: this.AUTOMATION_SOURCE_WON_CHECKLIST,
+      })
+      .andWhere('t.sourceRuleId = :sourceRuleId', { sourceRuleId: rule.id })
+      .getOne();
+
+    return !existing;
+  }
+
+  private async applyWonChecklistRules(
+    tenantId: string,
+    mover: CurrentUser,
+    ctx: {
+      opportunityId: string;
+      opportunityName: string;
+      accountId: string | null;
+      ownerUserId: string;
+      toStageName: string;
+    },
+  ): Promise<void> {
+    const rules = await this.automationWonChecklistRuleRepo.find({
+      where: { tenantId, enabled: true },
+      order: { createdAt: 'ASC' },
+    });
+    if (!rules.length) return;
+
+    for (const rule of rules) {
+      try {
+        const shouldCreate = await this.shouldCreateWonChecklistTasks(
+          tenantId,
+          ctx.opportunityId,
+          rule,
+        );
+        if (!shouldCreate) continue;
+
+        const assigneeUserId = this.resolveAutomationAssignee(
+          rule as unknown as Pick<
+            CrmAutomationStageTaskRule,
+            'assigneeTarget' | 'assigneeUserId'
+          >,
+          {
+            ownerUserId: ctx.ownerUserId,
+            moverUserId: mover.id,
+          },
+        );
+        if (!assigneeUserId) continue;
+
+        const dueAt =
+          rule.dueInDays > 0 ? this.addDaysDateOnly(rule.dueInDays) : null;
+
+        const titles = Array.isArray(rule.titleTemplates)
+          ? rule.titleTemplates
+              .map((t) => String(t || '').trim())
+              .filter(Boolean)
+          : [];
+        if (!titles.length) continue;
+
+        for (const tpl of titles) {
+          const title = this.renderAutomationTitle(tpl, {
+            opportunityName: ctx.opportunityName,
+            toStageName: ctx.toStageName,
+          });
+
+          await this.taskRepo.save(
+            this.taskRepo.create({
+              tenantId,
+              title,
+              opportunityId: ctx.opportunityId,
+              accountId: ctx.accountId,
+              dueAt,
+              completed: false,
+              assigneeUserId,
+              createdByUserId: mover.id,
+              updatedByUserId: mover.id,
+              source: this.AUTOMATION_SOURCE_WON_CHECKLIST,
+              sourceRuleId: rule.id,
+            }),
+          );
+        }
+      } catch {
+        // best-effort only
+      }
+    }
   }
 
   private async applyStageChangeTaskRules(
@@ -2727,6 +2941,21 @@ export class CrmService {
       });
     } catch {
       // best-effort only
+    }
+
+    // Automation: when marked WON, create follow-up checklist tasks (best-effort)
+    if (stage.isClosedWon) {
+      try {
+        await this.applyWonChecklistRules(tenantId, user, {
+          opportunityId: saved.id,
+          opportunityName: saved.name,
+          accountId: saved.accountId,
+          ownerUserId: saved.ownerUserId,
+          toStageName: stage.name,
+        });
+      } catch {
+        // best-effort only
+      }
     }
     const teamUserIds = await this.getTeamUserIdsForOpportunity(
       tenantId,

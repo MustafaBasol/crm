@@ -31,6 +31,18 @@ export type CrmAutomationStaleDealRule = {
   updatedAt: string;
 };
 
+export type CrmAutomationWonChecklistRule = {
+  id: string;
+  tenantId: string;
+  enabled: boolean;
+  titleTemplates: string[];
+  dueInDays: number;
+  assigneeTarget: CrmAutomationAssigneeTarget;
+  assigneeUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export const crmAutomationsApi = {
   async listStageTaskRules(): Promise<{ items: CrmAutomationStageTaskRule[] }> {
     const res = await apiClient.get<{ items: CrmAutomationStageTaskRule[] }>(
@@ -113,6 +125,44 @@ export const crmAutomationsApi = {
   ): Promise<CrmAutomationStaleDealRule> {
     const res = await apiClient.patch<CrmAutomationStaleDealRule>(
       `/crm/automation/stale-deal-rules/${encodeURIComponent(String(id))}`,
+      payload,
+    );
+    return res.data;
+  },
+
+  async listWonChecklistRules(): Promise<{ items: CrmAutomationWonChecklistRule[] }> {
+    const res = await apiClient.get<{ items: CrmAutomationWonChecklistRule[] }>(
+      '/crm/automation/won-checklist-rules',
+    );
+    return res.data;
+  },
+
+  async createWonChecklistRule(payload: {
+    enabled?: boolean;
+    titleTemplates: string[];
+    dueInDays?: number;
+    assigneeTarget?: CrmAutomationAssigneeTarget;
+    assigneeUserId?: string | null;
+  }): Promise<CrmAutomationWonChecklistRule> {
+    const res = await apiClient.post<CrmAutomationWonChecklistRule>(
+      '/crm/automation/won-checklist-rules',
+      payload,
+    );
+    return res.data;
+  },
+
+  async updateWonChecklistRule(
+    id: string,
+    payload: {
+      enabled?: boolean;
+      titleTemplates?: string[];
+      dueInDays?: number;
+      assigneeTarget?: CrmAutomationAssigneeTarget;
+      assigneeUserId?: string | null;
+    },
+  ): Promise<CrmAutomationWonChecklistRule> {
+    const res = await apiClient.patch<CrmAutomationWonChecklistRule>(
+      `/crm/automation/won-checklist-rules/${encodeURIComponent(String(id))}`,
       payload,
     );
     return res.data;

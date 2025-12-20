@@ -449,6 +449,38 @@ http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$ST
 STALE_TASK_COUNT="$(json_get "$STALE_TASKS2_JSON" "Array.isArray(j.items) ? j.items.filter(t => t && typeof t.title === 'string' && t.title.startsWith('Stale task:')).length : 0")"
 [[ "$STALE_TASK_COUNT" == "1" ]] || fail "Expected stale-deal automation cooldown to prevent duplicates (count=1), got $STALE_TASK_COUNT: $STALE_TASKS2_JSON"
 
+echo "== CRM: automation (won checklist creates tasks) =="
+WON_STAGE_ID="$(json_get "$STAGES_JSON" "Array.isArray(j) ? (j.find(s => s && s.isClosedWon)?.id || '') : ''")"
+[[ -n "$WON_STAGE_ID" ]] || fail "Won stage id not found in stages list: $STAGES_JSON"
+
+WON_RULE_CREATE="$TMP_DIR/smoke.crm.won.rule.create.json"
+cat > "$WON_RULE_CREATE" <<JSON
+{"enabled":true,"titleTemplates":["Won follow-up 1: {{opportunityName}}","Won follow-up 2: {{toStageName}}"],"dueInDays":0,"assigneeTarget":"owner"}
+JSON
+
+WON_RULE_CREATED_JSON="$TMP_DIR/smoke.crm.won.rule.created.json"
+http_json POST "$API_BASE/crm/automation/won-checklist-rules" "$WON_RULE_CREATE" "$TOKEN" | tee "$WON_RULE_CREATED_JSON" >/dev/null
+WON_RULE_ID="$(json_get "$WON_RULE_CREATED_JSON" "j.id")"
+[[ -n "$WON_RULE_ID" ]] || fail "Won-checklist automation rule id missing in create response: $WON_RULE_CREATED_JSON"
+
+WON_TASKS_BEFORE_JSON="$TMP_DIR/smoke.crm.tasks.before.won.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$WON_TASKS_BEFORE_JSON" >/dev/null
+WON_TASKS_BEFORE_COUNT="$(json_get "$WON_TASKS_BEFORE_JSON" "Array.isArray(j.items) ? j.items.length : 0")"
+
+OPP_MOVE_WON_PAYLOAD="$TMP_DIR/smoke.crm.opp.move.won.json"
+cat > "$OPP_MOVE_WON_PAYLOAD" <<JSON
+{"stageId":"$WON_STAGE_ID"}
+JSON
+OPP_MOVED_WON_JSON="$TMP_DIR/smoke.crm.opp.moved.won.json"
+http_json POST "$API_BASE/crm/opportunities/$OPP_ID/move" "$OPP_MOVE_WON_PAYLOAD" "$TOKEN" | tee "$OPP_MOVED_WON_JSON" >/dev/null
+
+WON_TASKS_AFTER_JSON="$TMP_DIR/smoke.crm.tasks.after.won.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$WON_TASKS_AFTER_JSON" >/dev/null
+WON_TASKS_AFTER_COUNT="$(json_get "$WON_TASKS_AFTER_JSON" "Array.isArray(j.items) ? j.items.length : 0")"
+
+DELTA_WON_TASKS="$((WON_TASKS_AFTER_COUNT - WON_TASKS_BEFORE_COUNT))"
+[[ "$DELTA_WON_TASKS" == "2" ]] || fail "Expected won checklist automation to create 2 tasks (delta=2), got delta=$DELTA_WON_TASKS. before=$WON_TASKS_BEFORE_COUNT after=$WON_TASKS_AFTER_COUNT: $WON_TASKS_AFTER_JSON"
+
 echo "== CRM: opportunity detail endpoint (/crm/opportunities/:id) =="
 OPP_DETAIL_JSON="$TMP_DIR/smoke.crm.opp.detail.json"
 http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OPP_DETAIL_JSON" >/dev/null

@@ -8,6 +8,7 @@ import {
   type CrmAutomationAssigneeTarget,
   type CrmAutomationStageTaskRule,
   type CrmAutomationStaleDealRule,
+  type CrmAutomationWonChecklistRule,
 } from '../../api/crm-automations';
 
 type Option = { id: string; label: string };
@@ -40,6 +41,7 @@ export default function CrmAutomationsSettingsTab() {
       sections: {
         stage: { title: 'Stage → Otomatik Görev', new: 'Yeni kural' },
         stale: { title: 'Stale Deal → Hatırlatma Görevi', new: 'Yeni kural' },
+        won: { title: 'Won → Follow-up Checklist', new: 'Yeni kural' },
       },
       fields: {
         enabled: 'Aktif',
@@ -51,6 +53,7 @@ export default function CrmAutomationsSettingsTab() {
         staleDays: 'Stale (gün)',
         stageFilter: 'Stage filtresi',
         cooldownDays: 'Cooldown (gün)',
+        checklistItems: 'Checklist (satır başına bir görev)',
         assigneeTarget: 'Atama',
         assigneeUserId: 'Kullanıcı',
       },
@@ -68,6 +71,7 @@ export default function CrmAutomationsSettingsTab() {
       hints: {
         stageTemplate: 'Örn: Auto task: {{toStageName}}',
         staleTemplate: 'Örn: Stale task: {{opportunityName}}',
+        wonItems: 'Örn:\nMüşteriye teşekkür e-postası gönder\nOnboarding toplantısı planla',
       },
     };
 
@@ -83,6 +87,7 @@ export default function CrmAutomationsSettingsTab() {
       sections: {
         stage: { title: 'Stage → Create Task', new: 'New rule' },
         stale: { title: 'Stale Deal → Reminder Task', new: 'New rule' },
+        won: { title: 'WON → Follow-up Checklist', new: 'New rule' },
       },
       fields: {
         enabled: 'Enabled',
@@ -94,6 +99,7 @@ export default function CrmAutomationsSettingsTab() {
         staleDays: 'Stale days',
         stageFilter: 'Stage filter',
         cooldownDays: 'Cooldown days',
+        checklistItems: 'Checklist (one task per line)',
         assigneeTarget: 'Assignee',
         assigneeUserId: 'User',
       },
@@ -111,6 +117,7 @@ export default function CrmAutomationsSettingsTab() {
       hints: {
         stageTemplate: 'e.g. Auto task: {{toStageName}}',
         staleTemplate: 'e.g. Stale task: {{opportunityName}}',
+        wonItems: 'e.g.\nSend thank-you email\nSchedule onboarding call',
       },
     };
 
@@ -126,6 +133,7 @@ export default function CrmAutomationsSettingsTab() {
       sections: {
         stage: { title: 'Étape → Créer une tâche', new: 'Nouvelle règle' },
         stale: { title: 'Deal inactif → Tâche de rappel', new: 'Nouvelle règle' },
+        won: { title: 'Gagné → Checklist de suivi', new: 'Nouvelle règle' },
       },
       fields: {
         enabled: 'Actif',
@@ -137,6 +145,7 @@ export default function CrmAutomationsSettingsTab() {
         staleDays: 'Inactivité (jours)',
         stageFilter: 'Filtre d’étape',
         cooldownDays: 'Cooldown (jours)',
+        checklistItems: 'Checklist (une tâche par ligne)',
         assigneeTarget: 'Attribution',
         assigneeUserId: 'Utilisateur',
       },
@@ -154,6 +163,7 @@ export default function CrmAutomationsSettingsTab() {
       hints: {
         stageTemplate: 'ex. Tâche auto : {{toStageName}}',
         staleTemplate: 'ex. Tâche inactive : {{opportunityName}}',
+        wonItems: 'ex.\nEnvoyer un e-mail de remerciement\nPlanifier un appel d’onboarding',
       },
     };
 
@@ -169,6 +179,7 @@ export default function CrmAutomationsSettingsTab() {
       sections: {
         stage: { title: 'Phase → Aufgabe erstellen', new: 'Neue Regel' },
         stale: { title: 'Stale Deal → Erinnerungsaufgabe', new: 'Neue Regel' },
+        won: { title: 'Gewonnen → Follow-up-Checkliste', new: 'Neue Regel' },
       },
       fields: {
         enabled: 'Aktiv',
@@ -180,6 +191,7 @@ export default function CrmAutomationsSettingsTab() {
         staleDays: 'Stale Tage',
         stageFilter: 'Phasenfilter',
         cooldownDays: 'Cooldown Tage',
+        checklistItems: 'Checkliste (eine Aufgabe pro Zeile)',
         assigneeTarget: 'Zuweisung',
         assigneeUserId: 'Benutzer',
       },
@@ -197,6 +209,7 @@ export default function CrmAutomationsSettingsTab() {
       hints: {
         stageTemplate: 'z.B. Auto-Aufgabe: {{toStageName}}',
         staleTemplate: 'z.B. Stale-Aufgabe: {{opportunityName}}',
+        wonItems: 'z.B.\nDankes-E-Mail senden\nOnboarding-Call planen',
       },
     };
 
@@ -228,6 +241,7 @@ export default function CrmAutomationsSettingsTab() {
 
   const [stageRules, setStageRules] = useState<CrmAutomationStageTaskRule[]>([]);
   const [staleRules, setStaleRules] = useState<CrmAutomationStaleDealRule[]>([]);
+  const [wonRules, setWonRules] = useState<CrmAutomationWonChecklistRule[]>([]);
 
   const [editingStageRuleId, setEditingStageRuleId] = useState<string | null>(null);
   const [stageForm, setStageForm] = useState({
@@ -248,6 +262,15 @@ export default function CrmAutomationsSettingsTab() {
     titleTemplate: 'Stale task: {{opportunityName}}',
     dueInDays: 0,
     cooldownDays: 7,
+    assigneeTarget: 'owner' as CrmAutomationAssigneeTarget,
+    assigneeUserId: '' as string,
+  });
+
+  const [editingWonRuleId, setEditingWonRuleId] = useState<string | null>(null);
+  const [wonForm, setWonForm] = useState({
+    enabled: true,
+    titleTemplatesText: '' as string,
+    dueInDays: 0,
     assigneeTarget: 'owner' as CrmAutomationAssigneeTarget,
     assigneeUserId: '' as string,
   });
@@ -279,19 +302,32 @@ export default function CrmAutomationsSettingsTab() {
     });
   };
 
+  const resetWonForm = () => {
+    setEditingWonRuleId(null);
+    setWonForm({
+      enabled: true,
+      titleTemplatesText: '',
+      dueInDays: 0,
+      assigneeTarget: 'owner',
+      assigneeUserId: '',
+    });
+  };
+
   const loadAll = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [stagesRes, stageRulesRes, staleRulesRes] = await Promise.all([
+      const [stagesRes, stageRulesRes, staleRulesRes, wonRulesRes] = await Promise.all([
         crmApi.getStages(),
         crmAutomationsApi.listStageTaskRules(),
         crmAutomationsApi.listStaleDealRules(),
+        crmAutomationsApi.listWonChecklistRules(),
       ]);
 
       setStages(Array.isArray(stagesRes) ? stagesRes : []);
       setStageRules(Array.isArray(stageRulesRes?.items) ? stageRulesRes.items : []);
       setStaleRules(Array.isArray(staleRulesRes?.items) ? staleRulesRes.items : []);
+      setWonRules(Array.isArray(wonRulesRes?.items) ? wonRulesRes.items : []);
 
       try {
         const orgs = await organizationsApi.getAll();
@@ -343,6 +379,19 @@ export default function CrmAutomationsSettingsTab() {
       titleTemplate: rule.titleTemplate || '',
       dueInDays: clampInt(rule.dueInDays, 0, 0, 3650),
       cooldownDays: clampInt(rule.cooldownDays, 7, 0, 3650),
+      assigneeTarget: normalizeTarget(rule.assigneeTarget),
+      assigneeUserId: rule.assigneeUserId || '',
+    });
+  };
+
+  const startEditWonRule = (rule: CrmAutomationWonChecklistRule) => {
+    setEditingWonRuleId(rule.id);
+    setWonForm({
+      enabled: !!rule.enabled,
+      titleTemplatesText: Array.isArray(rule.titleTemplates)
+        ? rule.titleTemplates.join('\n')
+        : '',
+      dueInDays: clampInt(rule.dueInDays, 0, 0, 3650),
       assigneeTarget: normalizeTarget(rule.assigneeTarget),
       assigneeUserId: rule.assigneeUserId || '',
     });
@@ -430,6 +479,45 @@ export default function CrmAutomationsSettingsTab() {
     }
   };
 
+  const saveWonRule = async () => {
+    setError(null);
+
+    const assigneeTarget = normalizeTarget(wonForm.assigneeTarget);
+    const titleTemplates = String(wonForm.titleTemplatesText || '')
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (!titleTemplates.length) {
+      setError(text.validation.requiredField(text.fields.checklistItems));
+      return;
+    }
+    if (assigneeTarget === 'specific' && !wonForm.assigneeUserId) {
+      setError(text.validation.requiredField(text.fields.assigneeUserId));
+      return;
+    }
+
+    const payload = {
+      enabled: !!wonForm.enabled,
+      titleTemplates,
+      dueInDays: clampInt(wonForm.dueInDays, 0, 0, 3650),
+      assigneeTarget,
+      assigneeUserId: assigneeTarget === 'specific' ? String(wonForm.assigneeUserId) : null,
+    };
+
+    try {
+      if (editingWonRuleId) {
+        await crmAutomationsApi.updateWonChecklistRule(editingWonRuleId, payload);
+      } else {
+        await crmAutomationsApi.createWonChecklistRule(payload);
+      }
+      await loadAll();
+      resetWonForm();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
+
   const toggleStageRuleEnabled = async (rule: CrmAutomationStageTaskRule) => {
     try {
       await crmAutomationsApi.updateStageTaskRule(rule.id, { enabled: !rule.enabled });
@@ -442,6 +530,15 @@ export default function CrmAutomationsSettingsTab() {
   const toggleStaleRuleEnabled = async (rule: CrmAutomationStaleDealRule) => {
     try {
       await crmAutomationsApi.updateStaleDealRule(rule.id, { enabled: !rule.enabled });
+      await loadAll();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
+
+  const toggleWonRuleEnabled = async (rule: CrmAutomationWonChecklistRule) => {
+    try {
+      await crmAutomationsApi.updateWonChecklistRule(rule.id, { enabled: !rule.enabled });
       await loadAll();
     } catch (e) {
       setError(getErrorMessage(e));
@@ -831,6 +928,151 @@ export default function CrmAutomationsSettingsTab() {
                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
               >
                 {editingStaleRuleId ? text.actions.save : text.actions.create}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Won checklist rules */}
+      <div className="border rounded-xl bg-white p-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="text-sm font-semibold text-gray-900">{text.sections.won.title}</div>
+          <button
+            type="button"
+            onClick={() => {
+              if (editingWonRuleId) return;
+              resetWonForm();
+              setEditingWonRuleId('');
+            }}
+            className="border rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50"
+          >
+            {text.sections.won.new}
+          </button>
+        </div>
+
+        {wonRules.length === 0 ? (
+          <div className="text-sm text-gray-500">—</div>
+        ) : (
+          <div className="space-y-2">
+            {wonRules.map((r) => (
+              <div key={r.id} className="border border-gray-200 rounded-lg p-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-gray-900 truncate">
+                    {text.fields.checklistItems}: {Array.isArray(r.titleTemplates) ? r.titleTemplates.length : 0}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1 break-words">
+                    <div>{text.fields.dueInDays}: {r.dueInDays ?? 0}</div>
+                    <div>
+                      {text.fields.assigneeTarget}: {(text.targets as any)[r.assigneeTarget] || r.assigneeTarget}
+                      {r.assigneeTarget === 'specific' && r.assigneeUserId ? ` (${r.assigneeUserId})` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={!!r.enabled}
+                      onChange={() => void toggleWonRuleEnabled(r)}
+                    />
+                    {text.fields.enabled}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => startEditWonRule(r)}
+                    className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  >
+                    {text.actions.edit}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(editingWonRuleId !== null) && (
+          <div className="mt-4 border-t border-gray-200 pt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={!!wonForm.enabled}
+                  onChange={(e) => setWonForm((p) => ({ ...p, enabled: e.target.checked }))}
+                />
+                {text.fields.enabled}
+              </label>
+
+              <div />
+
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.checklistItems}</label>
+                <textarea
+                  value={wonForm.titleTemplatesText}
+                  onChange={(e) => setWonForm((p) => ({ ...p, titleTemplatesText: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white min-h-[120px]"
+                  placeholder={text.hints.wonItems}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.dueInDays}</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={wonForm.dueInDays}
+                  onChange={(e) => setWonForm((p) => ({ ...p, dueInDays: clampInt(e.target.value, 0, 0, 3650) }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.assigneeTarget}</label>
+                <select
+                  value={wonForm.assigneeTarget}
+                  onChange={(e) => setWonForm((p) => ({ ...p, assigneeTarget: normalizeTarget(e.target.value) }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                >
+                  <option value="owner">{text.targets.owner}</option>
+                  <option value="mover">{text.targets.mover}</option>
+                  <option value="specific">{text.targets.specific}</option>
+                </select>
+              </div>
+
+              {wonForm.assigneeTarget === 'specific' && (
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.assigneeUserId}</label>
+                  <select
+                    value={wonForm.assigneeUserId}
+                    onChange={(e) => setWonForm((p) => ({ ...p, assigneeUserId: e.target.value }))}
+                    className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                  >
+                    <option value="">—</option>
+                    {memberOptions.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  resetWonForm();
+                  setEditingWonRuleId(null);
+                }}
+                className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                {text.actions.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveWonRule()}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
+              >
+                {editingWonRuleId ? text.actions.save : text.actions.create}
               </button>
             </div>
           </div>

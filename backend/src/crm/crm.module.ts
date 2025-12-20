@@ -13,6 +13,7 @@ import { CrmContact } from './entities/crm-contact.entity';
 import { CrmOpportunityStageHistory } from './entities/crm-opportunity-stage-history.entity';
 import { CrmAutomationStageTaskRule } from './entities/crm-automation-rule.entity';
 import { CrmAutomationStaleDealRule } from './entities/crm-automation-stale-deal-rule.entity';
+import { CrmAutomationWonChecklistRule } from './entities/crm-automation-won-checklist-rule.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { OrganizationMember } from '../organizations/entities/organization-member.entity';
 import { Quote } from '../quotes/entities/quote.entity';
@@ -39,6 +40,7 @@ import { AuditModule } from '../audit/audit.module';
       CrmOpportunityStageHistory,
       CrmAutomationStageTaskRule,
       CrmAutomationStaleDealRule,
+      CrmAutomationWonChecklistRule,
     ]),
     AuditModule,
   ],

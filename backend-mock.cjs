@@ -253,6 +253,21 @@ let crmAutomationStaleDealRules = [
   },
 ];
 
+// CRM automation (won -> follow-up checklist)
+let crmAutomationWonChecklistRules = [
+  {
+    id: 'won-rule-1',
+    tenantId: mockTenant.id,
+    enabled: false,
+    titleTemplates: ['Follow-up: {{opportunityName}}'],
+    dueInDays: 0,
+    assigneeTarget: 'owner',
+    assigneeUserId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
 const ensureStageExists = (stageId) => crmStages.some((s) => s.id === stageId);
 const randomId = (prefix) => `${prefix}-${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
 
@@ -698,7 +713,7 @@ const server = createServer((req, res) => {
 
   // CRM Automation - stage task rules
   if (path === '/api/crm/automation/stage-task-rules' && req.method === 'GET') {
-    return json(res, 200, Array.isArray(crmAutomationStageTaskRules) ? crmAutomationStageTaskRules : []);
+    return json(res, 200, { items: Array.isArray(crmAutomationStageTaskRules) ? crmAutomationStageTaskRules : [] });
   }
   if (path === '/api/crm/automation/stage-task-rules' && req.method === 'POST') {
     return readJsonBody(req).then((body) => {
@@ -802,6 +817,103 @@ const server = createServer((req, res) => {
   if (path === '/api/crm/automation/stale-deal-rules' && req.method === 'GET') {
     const rules = Array.isArray(crmAutomationStaleDealRules) ? crmAutomationStaleDealRules : [];
     return json(res, 200, { items: rules });
+  }
+
+  // CRM Automation - won checklist rules
+  if (path === '/api/crm/automation/won-checklist-rules' && req.method === 'GET') {
+    const rules = Array.isArray(crmAutomationWonChecklistRules) ? crmAutomationWonChecklistRules : [];
+    return json(res, 200, { items: rules });
+  }
+
+  if (path === '/api/crm/automation/won-checklist-rules' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const enabled = typeof body.enabled === 'boolean' ? body.enabled : true;
+
+      const dueInDaysRaw = (typeof body.dueInDays === 'number' || typeof body.dueInDays === 'string')
+        ? Number(body.dueInDays)
+        : 0;
+      const dueInDays = Number.isFinite(dueInDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(dueInDaysRaw))) : 0;
+
+      const assigneeTargetRaw = typeof body.assigneeTarget === 'string' ? body.assigneeTarget : 'owner';
+      const assigneeTarget = ['owner', 'mover', 'specific'].includes(assigneeTargetRaw) ? assigneeTargetRaw : 'owner';
+      const assigneeUserId = typeof body.assigneeUserId === 'string' ? body.assigneeUserId : null;
+      if (assigneeTarget === 'specific' && !assigneeUserId) {
+        return json(res, 400, { message: 'assigneeTarget=specific için assigneeUserId zorunlu' });
+      }
+
+      const rawTemplates = Array.isArray(body.titleTemplates) ? body.titleTemplates : [];
+      const titleTemplates = rawTemplates
+        .map((t) => (typeof t === 'string' ? t.trim() : ''))
+        .filter(Boolean)
+        .slice(0, 50);
+      if (!titleTemplates.length) {
+        return json(res, 400, { message: 'titleTemplates zorunlu' });
+      }
+
+      const rule = {
+        id: randomId('won-rule'),
+        tenantId: mockTenant.id,
+        enabled,
+        titleTemplates,
+        dueInDays,
+        assigneeTarget,
+        assigneeUserId: assigneeTarget === 'specific' ? (assigneeUserId || null) : null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      crmAutomationWonChecklistRules = [rule, ...(Array.isArray(crmAutomationWonChecklistRules) ? crmAutomationWonChecklistRules : [])];
+      return json(res, 200, rule);
+    });
+  }
+
+  const crmWonRuleMatch = path.match(/^\/api\/crm\/automation\/won-checklist-rules\/([^/]+)$/);
+  if (crmWonRuleMatch && req.method === 'PATCH') {
+    const id = crmWonRuleMatch[1];
+    return readJsonBody(req).then((body) => {
+      const list = Array.isArray(crmAutomationWonChecklistRules) ? crmAutomationWonChecklistRules : [];
+      const idx = list.findIndex((r) => r.id === id);
+      if (idx < 0) return json(res, 404, { message: 'Rule bulunamadı' });
+
+      const next = { ...list[idx] };
+      if (typeof body.enabled === 'boolean') next.enabled = body.enabled;
+
+      if (typeof body.dueInDays === 'number' || typeof body.dueInDays === 'string') {
+        const v = Number(body.dueInDays);
+        if (!Number.isFinite(v)) return json(res, 400, { message: 'dueInDays geçersiz' });
+        next.dueInDays = Math.max(0, Math.min(3650, Math.floor(v)));
+      }
+
+      if (typeof body.assigneeTarget === 'string') {
+        const v = body.assigneeTarget;
+        if (!['owner', 'mover', 'specific'].includes(v)) return json(res, 400, { message: 'assigneeTarget geçersiz' });
+        next.assigneeTarget = v;
+      }
+
+      if ('assigneeUserId' in body) {
+        if (typeof body.assigneeUserId === 'string') next.assigneeUserId = body.assigneeUserId;
+        if (body.assigneeUserId === null) next.assigneeUserId = null;
+      }
+
+      if (body.titleTemplates != null) {
+        const rawTemplates = Array.isArray(body.titleTemplates) ? body.titleTemplates : [];
+        const titleTemplates = rawTemplates
+          .map((t) => (typeof t === 'string' ? t.trim() : ''))
+          .filter(Boolean)
+          .slice(0, 50);
+        if (!titleTemplates.length) return json(res, 400, { message: 'titleTemplates zorunlu' });
+        next.titleTemplates = titleTemplates;
+      }
+
+      if (next.assigneeTarget === 'specific' && !next.assigneeUserId) {
+        return json(res, 400, { message: 'assigneeTarget=specific için assigneeUserId zorunlu' });
+      }
+      if (next.assigneeTarget !== 'specific') next.assigneeUserId = null;
+
+      next.updatedAt = new Date().toISOString();
+      crmAutomationWonChecklistRules[idx] = next;
+      return json(res, 200, next);
+    });
   }
 
   if (path === '/api/crm/automation/stale-deal-rules' && req.method === 'POST') {
@@ -1002,13 +1114,24 @@ const server = createServer((req, res) => {
       const idx = crmOpportunities.findIndex((o) => o.id === oppId);
       if (idx < 0) return json(res, 404, { message: 'Opportunity bulunamadı' });
       const prevStageId = crmOpportunities[idx].stageId;
-      const updated = { ...crmOpportunities[idx], stageId, updatedAt: new Date().toISOString() };
+      const toStage = crmStages.find((s) => s.id === stageId);
+      const nowIso = new Date().toISOString();
+      const nextStatus = toStage?.isClosedWon
+        ? 'won'
+        : (toStage?.isClosedLost ? 'lost' : 'open');
+      const updated = {
+        ...crmOpportunities[idx],
+        stageId,
+        status: nextStatus,
+        wonAt: toStage?.isClosedWon ? nowIso : null,
+        lostAt: toStage?.isClosedLost ? nowIso : null,
+        updatedAt: nowIso,
+      };
       crmOpportunities[idx] = updated;
 
       // Best-effort automation: never block stage move
       try {
         const rules = Array.isArray(crmAutomationStageTaskRules) ? crmAutomationStageTaskRules : [];
-        const toStage = crmStages.find((s) => s.id === stageId);
         const toStageName = toStage?.name || stageId;
 
         const matches = rules.filter((r) => {
@@ -1020,7 +1143,9 @@ const server = createServer((req, res) => {
 
         for (const rule of matches) {
           const title = String(rule.titleTemplate || 'Auto task: {{toStage}}')
-            .replaceAll('{{toStage}}', toStageName);
+            .replaceAll('{{toStage}}', toStageName)
+            .replaceAll('{{toStageName}}', toStageName)
+            .slice(0, 220);
 
           const dueAt = rule.dueInDays > 0
             ? new Date(Date.now() + Number(rule.dueInDays) * 24 * 60 * 60 * 1000).toISOString()
@@ -1048,6 +1173,65 @@ const server = createServer((req, res) => {
         }
       } catch {
         // ignore
+      }
+
+      // Best-effort automation: WON checklist
+      if (toStage?.isClosedWon) {
+        try {
+          const rules = (Array.isArray(crmAutomationWonChecklistRules) ? crmAutomationWonChecklistRules : [])
+            .filter((r) => r && r.enabled === true);
+
+          for (const rule of rules) {
+            const already = (Array.isArray(crmTasks) ? crmTasks : []).some((t) => {
+              if (!t) return false;
+              if (String(t.opportunityId || '') !== String(updated.id)) return false;
+              if (String(t.source || '') !== 'automation_won_checklist') return false;
+              if (String(t.sourceRuleId || '') !== String(rule.id)) return false;
+              return true;
+            });
+            if (already) continue;
+
+            const templates = Array.isArray(rule.titleTemplates) ? rule.titleTemplates : [];
+            const titles = templates.map((t) => (typeof t === 'string' ? t.trim() : '')).filter(Boolean);
+            if (!titles.length) continue;
+
+            const dueAt = rule.dueInDays > 0
+              ? new Date(Date.now() + Number(rule.dueInDays) * 24 * 60 * 60 * 1000).toISOString()
+              : null;
+
+            const assigneeUserId = rule.assigneeTarget === 'owner'
+              ? (updated.ownerUserId || null)
+              : (rule.assigneeTarget === 'mover'
+                ? mockUser.id
+                : (rule.assigneeTarget === 'specific' ? (rule.assigneeUserId || null) : null));
+            if (!assigneeUserId) continue;
+
+            for (const tpl of titles) {
+              const title = String(tpl)
+                .replaceAll('{{opportunityName}}', String(updated.name || ''))
+                .replaceAll('{{toStageName}}', String(toStage?.name || stageId))
+                .slice(0, 220);
+
+              const task = {
+                id: randomId('task'),
+                title,
+                opportunityId: updated.id,
+                accountId: updated.accountId || null,
+                dueAt,
+                completed: false,
+                assigneeUserId,
+                createdByUserId: mockUser.id,
+                source: 'automation_won_checklist',
+                sourceRuleId: rule.id,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+              crmTasks = [task, ...(Array.isArray(crmTasks) ? crmTasks : [])];
+            }
+          }
+        } catch {
+          // ignore
+        }
       }
 
       return json(res, 200, updated);
