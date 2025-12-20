@@ -52,6 +52,7 @@ import InfoModal from './InfoModal';
 import OrganizationMembersPage from './OrganizationMembersPage';
 import FiscalPeriodsPage from './FiscalPeriodsPage';
 import { AuditLogComponent } from './AuditLogComponent';
+import CrmAutomationsSettingsTab from './crm/CrmAutomationsSettingsTab';
 
 type BasicUserProfile = {
   name: string;
@@ -1617,6 +1618,7 @@ type SettingsTranslations = {
     profile: string;
     company: string;
     plan?: string;
+    automations?: string;
     notifications: string;
     organization?: string;
     fiscalPeriods?: string;
@@ -1827,6 +1829,7 @@ const settingsTranslations: Record<SettingsLanguage, SettingsTranslations> = {
       profile: 'Profil',
       company: 'Şirket',
       plan: 'Hesap Planı',
+      automations: 'Otomasyon',
       notifications: 'Bildirimler',
       organization: 'Organizasyon',
       fiscalPeriods: 'Mali Dönemler',
@@ -2042,6 +2045,7 @@ const settingsTranslations: Record<SettingsLanguage, SettingsTranslations> = {
       profile: 'Profile',
       company: 'Company',
       plan: 'Plan',
+      automations: 'Automations',
       notifications: 'Notifications',
       organization: 'Organization',
       fiscalPeriods: 'Fiscal Periods',
@@ -2257,6 +2261,7 @@ const settingsTranslations: Record<SettingsLanguage, SettingsTranslations> = {
       profile: 'Profil',
       company: 'Entreprise',
       plan: 'Abonnement',
+      automations: 'Automatisations',
       notifications: 'Notifications',
       organization: 'Organisation',
       fiscalPeriods: 'Périodes fiscales',
@@ -2472,6 +2477,7 @@ const settingsTranslations: Record<SettingsLanguage, SettingsTranslations> = {
       profile: 'Profil',
       company: 'Unternehmen',
       plan: 'Abo/Plan',
+      automations: 'Automatisierungen',
       notifications: 'Benachrichtigungen',
       organization: 'Organisation',
       fiscalPeriods: 'Finanzperioden',
@@ -3321,6 +3327,7 @@ export default function SettingsPage({
       { id: 'profile', label: text.tabs.profile, icon: User },
       { id: 'company', label: text.tabs.company, icon: Building2 },
       { id: 'plan', label: text.tabs.plan || 'Plan', icon: CreditCard },
+      { id: 'automations', label: text.tabs.automations || 'Automations', icon: Settings },
       { id: 'organization', label: text.tabs.organization || 'Organization', icon: Users },
       { id: 'fiscal-periods', label: text.tabs.fiscalPeriods || 'Fiscal Periods', icon: Calendar },
       { id: 'notifications', label: text.tabs.notifications, icon: Bell },
@@ -4646,6 +4653,7 @@ export default function SettingsPage({
           {activeTab === 'organization' && <OrganizationMembersPage />}
           {activeTab === 'fiscal-periods' && <FiscalPeriodsPage />}
           {activeTab === 'notifications' && renderNotificationsTab()}
+          {activeTab === 'automations' && canManageSettings && <CrmAutomationsSettingsTab />}
           {/* System sekmesi kaldırıldı */}
           {activeTab === 'security' && renderSecurityTab()}
           {activeTab === 'privacy' && renderPrivacyTab()}

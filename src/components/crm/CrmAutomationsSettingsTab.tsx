@@ -1,0 +1,746 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { getErrorMessage } from '../../utils/errorHandler';
+import { organizationsApi, type OrganizationMember } from '../../api/organizations';
+import * as crmApi from '../../api/crm';
+import {
+  crmAutomationsApi,
+  type CrmAutomationAssigneeTarget,
+  type CrmAutomationStageTaskRule,
+  type CrmAutomationStaleDealRule,
+} from '../../api/crm-automations';
+
+type Option = { id: string; label: string };
+
+const clampInt = (value: unknown, fallback: number, min: number, max: number): number => {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(n)));
+};
+
+const normalizeTarget = (value: unknown): CrmAutomationAssigneeTarget => {
+  if (value === 'owner' || value === 'mover' || value === 'specific') return value;
+  return 'owner';
+};
+
+export default function CrmAutomationsSettingsTab() {
+  const { i18n } = useTranslation();
+  const lang = (i18n.language || 'tr').toLowerCase().slice(0, 2);
+
+  const text = useMemo(() => {
+    const tr = {
+      title: 'Otomasyon',
+      subtitle: 'CRM otomasyon kurallarını yönetin.',
+      refresh: 'Yenile',
+      loading: 'Yükleniyor…',
+      errorPrefix: 'Hata:',
+      sections: {
+        stage: { title: 'Stage → Otomatik Görev', new: 'Yeni kural' },
+        stale: { title: 'Stale Deal → Hatırlatma Görevi', new: 'Yeni kural' },
+      },
+      fields: {
+        enabled: 'Aktif',
+        fromStage: 'Başlangıç stage',
+        toStage: 'Hedef stage',
+        any: 'Hepsi',
+        titleTemplate: 'Görev başlığı şablonu',
+        dueInDays: 'Vade (gün)',
+        staleDays: 'Stale (gün)',
+        stageFilter: 'Stage filtresi',
+        cooldownDays: 'Cooldown (gün)',
+        assigneeTarget: 'Atama',
+        assigneeUserId: 'Kullanıcı',
+      },
+      targets: {
+        owner: 'Deal sahibi',
+        mover: 'İşlemi yapan',
+        specific: 'Belirli kullanıcı',
+      },
+      actions: {
+        edit: 'Düzenle',
+        cancel: 'İptal',
+        save: 'Kaydet',
+        create: 'Oluştur',
+      },
+      hints: {
+        stageTemplate: 'Örn: Auto task: {{toStageName}}',
+        staleTemplate: 'Örn: Stale task: {{opportunityName}}',
+      },
+    };
+
+    const en = {
+      title: 'Automations',
+      subtitle: 'Manage CRM automation rules.',
+      refresh: 'Refresh',
+      loading: 'Loading…',
+      errorPrefix: 'Error:',
+      sections: {
+        stage: { title: 'Stage → Create Task', new: 'New rule' },
+        stale: { title: 'Stale Deal → Reminder Task', new: 'New rule' },
+      },
+      fields: {
+        enabled: 'Enabled',
+        fromStage: 'From stage',
+        toStage: 'To stage',
+        any: 'Any',
+        titleTemplate: 'Task title template',
+        dueInDays: 'Due in days',
+        staleDays: 'Stale days',
+        stageFilter: 'Stage filter',
+        cooldownDays: 'Cooldown days',
+        assigneeTarget: 'Assignee',
+        assigneeUserId: 'User',
+      },
+      targets: {
+        owner: 'Deal owner',
+        mover: 'Actor (runner)',
+        specific: 'Specific user',
+      },
+      actions: {
+        edit: 'Edit',
+        cancel: 'Cancel',
+        save: 'Save',
+        create: 'Create',
+      },
+      hints: {
+        stageTemplate: 'e.g. Auto task: {{toStageName}}',
+        staleTemplate: 'e.g. Stale task: {{opportunityName}}',
+      },
+    };
+
+    return lang === 'tr' ? tr : en;
+  }, [lang]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [stages, setStages] = useState<crmApi.CrmStage[]>([]);
+  const stageOptions: Option[] = useMemo(
+    () => (Array.isArray(stages) ? stages : []).map((s) => ({ id: s.id, label: s.name })),
+    [stages],
+  );
+  const stageNameById = useMemo(() => {
+    return new Map(stageOptions.map((s) => [s.id, s.label] as const));
+  }, [stageOptions]);
+
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const memberOptions: Option[] = useMemo(() => {
+    return (Array.isArray(members) ? members : []).map((m) => ({
+      id: m.user.id,
+      label: `${m.user.firstName || ''} ${m.user.lastName || ''}`.trim() || m.user.email,
+    }));
+  }, [members]);
+
+  const [stageRules, setStageRules] = useState<CrmAutomationStageTaskRule[]>([]);
+  const [staleRules, setStaleRules] = useState<CrmAutomationStaleDealRule[]>([]);
+
+  const [editingStageRuleId, setEditingStageRuleId] = useState<string | null>(null);
+  const [stageForm, setStageForm] = useState({
+    enabled: true,
+    fromStageId: '' as string,
+    toStageId: '' as string,
+    titleTemplate: 'Auto task: {{toStageName}}',
+    dueInDays: 3,
+    assigneeTarget: 'owner' as CrmAutomationAssigneeTarget,
+    assigneeUserId: '' as string,
+  });
+
+  const [editingStaleRuleId, setEditingStaleRuleId] = useState<string | null>(null);
+  const [staleForm, setStaleForm] = useState({
+    enabled: true,
+    staleDays: 30,
+    stageId: '' as string,
+    titleTemplate: 'Stale task: {{opportunityName}}',
+    dueInDays: 0,
+    cooldownDays: 7,
+    assigneeTarget: 'owner' as CrmAutomationAssigneeTarget,
+    assigneeUserId: '' as string,
+  });
+
+  const resetStageForm = () => {
+    setEditingStageRuleId(null);
+    setStageForm({
+      enabled: true,
+      fromStageId: '',
+      toStageId: stageOptions[0]?.id || '',
+      titleTemplate: 'Auto task: {{toStageName}}',
+      dueInDays: 3,
+      assigneeTarget: 'owner',
+      assigneeUserId: '',
+    });
+  };
+
+  const resetStaleForm = () => {
+    setEditingStaleRuleId(null);
+    setStaleForm({
+      enabled: true,
+      staleDays: 30,
+      stageId: '',
+      titleTemplate: 'Stale task: {{opportunityName}}',
+      dueInDays: 0,
+      cooldownDays: 7,
+      assigneeTarget: 'owner',
+      assigneeUserId: '',
+    });
+  };
+
+  const loadAll = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [stagesRes, stageRulesRes, staleRulesRes] = await Promise.all([
+        crmApi.getStages(),
+        crmAutomationsApi.listStageTaskRules(),
+        crmAutomationsApi.listStaleDealRules(),
+      ]);
+
+      setStages(Array.isArray(stagesRes) ? stagesRes : []);
+      setStageRules(Array.isArray(stageRulesRes?.items) ? stageRulesRes.items : []);
+      setStaleRules(Array.isArray(staleRulesRes?.items) ? staleRulesRes.items : []);
+
+      try {
+        const orgs = await organizationsApi.getAll();
+        const orgId = orgs?.[0]?.id;
+        if (orgId) {
+          const mem = await organizationsApi.getMembers(orgId);
+          setMembers(Array.isArray(mem) ? mem : []);
+        }
+      } catch {
+        setMembers([]);
+      }
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAll();
+  }, []);
+
+  useEffect(() => {
+    // stage list geldikten sonra defaults
+    if (stageOptions.length > 0) {
+      setStageForm((prev) => (prev.toStageId ? prev : { ...prev, toStageId: stageOptions[0]?.id || '' }));
+    }
+  }, [stageOptions.length]);
+
+  const startEditStageRule = (rule: CrmAutomationStageTaskRule) => {
+    setEditingStageRuleId(rule.id);
+    setStageForm({
+      enabled: !!rule.enabled,
+      fromStageId: rule.fromStageId || '',
+      toStageId: rule.toStageId || '',
+      titleTemplate: rule.titleTemplate || '',
+      dueInDays: clampInt(rule.dueInDays, 0, 0, 3650),
+      assigneeTarget: normalizeTarget(rule.assigneeTarget),
+      assigneeUserId: rule.assigneeUserId || '',
+    });
+  };
+
+  const startEditStaleRule = (rule: CrmAutomationStaleDealRule) => {
+    setEditingStaleRuleId(rule.id);
+    setStaleForm({
+      enabled: !!rule.enabled,
+      staleDays: clampInt(rule.staleDays, 30, 0, 3650),
+      stageId: rule.stageId || '',
+      titleTemplate: rule.titleTemplate || '',
+      dueInDays: clampInt(rule.dueInDays, 0, 0, 3650),
+      cooldownDays: clampInt(rule.cooldownDays, 7, 0, 3650),
+      assigneeTarget: normalizeTarget(rule.assigneeTarget),
+      assigneeUserId: rule.assigneeUserId || '',
+    });
+  };
+
+  const saveStageRule = async () => {
+    setError(null);
+
+    const toStageId = String(stageForm.toStageId || '').trim();
+    const titleTemplate = String(stageForm.titleTemplate || '').trim();
+    const assigneeTarget = normalizeTarget(stageForm.assigneeTarget);
+
+    if (!toStageId) {
+      setError(`${text.fields.toStage} zorunlu`);
+      return;
+    }
+    if (!titleTemplate) {
+      setError(`${text.fields.titleTemplate} zorunlu`);
+      return;
+    }
+    if (assigneeTarget === 'specific' && !stageForm.assigneeUserId) {
+      setError(`${text.fields.assigneeUserId} zorunlu`);
+      return;
+    }
+
+    const payload = {
+      enabled: !!stageForm.enabled,
+      fromStageId: stageForm.fromStageId ? String(stageForm.fromStageId) : null,
+      toStageId,
+      titleTemplate,
+      dueInDays: clampInt(stageForm.dueInDays, 0, 0, 3650),
+      assigneeTarget,
+      assigneeUserId: assigneeTarget === 'specific' ? String(stageForm.assigneeUserId) : null,
+    };
+
+    try {
+      if (editingStageRuleId) {
+        await crmAutomationsApi.updateStageTaskRule(editingStageRuleId, payload);
+      } else {
+        await crmAutomationsApi.createStageTaskRule(payload);
+      }
+      await loadAll();
+      resetStageForm();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
+
+  const saveStaleRule = async () => {
+    setError(null);
+
+    const titleTemplate = String(staleForm.titleTemplate || '').trim();
+    const assigneeTarget = normalizeTarget(staleForm.assigneeTarget);
+
+    if (!titleTemplate) {
+      setError(`${text.fields.titleTemplate} zorunlu`);
+      return;
+    }
+    if (assigneeTarget === 'specific' && !staleForm.assigneeUserId) {
+      setError(`${text.fields.assigneeUserId} zorunlu`);
+      return;
+    }
+
+    const payload = {
+      enabled: !!staleForm.enabled,
+      staleDays: clampInt(staleForm.staleDays, 30, 0, 3650),
+      stageId: staleForm.stageId ? String(staleForm.stageId) : null,
+      titleTemplate,
+      dueInDays: clampInt(staleForm.dueInDays, 0, 0, 3650),
+      cooldownDays: clampInt(staleForm.cooldownDays, 7, 0, 3650),
+      assigneeTarget,
+      assigneeUserId: assigneeTarget === 'specific' ? String(staleForm.assigneeUserId) : null,
+    };
+
+    try {
+      if (editingStaleRuleId) {
+        await crmAutomationsApi.updateStaleDealRule(editingStaleRuleId, payload);
+      } else {
+        await crmAutomationsApi.createStaleDealRule(payload);
+      }
+      await loadAll();
+      resetStaleForm();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
+
+  const toggleStageRuleEnabled = async (rule: CrmAutomationStageTaskRule) => {
+    try {
+      await crmAutomationsApi.updateStageTaskRule(rule.id, { enabled: !rule.enabled });
+      await loadAll();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
+
+  const toggleStaleRuleEnabled = async (rule: CrmAutomationStaleDealRule) => {
+    try {
+      await crmAutomationsApi.updateStaleDealRule(rule.id, { enabled: !rule.enabled });
+      await loadAll();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
+
+  if (loading) {
+    return <div className="text-sm text-gray-600">{text.loading}</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">{text.title}</h2>
+            <p className="text-sm text-gray-600 mt-1">{text.subtitle}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadAll()}
+            className="border rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50"
+            disabled={loading}
+          >
+            {text.refresh}
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-4 text-sm text-red-600">
+            {text.errorPrefix} {error}
+          </div>
+        )}
+      </div>
+
+      {/* Stage change rules */}
+      <div className="border rounded-xl bg-white p-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="text-sm font-semibold text-gray-900">{text.sections.stage.title}</div>
+          <button
+            type="button"
+            onClick={() => {
+              if (editingStageRuleId) return;
+              resetStageForm();
+              setEditingStageRuleId('');
+            }}
+            className="border rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50"
+          >
+            {text.sections.stage.new}
+          </button>
+        </div>
+
+        {stageRules.length === 0 ? (
+          <div className="text-sm text-gray-500">—</div>
+        ) : (
+          <div className="space-y-2">
+            {stageRules.map((r) => (
+              <div key={r.id} className="border border-gray-200 rounded-lg p-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-gray-900 truncate">
+                    {(r.fromStageId ? stageNameById.get(r.fromStageId) : text.fields.any) || text.fields.any}
+                    {' → '}
+                    {(stageNameById.get(r.toStageId) || r.toStageId) as string}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1 break-words">
+                    <div>{text.fields.titleTemplate}: {r.titleTemplate}</div>
+                    <div>{text.fields.dueInDays}: {r.dueInDays ?? 0}</div>
+                    <div>
+                      {text.fields.assigneeTarget}: {(text.targets as any)[r.assigneeTarget] || r.assigneeTarget}
+                      {r.assigneeTarget === 'specific' && r.assigneeUserId ? ` (${r.assigneeUserId})` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={!!r.enabled}
+                      onChange={() => void toggleStageRuleEnabled(r)}
+                    />
+                    {text.fields.enabled}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => startEditStageRule(r)}
+                    className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  >
+                    {text.actions.edit}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(editingStageRuleId !== null) && (
+          <div className="mt-4 border-t border-gray-200 pt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={!!stageForm.enabled}
+                  onChange={(e) => setStageForm((p) => ({ ...p, enabled: e.target.checked }))}
+                />
+                {text.fields.enabled}
+              </label>
+
+              <div />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.fromStage}</label>
+                <select
+                  value={stageForm.fromStageId}
+                  onChange={(e) => setStageForm((p) => ({ ...p, fromStageId: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                >
+                  <option value="">{text.fields.any}</option>
+                  {stageOptions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.toStage}</label>
+                <select
+                  value={stageForm.toStageId}
+                  onChange={(e) => setStageForm((p) => ({ ...p, toStageId: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                >
+                  <option value="">—</option>
+                  {stageOptions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.titleTemplate}</label>
+                <input
+                  value={stageForm.titleTemplate}
+                  onChange={(e) => setStageForm((p) => ({ ...p, titleTemplate: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                  placeholder={text.hints.stageTemplate}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.dueInDays}</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={stageForm.dueInDays}
+                  onChange={(e) => setStageForm((p) => ({ ...p, dueInDays: clampInt(e.target.value, 0, 0, 3650) }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.assigneeTarget}</label>
+                <select
+                  value={stageForm.assigneeTarget}
+                  onChange={(e) => setStageForm((p) => ({ ...p, assigneeTarget: normalizeTarget(e.target.value) }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                >
+                  <option value="owner">{text.targets.owner}</option>
+                  <option value="mover">{text.targets.mover}</option>
+                  <option value="specific">{text.targets.specific}</option>
+                </select>
+              </div>
+
+              {stageForm.assigneeTarget === 'specific' && (
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.assigneeUserId}</label>
+                  <select
+                    value={stageForm.assigneeUserId}
+                    onChange={(e) => setStageForm((p) => ({ ...p, assigneeUserId: e.target.value }))}
+                    className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                  >
+                    <option value="">—</option>
+                    {memberOptions.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  resetStageForm();
+                  setEditingStageRuleId(null);
+                }}
+                className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                {text.actions.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveStageRule()}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
+              >
+                {editingStageRuleId ? text.actions.save : text.actions.create}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Stale deal rules */}
+      <div className="border rounded-xl bg-white p-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="text-sm font-semibold text-gray-900">{text.sections.stale.title}</div>
+          <button
+            type="button"
+            onClick={() => {
+              if (editingStaleRuleId) return;
+              resetStaleForm();
+              setEditingStaleRuleId('');
+            }}
+            className="border rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50"
+          >
+            {text.sections.stale.new}
+          </button>
+        </div>
+
+        {staleRules.length === 0 ? (
+          <div className="text-sm text-gray-500">—</div>
+        ) : (
+          <div className="space-y-2">
+            {staleRules.map((r) => (
+              <div key={r.id} className="border border-gray-200 rounded-lg p-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-gray-900 truncate">
+                    {text.fields.staleDays}: {r.staleDays} — {text.fields.stageFilter}:{' '}
+                    {(r.stageId ? (stageNameById.get(r.stageId) || r.stageId) : text.fields.any) as string}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1 break-words">
+                    <div>{text.fields.titleTemplate}: {r.titleTemplate}</div>
+                    <div>{text.fields.dueInDays}: {r.dueInDays ?? 0}</div>
+                    <div>{text.fields.cooldownDays}: {r.cooldownDays ?? 0}</div>
+                    <div>
+                      {text.fields.assigneeTarget}: {(text.targets as any)[r.assigneeTarget] || r.assigneeTarget}
+                      {r.assigneeTarget === 'specific' && r.assigneeUserId ? ` (${r.assigneeUserId})` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={!!r.enabled}
+                      onChange={() => void toggleStaleRuleEnabled(r)}
+                    />
+                    {text.fields.enabled}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => startEditStaleRule(r)}
+                    className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  >
+                    {text.actions.edit}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(editingStaleRuleId !== null) && (
+          <div className="mt-4 border-t border-gray-200 pt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={!!staleForm.enabled}
+                  onChange={(e) => setStaleForm((p) => ({ ...p, enabled: e.target.checked }))}
+                />
+                {text.fields.enabled}
+              </label>
+
+              <div />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.staleDays}</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={staleForm.staleDays}
+                  onChange={(e) => setStaleForm((p) => ({ ...p, staleDays: clampInt(e.target.value, 30, 0, 3650) }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.stageFilter}</label>
+                <select
+                  value={staleForm.stageId}
+                  onChange={(e) => setStaleForm((p) => ({ ...p, stageId: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                >
+                  <option value="">{text.fields.any}</option>
+                  {stageOptions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.titleTemplate}</label>
+                <input
+                  value={staleForm.titleTemplate}
+                  onChange={(e) => setStaleForm((p) => ({ ...p, titleTemplate: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                  placeholder={text.hints.staleTemplate}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.dueInDays}</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={staleForm.dueInDays}
+                  onChange={(e) => setStaleForm((p) => ({ ...p, dueInDays: clampInt(e.target.value, 0, 0, 3650) }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.cooldownDays}</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={staleForm.cooldownDays}
+                  onChange={(e) => setStaleForm((p) => ({ ...p, cooldownDays: clampInt(e.target.value, 7, 0, 3650) }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.assigneeTarget}</label>
+                <select
+                  value={staleForm.assigneeTarget}
+                  onChange={(e) => setStaleForm((p) => ({ ...p, assigneeTarget: normalizeTarget(e.target.value) }))}
+                  className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                >
+                  <option value="owner">{text.targets.owner}</option>
+                  <option value="mover">{text.targets.mover}</option>
+                  <option value="specific">{text.targets.specific}</option>
+                </select>
+              </div>
+
+              {staleForm.assigneeTarget === 'specific' && (
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{text.fields.assigneeUserId}</label>
+                  <select
+                    value={staleForm.assigneeUserId}
+                    onChange={(e) => setStaleForm((p) => ({ ...p, assigneeUserId: e.target.value }))}
+                    className="w-full border rounded-lg px-3 py-2 border-gray-300 text-sm bg-white"
+                  >
+                    <option value="">—</option>
+                    {memberOptions.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  resetStaleForm();
+                  setEditingStaleRuleId(null);
+                }}
+                className="px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                {text.actions.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveStaleRule()}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm"
+              >
+                {editingStaleRuleId ? text.actions.save : text.actions.create}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
