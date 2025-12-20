@@ -49,6 +49,9 @@ Hedef: günlük kullanımda daha az sürtünme, daha iyi görünürlük, daha g�
 ## 4) Arama Deneyimi
 
 - Global search: müşteri/kişi/deal/aktivite/görev tek arama kutusu.
+- Durum: Uygulandı (CRM dashboard üzerinde global arama + backend global search endpoint)
+- API: `GET /api/crm/search?q=...&limit=...`
+- Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “CRM: global search endpoint (/crm/search)” adımı
 - Gelişmiş filtreler:
   - Çoklu kriter (owner, stage, amount range, updatedAt range)
   - Kaydedilmiş filtreler (Saved views)
