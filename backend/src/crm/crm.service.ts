@@ -18,6 +18,7 @@ import {
   CrmAutomationAssigneeTarget,
   CrmAutomationStageTaskRule,
 } from './entities/crm-automation-rule.entity';
+import { CrmAutomationStaleDealRule } from './entities/crm-automation-stale-deal-rule.entity';
 import { CrmActivity } from './entities/crm-activity.entity';
 import { CrmTask } from './entities/crm-task.entity';
 import { CrmLead } from './entities/crm-lead.entity';
@@ -35,6 +36,8 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
+import { CreateAutomationStaleDealRuleDto } from './dto/create-automation-stale-deal-rule.dto';
+import { UpdateAutomationStaleDealRuleDto } from './dto/update-automation-stale-deal-rule.dto';
 import type { CurrentUser } from '../common/decorators/user.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { OrganizationMember } from '../organizations/entities/organization-member.entity';
@@ -80,6 +83,9 @@ export class CrmService {
     @InjectRepository(CrmAutomationStageTaskRule)
     private readonly automationStageTaskRuleRepo: Repository<CrmAutomationStageTaskRule>,
 
+    @InjectRepository(CrmAutomationStaleDealRule)
+    private readonly automationStaleDealRuleRepo: Repository<CrmAutomationStaleDealRule>,
+
     @InjectRepository(CrmActivity)
     private readonly activityRepo: Repository<CrmActivity>,
 
@@ -110,6 +116,8 @@ export class CrmService {
     private readonly auditService: AuditService,
   ) {}
 
+  private readonly AUTOMATION_SOURCE_STALE_DEAL = 'automation_stale_deal';
+
   private clampProbability(value: unknown): number | null {
     if (value == null) return null;
     const n = Number(value);
@@ -117,7 +125,12 @@ export class CrmService {
     return Math.max(0, Math.min(1, n));
   }
 
-  private clampInt(value: unknown, fallback: number, min: number, max: number): number {
+  private clampInt(
+    value: unknown,
+    fallback: number,
+    min: number,
+    max: number,
+  ): number {
     const n = Number(value);
     if (!Number.isFinite(n)) return fallback;
     return Math.max(min, Math.min(max, Math.floor(n)));
@@ -138,17 +151,22 @@ export class CrmService {
   private startOfWeekMonday(date: Date): Date {
     const d = this.startOfDay(date);
     const day = d.getDay(); // 0=Sun
-    const diff = (day === 0 ? -6 : 1 - day); // move to Monday
+    const diff = day === 0 ? -6 : 1 - day; // move to Monday
     d.setDate(d.getDate() + diff);
     return d;
   }
 
   private bucketKey(date: Date, bucket: 'day' | 'week'): string {
-    const base = bucket === 'week' ? this.startOfWeekMonday(date) : this.startOfDay(date);
+    const base =
+      bucket === 'week' ? this.startOfWeekMonday(date) : this.startOfDay(date);
     return base.toISOString().slice(0, 10);
   }
 
-  private deriveStageProbabilities(stages: Array<Pick<CrmStage, 'id' | 'order' | 'isClosedWon' | 'isClosedLost'>>): Map<string, number> {
+  private deriveStageProbabilities(
+    stages: Array<
+      Pick<CrmStage, 'id' | 'order' | 'isClosedWon' | 'isClosedLost'>
+    >,
+  ): Map<string, number> {
     const openStages = (stages || [])
       .filter((s) => !s.isClosedWon && !s.isClosedLost)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -169,16 +187,26 @@ export class CrmService {
   ): Promise<{
     range: { start: string | null; end: string | null };
     avgDaysInStage: Array<{ stageId: string; count: number; avgDays: number }>;
-    transitions: Array<{ fromStageId: string | null; toStageId: string; count: number; avgDays: number }>;
+    transitions: Array<{
+      fromStageId: string | null;
+      toStageId: string;
+      count: number;
+      avgDays: number;
+    }>;
   }> {
     const now = new Date();
     const defaultEnd = now;
     const defaultStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const effectiveRange = range || ({ start: defaultStart, end: defaultEnd } as const);
+    const effectiveRange =
+      range || ({ start: defaultStart, end: defaultEnd } as const);
 
     const qb = this.oppStageHistoryRepo
       .createQueryBuilder('h')
-      .innerJoin(CrmOpportunity, 'o', 'o.id = h.opportunityId AND o.tenantId = h.tenantId')
+      .innerJoin(
+        CrmOpportunity,
+        'o',
+        'o.id = h.opportunityId AND o.tenantId = h.tenantId',
+      )
       .where('h.tenantId = :tenantId', { tenantId });
 
     if (!this.isAdmin(user)) {
@@ -196,26 +224,59 @@ export class CrmService {
       );
     }
 
-    if (effectiveRange.start) qb.andWhere('h.changedAt >= :start', { start: effectiveRange.start });
-    if (effectiveRange.end) qb.andWhere('h.changedAt <= :end', { end: effectiveRange.end });
+    if (effectiveRange.start)
+      qb.andWhere('h.changedAt >= :start', { start: effectiveRange.start });
+    if (effectiveRange.end)
+      qb.andWhere('h.changedAt <= :end', { end: effectiveRange.end });
 
-    qb.select(['h.opportunityId AS opportunityId', 'h.fromStageId AS fromStageId', 'h.toStageId AS toStageId', 'h.changedAt AS changedAt'])
+    qb.select([
+      'h.opportunityId AS opportunityId',
+      'h.fromStageId AS fromStageId',
+      'h.toStageId AS toStageId',
+      'h.changedAt AS changedAt',
+    ])
       .orderBy('h.opportunityId', 'ASC')
       .addOrderBy('h.changedAt', 'ASC');
 
-    const rows: Array<{ opportunityid?: string; opportunityId?: string; fromstageid?: string | null; fromStageId?: string | null; tostageid?: string; toStageId?: string; changedat?: string; changedAt?: string }>
-      = await qb.getRawMany();
+    const rows: Array<{
+      opportunityid?: string;
+      opportunityId?: string;
+      fromstageid?: string | null;
+      fromStageId?: string | null;
+      tostageid?: string;
+      toStageId?: string;
+      changedat?: string;
+      changedAt?: string;
+    }> = await qb.getRawMany();
 
     // Normalize casing
-    const normalized = rows.map((r: any) => ({
-      opportunityId: r.opportunityId ?? r.opportunityid,
-      fromStageId: r.fromStageId ?? r.fromstageid ?? null,
-      toStageId: r.toStageId ?? r.tostageid,
-      changedAt: new Date(r.changedAt ?? r.changedat),
-    })).filter((r) => r.opportunityId && r.toStageId && Number.isFinite(r.changedAt.getTime()));
+    const normalized = rows
+      .map((r: any) => ({
+        opportunityId: r.opportunityId ?? r.opportunityid,
+        fromStageId: r.fromStageId ?? r.fromstageid ?? null,
+        toStageId: r.toStageId ?? r.tostageid,
+        changedAt: new Date(r.changedAt ?? r.changedat),
+      }))
+      .filter(
+        (r) =>
+          r.opportunityId &&
+          r.toStageId &&
+          Number.isFinite(r.changedAt.getTime()),
+      );
 
-    const durationsByStage = new Map<string, { totalDays: number; count: number }>();
-    const durationsByTransition = new Map<string, { fromStageId: string | null; toStageId: string; totalDays: number; count: number }>();
+    const durationsByStage = new Map<
+      string,
+      { totalDays: number; count: number }
+    >();
+    const durationsByTransition = new Map<
+      string,
+      {
+        fromStageId: string | null;
+        toStageId: string;
+        totalDays: number;
+        count: number;
+      }
+    >();
 
     // For each opportunity: duration in a stage ~= time between "entered stage" events.
     for (let i = 0; i < normalized.length - 1; i += 1) {
@@ -225,7 +286,10 @@ export class CrmService {
       const days = this.diffDays(cur.changedAt, next.changedAt);
       if (!Number.isFinite(days) || days < 0) continue;
 
-      const stageAgg = durationsByStage.get(cur.toStageId) || { totalDays: 0, count: 0 };
+      const stageAgg = durationsByStage.get(cur.toStageId) || {
+        totalDays: 0,
+        count: 0,
+      };
       stageAgg.totalDays += days;
       stageAgg.count += 1;
       durationsByStage.set(cur.toStageId, stageAgg);
@@ -242,11 +306,13 @@ export class CrmService {
       durationsByTransition.set(key, trAgg);
     }
 
-    const avgDaysInStage = Array.from(durationsByStage.entries()).map(([stageId, v]) => ({
-      stageId,
-      count: v.count,
-      avgDays: v.count > 0 ? v.totalDays / v.count : 0,
-    }));
+    const avgDaysInStage = Array.from(durationsByStage.entries()).map(
+      ([stageId, v]) => ({
+        stageId,
+        count: v.count,
+        avgDays: v.count > 0 ? v.totalDays / v.count : 0,
+      }),
+    );
 
     const transitions = Array.from(durationsByTransition.values()).map((v) => ({
       fromStageId: v.fromStageId,
@@ -270,7 +336,14 @@ export class CrmService {
   ): Record<string, number> {
     const totals: Record<string, number> = {};
     for (const it of items) {
-      const currency = String(it.currency ?? 'TRY').trim().toUpperCase() || 'TRY';
+      const currencyValue = it.currency;
+      const currency =
+        (typeof currencyValue === 'string' || typeof currencyValue === 'number'
+          ? String(currencyValue)
+          : 'TRY'
+        )
+          .trim()
+          .toUpperCase() || 'TRY';
       const amount = Number(it.amount) || 0;
       totals[currency] = (totals[currency] || 0) + amount;
     }
@@ -285,7 +358,24 @@ export class CrmService {
       startDate?: string;
       endDate?: string;
     },
-  ): Promise<Array<Pick<CrmOpportunity, 'id' | 'stageId' | 'amount' | 'currency' | 'probability' | 'updatedAt' | 'createdAt' | 'status' | 'wonAt' | 'lostAt' | 'expectedCloseDate'>>> {
+  ): Promise<
+    Array<
+      Pick<
+        CrmOpportunity,
+        | 'id'
+        | 'stageId'
+        | 'amount'
+        | 'currency'
+        | 'probability'
+        | 'updatedAt'
+        | 'createdAt'
+        | 'status'
+        | 'wonAt'
+        | 'lostAt'
+        | 'expectedCloseDate'
+      >
+    >
+  > {
     const items: Array<any> = [];
     const limit = 200;
     let offset = 0;
@@ -318,7 +408,9 @@ export class CrmService {
   ) {
     const staleDays = this.clampInt(opts?.staleDays, 30, 1, 3650);
     const now = new Date();
-    const staleBefore = new Date(now.getTime() - staleDays * 24 * 60 * 60 * 1000);
+    const staleBefore = new Date(
+      now.getTime() - staleDays * 24 * 60 * 60 * 1000,
+    );
 
     const [stages, openOpps] = await Promise.all([
       this.listStages(tenantId),
@@ -359,11 +451,17 @@ export class CrmService {
 
       row.count += 1;
 
-      const currency = String((opp as any).currency ?? 'TRY').trim().toUpperCase() || 'TRY';
+      const currency =
+        String((opp as any).currency ?? 'TRY')
+          .trim()
+          .toUpperCase() || 'TRY';
       const amount = Number((opp as any).amount) || 0;
-      row.totalsByCurrency[currency] = (row.totalsByCurrency[currency] || 0) + amount;
+      row.totalsByCurrency[currency] =
+        (row.totalsByCurrency[currency] || 0) + amount;
 
-      const updatedAt = (opp as any).updatedAt ? new Date((opp as any).updatedAt) : now;
+      const updatedAt = (opp as any).updatedAt
+        ? new Date((opp as any).updatedAt)
+        : now;
       const ageDays = this.diffDays(updatedAt, now);
       row.avgAgeDays += ageDays;
 
@@ -377,11 +475,14 @@ export class CrmService {
     const byStage = Array.from(byStageMap.values())
       .map((s) => ({
         ...s,
-        avgAgeDays: s.count > 0 ? Math.round((s.avgAgeDays / s.count) * 10) / 10 : 0,
+        avgAgeDays:
+          s.count > 0 ? Math.round((s.avgAgeDays / s.count) * 10) / 10 : 0,
       }))
       .sort((a, b) => {
-        const aOrder = (stages || []).find((s) => s.id === a.stageId)?.order ?? 0;
-        const bOrder = (stages || []).find((s) => s.id === b.stageId)?.order ?? 0;
+        const aOrder =
+          (stages || []).find((s) => s.id === a.stageId)?.order ?? 0;
+        const bOrder =
+          (stages || []).find((s) => s.id === b.stageId)?.order ?? 0;
         return aOrder - bOrder;
       });
 
@@ -394,31 +495,41 @@ export class CrmService {
 
     // Win-rate (optional date range; defaults to last 90 days)
     const defaultClosedEnd = now;
-    const defaultClosedStart = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const defaultClosedStart = new Date(
+      now.getTime() - 90 * 24 * 60 * 60 * 1000,
+    );
     const closedRange = this.normalizeDateRange(
       opts?.closedStartDate,
       opts?.closedEndDate,
     ) || { start: defaultClosedStart, end: defaultClosedEnd };
 
     const qb = this.oppRepo.createQueryBuilder('opp');
-    qb.where('opp.tenantId = :tenantId', { tenantId })
-      .andWhere('opp.status IN (:...statuses)', {
+    qb.where('opp.tenantId = :tenantId', { tenantId }).andWhere(
+      'opp.status IN (:...statuses)',
+      {
         statuses: [CrmOpportunityStatus.WON, CrmOpportunityStatus.LOST],
-      });
+      },
+    );
 
     if (closedRange.start) {
       qb.andWhere(
         new Brackets((q) => {
-          q.where('opp.wonAt >= :closedStart', { closedStart: closedRange.start })
-            .orWhere('opp.lostAt >= :closedStart', { closedStart: closedRange.start });
+          q.where('opp.wonAt >= :closedStart', {
+            closedStart: closedRange.start,
+          }).orWhere('opp.lostAt >= :closedStart', {
+            closedStart: closedRange.start,
+          });
         }),
       );
     }
     if (closedRange.end) {
       qb.andWhere(
         new Brackets((q) => {
-          q.where('opp.wonAt <= :closedEnd', { closedEnd: closedRange.end })
-            .orWhere('opp.lostAt <= :closedEnd', { closedEnd: closedRange.end });
+          q.where('opp.wonAt <= :closedEnd', {
+            closedEnd: closedRange.end,
+          }).orWhere('opp.lostAt <= :closedEnd', {
+            closedEnd: closedRange.end,
+          });
         }),
       );
     }
@@ -439,12 +550,7 @@ export class CrmService {
     }
 
     const closedOpps = await qb
-      .select([
-        'opp.id',
-        'opp.status',
-        'opp.ownerUserId',
-        'opp.stageId',
-      ])
+      .select(['opp.id', 'opp.status', 'opp.ownerUserId', 'opp.stageId'])
       .getMany();
 
     const wonCount = closedOpps.filter(
@@ -528,7 +634,10 @@ export class CrmService {
 
     const winRateBreakdown = {
       byOwner: Array.from(byOwnerAgg.entries())
-        .map(([ownerUserId, v]) => ({ ownerUserId, ...toWinRateRow(v.won, v.lost) }))
+        .map(([ownerUserId, v]) => ({
+          ownerUserId,
+          ...toWinRateRow(v.won, v.lost),
+        }))
         .sort((a, b) => (b.total ?? 0) - (a.total ?? 0)),
       byTeamMember: Array.from(byTeamAgg.entries())
         .map(([userId, v]) => ({ userId, ...toWinRateRow(v.won, v.lost) }))
@@ -576,8 +685,10 @@ export class CrmService {
     if (!this.isAdmin(user)) {
       leadsQb.andWhere('lead.createdByUserId = :userId', { userId: user.id });
     }
-    if (range.start) leadsQb.andWhere('lead.createdAt >= :start', { start: range.start });
-    if (range.end) leadsQb.andWhere('lead.createdAt <= :end', { end: range.end });
+    if (range.start)
+      leadsQb.andWhere('lead.createdAt >= :start', { start: range.start });
+    if (range.end)
+      leadsQb.andWhere('lead.createdAt <= :end', { end: range.end });
 
     const contactsQb = this.contactRepo
       .createQueryBuilder('c')
@@ -585,28 +696,34 @@ export class CrmService {
     if (!this.isAdmin(user)) {
       contactsQb.andWhere('c.createdByUserId = :userId', { userId: user.id });
     }
-    if (range.start) contactsQb.andWhere('c.createdAt >= :start', { start: range.start });
-    if (range.end) contactsQb.andWhere('c.createdAt <= :end', { end: range.end });
+    if (range.start)
+      contactsQb.andWhere('c.createdAt >= :start', { start: range.start });
+    if (range.end)
+      contactsQb.andWhere('c.createdAt <= :end', { end: range.end });
 
     const oppCreatedQb = this.oppRepo
       .createQueryBuilder('opp')
       .where('opp.tenantId = :tenantId', { tenantId });
     if (!this.isAdmin(user)) {
-      oppCreatedQb.leftJoin(
-        CrmOpportunityMember,
-        'm',
-        'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
-      ).andWhere(
-        new Brackets((q) => {
-          q.where('opp.ownerUserId = :userId', { userId: user.id }).orWhere(
-            'm.userId = :userId',
-            { userId: user.id },
-          );
-        }),
-      );
+      oppCreatedQb
+        .leftJoin(
+          CrmOpportunityMember,
+          'm',
+          'm.opportunityId = opp.id AND m.tenantId = opp.tenantId',
+        )
+        .andWhere(
+          new Brackets((q) => {
+            q.where('opp.ownerUserId = :userId', { userId: user.id }).orWhere(
+              'm.userId = :userId',
+              { userId: user.id },
+            );
+          }),
+        );
     }
-    if (range.start) oppCreatedQb.andWhere('opp.createdAt >= :start', { start: range.start });
-    if (range.end) oppCreatedQb.andWhere('opp.createdAt <= :end', { end: range.end });
+    if (range.start)
+      oppCreatedQb.andWhere('opp.createdAt >= :start', { start: range.start });
+    if (range.end)
+      oppCreatedQb.andWhere('opp.createdAt <= :end', { end: range.end });
 
     const wonQb = this.oppRepo
       .createQueryBuilder('opp')
@@ -704,26 +821,49 @@ export class CrmService {
 
     const items = (openOpps || []).filter((o) => o.expectedCloseDate != null);
 
-    const totalsByCurrency: Record<string, { raw: number; weighted: number; count: number }> = {};
-    const byBucket: Record<string, Record<string, { raw: number; weighted: number; count: number }>> = {};
+    const totalsByCurrency: Record<
+      string,
+      { raw: number; weighted: number; count: number }
+    > = {};
+    const byBucket: Record<
+      string,
+      Record<string, { raw: number; weighted: number; count: number }>
+    > = {};
 
     for (const opp of items as any[]) {
-      const currency = String(opp.currency ?? 'TRY').trim().toUpperCase() || 'TRY';
+      const currency =
+        String(opp.currency ?? 'TRY')
+          .trim()
+          .toUpperCase() || 'TRY';
       const amount = Number(opp.amount) || 0;
-      const expectedCloseDate = opp.expectedCloseDate instanceof Date ? opp.expectedCloseDate : new Date(opp.expectedCloseDate);
+      const expectedCloseDate =
+        opp.expectedCloseDate instanceof Date
+          ? opp.expectedCloseDate
+          : new Date(opp.expectedCloseDate);
       if (!Number.isFinite(expectedCloseDate.getTime())) continue;
-      const p = this.clampProbability(opp.probability) ?? stageProb.get(String(opp.stageId)) ?? null;
+      const p =
+        this.clampProbability(opp.probability) ??
+        stageProb.get(String(opp.stageId)) ??
+        null;
       const prob = p == null ? 0 : p;
       const weighted = amount * prob;
 
-      totalsByCurrency[currency] = totalsByCurrency[currency] || { raw: 0, weighted: 0, count: 0 };
+      totalsByCurrency[currency] = totalsByCurrency[currency] || {
+        raw: 0,
+        weighted: 0,
+        count: 0,
+      };
       totalsByCurrency[currency].raw += amount;
       totalsByCurrency[currency].weighted += weighted;
       totalsByCurrency[currency].count += 1;
 
       const bucket = this.bucketKey(expectedCloseDate, 'week');
       byBucket[bucket] = byBucket[bucket] || {};
-      byBucket[bucket][currency] = byBucket[bucket][currency] || { raw: 0, weighted: 0, count: 0 };
+      byBucket[bucket][currency] = byBucket[bucket][currency] || {
+        raw: 0,
+        weighted: 0,
+        count: 0,
+      };
       byBucket[bucket][currency].raw += amount;
       byBucket[bucket][currency].weighted += weighted;
       byBucket[bucket][currency].count += 1;
@@ -736,7 +876,10 @@ export class CrmService {
         end: range.end ? range.end.toISOString() : null,
       },
       totalsByCurrency,
-      byWeek: bucketKeys.map((week) => ({ week, totalsByCurrency: byBucket[week] })),
+      byWeek: bucketKeys.map((week) => ({
+        week,
+        totalsByCurrency: byBucket[week],
+      })),
     };
   }
 
@@ -760,17 +903,24 @@ export class CrmService {
     if (!this.isAdmin(user)) {
       activityQb.andWhere('a.createdByUserId = :userId', { userId: user.id });
     }
-    if (range.start) activityQb.andWhere('a.createdAt >= :start', { start: range.start });
-    if (range.end) activityQb.andWhere('a.createdAt <= :end', { end: range.end });
+    if (range.start)
+      activityQb.andWhere('a.createdAt >= :start', { start: range.start });
+    if (range.end)
+      activityQb.andWhere('a.createdAt <= :end', { end: range.end });
 
     const taskQb = this.taskRepo
       .createQueryBuilder('t')
-      .select(['t.createdAt AS createdAt', 't.createdByUserId AS userId', 't.completed AS completed']);
+      .select([
+        't.createdAt AS createdAt',
+        't.createdByUserId AS userId',
+        't.completed AS completed',
+      ]);
     taskQb.where('t.tenantId = :tenantId', { tenantId });
     if (!this.isAdmin(user)) {
       taskQb.andWhere('t.createdByUserId = :userId', { userId: user.id });
     }
-    if (range.start) taskQb.andWhere('t.createdAt >= :start', { start: range.start });
+    if (range.start)
+      taskQb.andWhere('t.createdAt >= :start', { start: range.start });
     if (range.end) taskQb.andWhere('t.createdAt <= :end', { end: range.end });
 
     const [activityRows, taskRows] = await Promise.all([
@@ -778,32 +928,54 @@ export class CrmService {
       taskQb.getRawMany(),
     ]);
 
-    const totalsByUser: Record<string, { activities: number; tasksCreated: number; tasksCompleted: number }> = {};
-    const series: Record<string, { activities: number; tasksCreated: number; tasksCompleted: number }> = {};
+    const totalsByUser: Record<
+      string,
+      { activities: number; tasksCreated: number; tasksCompleted: number }
+    > = {};
+    const series: Record<
+      string,
+      { activities: number; tasksCreated: number; tasksCompleted: number }
+    > = {};
 
-    for (const r of activityRows as any[]) {
+    for (const r of activityRows) {
       const createdAt = new Date(r.createdAt);
       if (!Number.isFinite(createdAt.getTime())) continue;
       const userId = String(r.userId || '').trim();
       if (!userId) continue;
-      totalsByUser[userId] = totalsByUser[userId] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      totalsByUser[userId] = totalsByUser[userId] || {
+        activities: 0,
+        tasksCreated: 0,
+        tasksCompleted: 0,
+      };
       totalsByUser[userId].activities += 1;
       const k = this.bucketKey(createdAt, bucket);
-      series[k] = series[k] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      series[k] = series[k] || {
+        activities: 0,
+        tasksCreated: 0,
+        tasksCompleted: 0,
+      };
       series[k].activities += 1;
     }
 
-    for (const r of taskRows as any[]) {
+    for (const r of taskRows) {
       const createdAt = new Date(r.createdAt);
       if (!Number.isFinite(createdAt.getTime())) continue;
       const userId = String(r.userId || '').trim();
       if (!userId) continue;
       const completed = Boolean(r.completed);
-      totalsByUser[userId] = totalsByUser[userId] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      totalsByUser[userId] = totalsByUser[userId] || {
+        activities: 0,
+        tasksCreated: 0,
+        tasksCompleted: 0,
+      };
       totalsByUser[userId].tasksCreated += 1;
       if (completed) totalsByUser[userId].tasksCompleted += 1;
       const k = this.bucketKey(createdAt, bucket);
-      series[k] = series[k] || { activities: 0, tasksCreated: 0, tasksCompleted: 0 };
+      series[k] = series[k] || {
+        activities: 0,
+        tasksCreated: 0,
+        tasksCompleted: 0,
+      };
       series[k].tasksCreated += 1;
       if (completed) series[k].tasksCompleted += 1;
     }
@@ -857,11 +1029,22 @@ export class CrmService {
       .slice(0, 220);
   }
 
+  private renderStaleDealAutomationTitle(
+    template: string,
+    ctx: { opportunityName: string },
+  ): string {
+    const safe = String(template || '').trim();
+    if (!safe) return 'Follow up';
+    return safe
+      .replaceAll('{{opportunityName}}', ctx.opportunityName)
+      .slice(0, 220);
+  }
+
   private resolveAutomationAssignee(
     rule: Pick<CrmAutomationStageTaskRule, 'assigneeTarget' | 'assigneeUserId'>,
     ctx: { ownerUserId: string; moverUserId: string },
   ): string | null {
-    const target = (rule.assigneeTarget || 'owner') as CrmAutomationAssigneeTarget;
+    const target = rule.assigneeTarget || 'owner';
     if (target === 'mover') return ctx.moverUserId;
     if (target === 'specific') {
       return rule.assigneeUserId ? String(rule.assigneeUserId) : null;
@@ -901,7 +1084,7 @@ export class CrmService {
 
     const enabled = dto.enabled ?? true;
     const dueInDays = this.clampInt(dto.dueInDays, 0, 0, 3650);
-    const assigneeTarget = (dto.assigneeTarget || 'owner') as CrmAutomationAssigneeTarget;
+    const assigneeTarget = dto.assigneeTarget || 'owner';
     const titleTemplate = String(dto.titleTemplate || '').trim();
     if (!titleTemplate) throw new BadRequestException('titleTemplate required');
 
@@ -916,7 +1099,8 @@ export class CrmService {
         : Promise.resolve(null),
     ]);
     if (!toStage) throw new BadRequestException('Invalid toStageId');
-    if (dto.fromStageId && !fromStage) throw new BadRequestException('Invalid fromStageId');
+    if (dto.fromStageId && !fromStage)
+      throw new BadRequestException('Invalid fromStageId');
 
     const rule = await this.automationStageTaskRuleRepo.save(
       this.automationStageTaskRuleRepo.create({
@@ -981,14 +1165,21 @@ export class CrmService {
     }
 
     if (dto.dueInDays != null) {
-      rule.dueInDays = this.clampInt(dto.dueInDays, rule.dueInDays ?? 0, 0, 3650);
+      rule.dueInDays = this.clampInt(
+        dto.dueInDays,
+        rule.dueInDays ?? 0,
+        0,
+        3650,
+      );
     }
 
     if (dto.assigneeTarget != null) {
       rule.assigneeTarget = dto.assigneeTarget;
     }
     if ('assigneeUserId' in dto) {
-      rule.assigneeUserId = dto.assigneeUserId ? String(dto.assigneeUserId) : null;
+      rule.assigneeUserId = dto.assigneeUserId
+        ? String(dto.assigneeUserId)
+        : null;
     }
 
     if (rule.assigneeTarget === 'specific' && !rule.assigneeUserId) {
@@ -1006,6 +1197,258 @@ export class CrmService {
     }
 
     return this.automationStageTaskRuleRepo.save(rule);
+  }
+
+  async listAutomationStaleDealRules(tenantId: string, user: CurrentUser) {
+    await this.assertCanManageAutomations(user);
+    const rules = await this.automationStaleDealRuleRepo.find({
+      where: { tenantId },
+      order: { createdAt: 'DESC' },
+    });
+    return { items: rules };
+  }
+
+  async createAutomationStaleDealRule(
+    tenantId: string,
+    user: CurrentUser,
+    dto: CreateAutomationStaleDealRuleDto,
+  ) {
+    await this.assertCanManageAutomations(user);
+
+    const enabled = dto.enabled ?? true;
+    const staleDays = this.clampInt(dto.staleDays, 30, 0, 3650);
+    const dueInDays = this.clampInt(dto.dueInDays, 0, 0, 3650);
+    const cooldownDays = this.clampInt(dto.cooldownDays, 7, 0, 3650);
+    const assigneeTarget = (dto.assigneeTarget ||
+      'owner') as CrmAutomationAssigneeTarget;
+
+    const titleTemplate = String(dto.titleTemplate || '').trim();
+    if (!titleTemplate) throw new BadRequestException('titleTemplate required');
+
+    if (assigneeTarget === 'specific' && !dto.assigneeUserId) {
+      throw new BadRequestException('assigneeUserId required for specific');
+    }
+
+    if (dto.stageId) {
+      const stage = await this.stageRepo.findOne({
+        where: { tenantId, id: dto.stageId },
+      });
+      if (!stage) throw new BadRequestException('Invalid stageId');
+    }
+
+    const rule = await this.automationStaleDealRuleRepo.save(
+      this.automationStaleDealRuleRepo.create({
+        tenantId,
+        enabled,
+        staleDays,
+        stageId: dto.stageId ? String(dto.stageId) : null,
+        titleTemplate,
+        dueInDays,
+        cooldownDays,
+        assigneeTarget,
+        assigneeUserId:
+          assigneeTarget === 'specific' && dto.assigneeUserId
+            ? String(dto.assigneeUserId)
+            : null,
+      }),
+    );
+
+    return rule;
+  }
+
+  async updateAutomationStaleDealRule(
+    tenantId: string,
+    user: CurrentUser,
+    id: string,
+    dto: UpdateAutomationStaleDealRuleDto,
+  ) {
+    await this.assertCanManageAutomations(user);
+
+    const rule = await this.automationStaleDealRuleRepo.findOne({
+      where: { tenantId, id },
+    });
+    if (!rule) throw new NotFoundException('Rule not found');
+
+    if ('enabled' in dto && dto.enabled != null) {
+      rule.enabled = Boolean(dto.enabled);
+    }
+
+    if ('staleDays' in dto && dto.staleDays != null) {
+      rule.staleDays = this.clampInt(
+        dto.staleDays,
+        rule.staleDays ?? 30,
+        0,
+        3650,
+      );
+    }
+
+    if ('stageId' in dto) {
+      if (dto.stageId) {
+        const stage = await this.stageRepo.findOne({
+          where: { tenantId, id: dto.stageId },
+        });
+        if (!stage) throw new BadRequestException('Invalid stageId');
+        rule.stageId = String(dto.stageId);
+      } else {
+        rule.stageId = null;
+      }
+    }
+
+    if (dto.titleTemplate != null) {
+      const title = String(dto.titleTemplate || '').trim();
+      if (!title) throw new BadRequestException('titleTemplate required');
+      rule.titleTemplate = title;
+    }
+
+    if (dto.dueInDays != null) {
+      rule.dueInDays = this.clampInt(
+        dto.dueInDays,
+        rule.dueInDays ?? 0,
+        0,
+        3650,
+      );
+    }
+
+    if (dto.cooldownDays != null) {
+      rule.cooldownDays = this.clampInt(
+        dto.cooldownDays,
+        rule.cooldownDays ?? 7,
+        0,
+        3650,
+      );
+    }
+
+    if (dto.assigneeTarget != null) {
+      rule.assigneeTarget = dto.assigneeTarget as any;
+    }
+    if ('assigneeUserId' in dto) {
+      rule.assigneeUserId = dto.assigneeUserId
+        ? String(dto.assigneeUserId)
+        : null;
+    }
+
+    if (rule.assigneeTarget === 'specific' && !rule.assigneeUserId) {
+      throw new BadRequestException('assigneeUserId required for specific');
+    }
+    if (rule.assigneeTarget !== 'specific') {
+      rule.assigneeUserId = null;
+    }
+
+    return this.automationStaleDealRuleRepo.save(rule);
+  }
+
+  async runStaleDealAutomations(tenantId: string, user: CurrentUser) {
+    await this.assertCanManageAutomations(user);
+
+    const rules = await this.automationStaleDealRuleRepo.find({
+      where: { tenantId, enabled: true },
+      order: { createdAt: 'ASC' },
+    });
+
+    let scannedOpportunities = 0;
+    let createdTasks = 0;
+
+    for (const rule of rules) {
+      const result = await this.applyStaleDealRule(tenantId, user, rule);
+      scannedOpportunities += result.scannedOpportunities;
+      createdTasks += result.createdTasks;
+    }
+
+    return { rules: rules.length, scannedOpportunities, createdTasks };
+  }
+
+  private async applyStaleDealRule(
+    tenantId: string,
+    runner: CurrentUser,
+    rule: CrmAutomationStaleDealRule,
+  ): Promise<{ scannedOpportunities: number; createdTasks: number }> {
+    const staleDays = this.clampInt(rule.staleDays, 30, 0, 3650);
+    const cutoff = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000);
+
+    const qb = this.oppRepo
+      .createQueryBuilder('o')
+      .where('o.tenantId = :tenantId', { tenantId })
+      .andWhere('o.status = :status', { status: CrmOpportunityStatus.OPEN })
+      .andWhere('o.updatedAt < :cutoff', { cutoff });
+
+    if (rule.stageId) {
+      qb.andWhere('o.stageId = :stageId', { stageId: rule.stageId });
+    }
+
+    const opportunities = await qb
+      .orderBy('o.updatedAt', 'ASC')
+      .limit(500)
+      .getMany();
+
+    let createdTasks = 0;
+    for (const opp of opportunities) {
+      try {
+        const shouldCreate = await this.shouldCreateStaleDealTask(
+          tenantId,
+          opp.id,
+          rule,
+        );
+        if (!shouldCreate) continue;
+
+        const assigneeUserId = this.resolveAutomationAssignee(rule, {
+          ownerUserId: opp.ownerUserId,
+          moverUserId: runner.id,
+        });
+        if (!assigneeUserId) continue;
+
+        const dueAt =
+          rule.dueInDays > 0 ? this.addDaysDateOnly(rule.dueInDays) : null;
+        const title = this.renderStaleDealAutomationTitle(rule.titleTemplate, {
+          opportunityName: opp.name,
+        });
+
+        await this.taskRepo.save(
+          this.taskRepo.create({
+            tenantId,
+            title,
+            opportunityId: opp.id,
+            accountId: opp.accountId,
+            dueAt,
+            completed: false,
+            assigneeUserId,
+            createdByUserId: runner.id,
+            updatedByUserId: runner.id,
+            source: this.AUTOMATION_SOURCE_STALE_DEAL,
+            sourceRuleId: rule.id,
+          }),
+        );
+
+        createdTasks += 1;
+      } catch {
+        // best-effort: one bad row should not block entire run
+      }
+    }
+
+    return { scannedOpportunities: opportunities.length, createdTasks };
+  }
+
+  private async shouldCreateStaleDealTask(
+    tenantId: string,
+    opportunityId: string,
+    rule: CrmAutomationStaleDealRule,
+  ): Promise<boolean> {
+    const cooldownDays = this.clampInt(rule.cooldownDays, 7, 0, 3650);
+    if (cooldownDays <= 0) return true;
+
+    const cutoff = new Date(Date.now() - cooldownDays * 24 * 60 * 60 * 1000);
+
+    const existing = await this.taskRepo
+      .createQueryBuilder('t')
+      .where('t.tenantId = :tenantId', { tenantId })
+      .andWhere('t.opportunityId = :opportunityId', { opportunityId })
+      .andWhere('t.source = :source', {
+        source: this.AUTOMATION_SOURCE_STALE_DEAL,
+      })
+      .andWhere('t.sourceRuleId = :sourceRuleId', { sourceRuleId: rule.id })
+      .andWhere('t.createdAt >= :cutoff', { cutoff })
+      .getOne();
+
+    return !existing;
   }
 
   private async applyStageChangeTaskRules(
@@ -1038,7 +1481,8 @@ export class CrmService {
         ownerUserId: ctx.ownerUserId,
         moverUserId: mover.id,
       });
-      const dueAt = rule.dueInDays > 0 ? this.addDaysDateOnly(rule.dueInDays) : null;
+      const dueAt =
+        rule.dueInDays > 0 ? this.addDaysDateOnly(rule.dueInDays) : null;
       const title = this.renderAutomationTitle(rule.titleTemplate, {
         opportunityName: ctx.opportunityName,
         toStageName,
@@ -2368,7 +2812,8 @@ export class CrmService {
       name: safeOpp.name,
       amount: safeOpp.amount,
       currency: safeOpp.currency,
-      probability: safeOpp.probability == null ? null : Number(safeOpp.probability),
+      probability:
+        safeOpp.probability == null ? null : Number(safeOpp.probability),
       stageId: safeOpp.stageId,
       accountId: safeOpp.accountId,
       ownerUserId: safeOpp.ownerUserId,

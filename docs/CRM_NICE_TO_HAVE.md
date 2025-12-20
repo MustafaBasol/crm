@@ -24,6 +24,9 @@ Hedef: günlük kullanımda daha az sürtünme, daha iyi görünürlük, daha g�
     - Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “opportunity move triggers automation task” adımı
   - Deal won olunca follow-up checklist
   - Stale deal için hatırlatma
+    - Durum: Uygulandı (staleDays + optional stage filtresi + cooldown ile dedupe)
+    - API: `GET/POST/PATCH /api/crm/automation/stale-deal-rules`, `POST /api/crm/automation/run/stale-deals`
+    - Doğrulama: `backend/scripts/smoke-crm.sh` (Postgres ile) “automation (stale deal reminder creates task)” adımı
 - Sıralı görev akışları (sequence-lite):
   - “3 gün sonra ara, 7 gün sonra e-posta gönder” gibi zincirler.
 - SLA ve görev eskalasyonu: due date aşımı → owner + manager bilgilendirme.

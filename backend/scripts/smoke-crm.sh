@@ -422,6 +422,33 @@ if [[ -n "$OPP_OWNER_ID" ]]; then
   [[ "$AUTO_TASK_ASSIGNEE_OK" == "true" ]] || fail "Expected automation task to be assigned to owner ($OPP_OWNER_ID): $AUTO_TASKS_JSON"
 fi
 
+echo "== CRM: automation (stale deal reminder creates task) =="
+STALE_RULE_CREATE="$TMP_DIR/smoke.crm.stale.rule.create.json"
+cat > "$STALE_RULE_CREATE" <<JSON
+{"enabled":true,"staleDays":0,"stageId":"$STAGE_1_ID","titleTemplate":"Stale task: {{opportunityName}}","dueInDays":0,"cooldownDays":7,"assigneeTarget":"owner"}
+JSON
+STALE_RULE_CREATED_JSON="$TMP_DIR/smoke.crm.stale.rule.created.json"
+http_json POST "$API_BASE/crm/automation/stale-deal-rules" "$STALE_RULE_CREATE" "$TOKEN" | tee "$STALE_RULE_CREATED_JSON" >/dev/null
+STALE_RULE_ID="$(json_get "$STALE_RULE_CREATED_JSON" "j.id")"
+[[ -n "$STALE_RULE_ID" ]] || fail "Stale-deal automation rule id missing in create response: $STALE_RULE_CREATED_JSON"
+
+STALE_RUN_JSON="$TMP_DIR/smoke.crm.stale.run.json"
+http_json POST "$API_BASE/crm/automation/run/stale-deals" "" "$TOKEN" | tee "$STALE_RUN_JSON" >/dev/null
+
+STALE_TASKS_JSON="$TMP_DIR/smoke.crm.tasks.after.stale.run.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$STALE_TASKS_JSON" >/dev/null
+STALE_TASK_FOUND="$(json_get "$STALE_TASKS_JSON" "Array.isArray(j.items) && j.items.some(t => t && typeof t.title === 'string' && t.title.startsWith('Stale task:') )")"
+[[ "$STALE_TASK_FOUND" == "true" ]] || fail "Expected stale-deal automation task to be created after run: $STALE_TASKS_JSON"
+
+# Cooldown check: running again should not create duplicates
+STALE_RUN2_JSON="$TMP_DIR/smoke.crm.stale.run2.json"
+http_json POST "$API_BASE/crm/automation/run/stale-deals" "" "$TOKEN" | tee "$STALE_RUN2_JSON" >/dev/null
+
+STALE_TASKS2_JSON="$TMP_DIR/smoke.crm.tasks.after.stale.run2.json"
+http_json GET "$API_BASE/crm/tasks?opportunityId=$OPP_ID" "" "$TOKEN" | tee "$STALE_TASKS2_JSON" >/dev/null
+STALE_TASK_COUNT="$(json_get "$STALE_TASKS2_JSON" "Array.isArray(j.items) ? j.items.filter(t => t && typeof t.title === 'string' && t.title.startsWith('Stale task:')).length : 0")"
+[[ "$STALE_TASK_COUNT" == "1" ]] || fail "Expected stale-deal automation cooldown to prevent duplicates (count=1), got $STALE_TASK_COUNT: $STALE_TASKS2_JSON"
+
 echo "== CRM: opportunity detail endpoint (/crm/opportunities/:id) =="
 OPP_DETAIL_JSON="$TMP_DIR/smoke.crm.opp.detail.json"
 http_json GET "$API_BASE/crm/opportunities/$OPP_ID" "" "$TOKEN" | tee "$OPP_DETAIL_JSON" >/dev/null

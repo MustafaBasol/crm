@@ -235,6 +235,24 @@ let crmAutomationStageTaskRules = [
   },
 ];
 
+// CRM automation (stale deal reminder -> create task)
+let crmAutomationStaleDealRules = [
+  {
+    id: 'stale-rule-1',
+    tenantId: mockTenant.id,
+    enabled: false,
+    staleDays: 30,
+    stageId: null,
+    titleTemplate: 'Stale task: {{opportunityName}}',
+    dueInDays: 0,
+    assigneeTarget: 'owner',
+    assigneeUserId: null,
+    cooldownDays: 7,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
 const ensureStageExists = (stageId) => crmStages.some((s) => s.id === stageId);
 const randomId = (prefix) => `${prefix}-${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
 
@@ -778,6 +796,200 @@ const server = createServer((req, res) => {
       crmAutomationStageTaskRules[idx] = next;
       return json(res, 200, next);
     });
+  }
+
+  // CRM Automation - stale deal rules
+  if (path === '/api/crm/automation/stale-deal-rules' && req.method === 'GET') {
+    const rules = Array.isArray(crmAutomationStaleDealRules) ? crmAutomationStaleDealRules : [];
+    return json(res, 200, { items: rules });
+  }
+
+  if (path === '/api/crm/automation/stale-deal-rules' && req.method === 'POST') {
+    return readJsonBody(req).then((body) => {
+      const enabled = typeof body.enabled === 'boolean' ? body.enabled : true;
+
+      const staleDaysRaw = (typeof body.staleDays === 'number' || typeof body.staleDays === 'string')
+        ? Number(body.staleDays)
+        : 30;
+      const staleDays = Number.isFinite(staleDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(staleDaysRaw))) : 30;
+
+      const stageId = typeof body.stageId === 'string' && body.stageId.trim() ? body.stageId.trim() : null;
+      if (stageId && !ensureStageExists(stageId)) {
+        return json(res, 400, { message: 'stageId geçersiz' });
+      }
+
+      const titleTemplate = typeof body.titleTemplate === 'string' && body.titleTemplate.trim()
+        ? body.titleTemplate.trim()
+        : 'Stale task: {{opportunityName}}';
+
+      const dueInDaysRaw = (typeof body.dueInDays === 'number' || typeof body.dueInDays === 'string')
+        ? Number(body.dueInDays)
+        : 0;
+      const dueInDays = Number.isFinite(dueInDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(dueInDaysRaw))) : 0;
+
+      const cooldownDaysRaw = (typeof body.cooldownDays === 'number' || typeof body.cooldownDays === 'string')
+        ? Number(body.cooldownDays)
+        : 7;
+      const cooldownDays = Number.isFinite(cooldownDaysRaw) ? Math.max(0, Math.min(3650, Math.floor(cooldownDaysRaw))) : 7;
+
+      const assigneeTargetRaw = typeof body.assigneeTarget === 'string' ? body.assigneeTarget : 'owner';
+      const assigneeTarget = ['owner', 'mover', 'specific'].includes(assigneeTargetRaw) ? assigneeTargetRaw : 'owner';
+      const assigneeUserId = typeof body.assigneeUserId === 'string' ? body.assigneeUserId : null;
+      if (assigneeTarget === 'specific' && !assigneeUserId) {
+        return json(res, 400, { message: 'assigneeTarget=specific için assigneeUserId zorunlu' });
+      }
+
+      const rule = {
+        id: randomId('stale-rule'),
+        tenantId: mockTenant.id,
+        enabled,
+        staleDays,
+        stageId,
+        titleTemplate,
+        dueInDays,
+        assigneeTarget,
+        assigneeUserId: assigneeTarget === 'specific' ? (assigneeUserId || null) : null,
+        cooldownDays,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      crmAutomationStaleDealRules = [rule, ...(Array.isArray(crmAutomationStaleDealRules) ? crmAutomationStaleDealRules : [])];
+      return json(res, 200, rule);
+    });
+  }
+
+  const crmStaleRuleMatch = path.match(/^\/api\/crm\/automation\/stale-deal-rules\/([^/]+)$/);
+  if (crmStaleRuleMatch && req.method === 'PATCH') {
+    const id = crmStaleRuleMatch[1];
+    return readJsonBody(req).then((body) => {
+      const list = Array.isArray(crmAutomationStaleDealRules) ? crmAutomationStaleDealRules : [];
+      const idx = list.findIndex((r) => r.id === id);
+      if (idx < 0) return json(res, 404, { message: 'Rule bulunamadı' });
+
+      const next = { ...list[idx] };
+      if (typeof body.enabled === 'boolean') next.enabled = body.enabled;
+
+      if (typeof body.staleDays === 'number' || typeof body.staleDays === 'string') {
+        const v = Number(body.staleDays);
+        if (!Number.isFinite(v)) return json(res, 400, { message: 'staleDays geçersiz' });
+        next.staleDays = Math.max(0, Math.min(3650, Math.floor(v)));
+      }
+
+      if ('stageId' in body) {
+        if (typeof body.stageId === 'string' && body.stageId.trim()) {
+          const v = body.stageId.trim();
+          if (!ensureStageExists(v)) return json(res, 400, { message: 'stageId geçersiz' });
+          next.stageId = v;
+        } else if (body.stageId === null) {
+          next.stageId = null;
+        }
+      }
+
+      if (typeof body.titleTemplate === 'string' && body.titleTemplate.trim()) {
+        next.titleTemplate = body.titleTemplate.trim();
+      }
+
+      if (typeof body.dueInDays === 'number' || typeof body.dueInDays === 'string') {
+        const v = Number(body.dueInDays);
+        if (!Number.isFinite(v)) return json(res, 400, { message: 'dueInDays geçersiz' });
+        next.dueInDays = Math.max(0, Math.min(3650, Math.floor(v)));
+      }
+
+      if (typeof body.cooldownDays === 'number' || typeof body.cooldownDays === 'string') {
+        const v = Number(body.cooldownDays);
+        if (!Number.isFinite(v)) return json(res, 400, { message: 'cooldownDays geçersiz' });
+        next.cooldownDays = Math.max(0, Math.min(3650, Math.floor(v)));
+      }
+
+      if (typeof body.assigneeTarget === 'string') {
+        const v = body.assigneeTarget;
+        if (!['owner', 'mover', 'specific'].includes(v)) return json(res, 400, { message: 'assigneeTarget geçersiz' });
+        next.assigneeTarget = v;
+      }
+
+      if (typeof body.assigneeUserId === 'string') next.assigneeUserId = body.assigneeUserId;
+      if (body.assigneeUserId === null) next.assigneeUserId = null;
+      if (next.assigneeTarget === 'specific' && !next.assigneeUserId) {
+        return json(res, 400, { message: 'assigneeTarget=specific için assigneeUserId zorunlu' });
+      }
+      if (next.assigneeTarget !== 'specific') next.assigneeUserId = null;
+
+      next.updatedAt = new Date().toISOString();
+      crmAutomationStaleDealRules[idx] = next;
+      return json(res, 200, next);
+    });
+  }
+
+  if (path === '/api/crm/automation/run/stale-deals' && req.method === 'POST') {
+    const rules = (Array.isArray(crmAutomationStaleDealRules) ? crmAutomationStaleDealRules : []).filter((r) => r && r.enabled === true);
+    const now = Date.now();
+
+    let scannedOpportunities = 0;
+    let createdTasks = 0;
+
+    for (const rule of rules) {
+      const staleDays = Math.max(0, Math.min(3650, Math.floor(Number(rule.staleDays || 30))));
+      const staleBefore = now - staleDays * 24 * 60 * 60 * 1000;
+
+      const matches = (crmOpportunities || []).filter((o) => {
+        if (!o || String(o.status || 'open') !== 'open') return false;
+        if (rule.stageId && String(o.stageId) !== String(rule.stageId)) return false;
+        const updatedAt = o.updatedAt ? new Date(o.updatedAt).getTime() : now;
+        return updatedAt < staleBefore;
+      });
+
+      scannedOpportunities += matches.length;
+
+      for (const opp of matches) {
+        const cooldownDays = Math.max(0, Math.min(3650, Math.floor(Number(rule.cooldownDays || 7))));
+        const cooldownCutoff = now - cooldownDays * 24 * 60 * 60 * 1000;
+        const already = (crmTasks || []).some((t) => {
+          if (!t) return false;
+          if (String(t.opportunityId || '') !== String(opp.id)) return false;
+          if (String(t.source || '') !== 'automation_stale_deal') return false;
+          if (String(t.sourceRuleId || '') !== String(rule.id)) return false;
+          const createdAt = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+          return createdAt >= cooldownCutoff;
+        });
+        if (already) continue;
+
+        const title = String(rule.titleTemplate || 'Stale task: {{opportunityName}}')
+          .replaceAll('{{opportunityName}}', String(opp.name || ''))
+          .slice(0, 220);
+
+        const dueAt = rule.dueInDays > 0
+          ? new Date(Date.now() + Number(rule.dueInDays) * 24 * 60 * 60 * 1000).toISOString()
+          : null;
+
+        const assigneeUserId = rule.assigneeTarget === 'owner'
+          ? (opp.ownerUserId || null)
+          : (rule.assigneeTarget === 'mover'
+            ? mockUser.id
+            : (rule.assigneeTarget === 'specific' ? (rule.assigneeUserId || null) : null));
+
+        if (!assigneeUserId) continue;
+
+        const task = {
+          id: randomId('task'),
+          title,
+          opportunityId: opp.id,
+          accountId: opp.accountId || null,
+          dueAt,
+          completed: false,
+          assigneeUserId,
+          createdByUserId: mockUser.id,
+          source: 'automation_stale_deal',
+          sourceRuleId: rule.id,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        crmTasks = [task, ...(Array.isArray(crmTasks) ? crmTasks : [])];
+        createdTasks += 1;
+      }
+    }
+
+    return json(res, 200, { rules: rules.length, scannedOpportunities, createdTasks });
   }
   const crmMoveMatch = path.match(/^\/api\/crm\/opportunities\/([^/]+)\/move$/);
   if (crmMoveMatch && req.method === 'POST') {

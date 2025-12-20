@@ -30,12 +30,15 @@ import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { CreateAutomationStageTaskRuleDto } from './dto/create-automation-stage-task-rule.dto';
 import { UpdateAutomationStageTaskRuleDto } from './dto/update-automation-stage-task-rule.dto';
+import { CreateAutomationStaleDealRuleDto } from './dto/create-automation-stale-deal-rule.dto';
+import { UpdateAutomationStaleDealRuleDto } from './dto/update-automation-stale-deal-rule.dto';
 import { CrmOpportunityStatus } from './entities/crm-opportunity.entity';
 
 type CsvPrimitive = string | number | boolean | Date | null | undefined;
 const serializeCsvValue = (value: CsvPrimitive): string => {
   if (value == null) return '';
-  const serialized = value instanceof Date ? value.toISOString() : String(value);
+  const serialized =
+    value instanceof Date ? value.toISOString() : String(value);
   if (/[",\n]/.test(serialized)) {
     return '"' + serialized.replace(/"/g, '""') + '"';
   }
@@ -186,7 +189,9 @@ export class CrmController {
     const rows: string[] = [];
 
     rows.push(
-      ['Counts', 'Leads', report.counts.leads, null].map(serializeCsvValue).join(','),
+      ['Counts', 'Leads', report.counts.leads, null]
+        .map(serializeCsvValue)
+        .join(','),
     );
     rows.push(
       ['Counts', 'Contacts', report.counts.contacts, null]
@@ -199,10 +204,14 @@ export class CrmController {
         .join(','),
     );
     rows.push(
-      ['Counts', 'Won', report.counts.won, null].map(serializeCsvValue).join(','),
+      ['Counts', 'Won', report.counts.won, null]
+        .map(serializeCsvValue)
+        .join(','),
     );
     rows.push(
-      ['Counts', 'Lost', report.counts.lost, null].map(serializeCsvValue).join(','),
+      ['Counts', 'Lost', report.counts.lost, null]
+        .map(serializeCsvValue)
+        .join(','),
     );
 
     rows.push(
@@ -211,7 +220,12 @@ export class CrmController {
         .join(','),
     );
     rows.push(
-      ['Rates', 'Opportunity per Contact', report.rates.opportunityPerContact, null]
+      [
+        'Rates',
+        'Opportunity per Contact',
+        report.rates.opportunityPerContact,
+        null,
+      ]
         .map(serializeCsvValue)
         .join(','),
     );
@@ -259,10 +273,14 @@ export class CrmController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const report = await this.crmService.getForecastReport(user.tenantId, user, {
-      startDate,
-      endDate,
-    });
+    const report = await this.crmService.getForecastReport(
+      user.tenantId,
+      user,
+      {
+        startDate,
+        endDate,
+      },
+    );
 
     await this.crmService.logReportExport(user.tenantId, user, {
       report: 'forecast',
@@ -279,7 +297,9 @@ export class CrmController {
         const raw = Number((v as any).raw) || 0;
         const weighted = Number((v as any).weighted) || 0;
         const count = Number((v as any).count) || 0;
-        rows.push([week, ccy, raw, weighted, count].map(serializeCsvValue).join(','));
+        rows.push(
+          [week, ccy, raw, weighted, count].map(serializeCsvValue).join(','),
+        );
       }
     }
 
@@ -300,18 +320,27 @@ export class CrmController {
     @Query('endDate') endDate?: string,
     @Query('bucket') bucket?: 'day' | 'week',
   ) {
-    const report = await this.crmService.getActivityReport(user.tenantId, user, {
-      startDate,
-      endDate,
-      bucket,
-    });
+    const report = await this.crmService.getActivityReport(
+      user.tenantId,
+      user,
+      {
+        startDate,
+        endDate,
+        bucket,
+      },
+    );
 
     await this.crmService.logReportExport(user.tenantId, user, {
       report: 'activity',
       params: { startDate, endDate, bucket: report.bucket },
     });
 
-    const headersRow = ['BucketStart', 'Activities', 'TasksCreated', 'TasksCompleted'];
+    const headersRow = [
+      'BucketStart',
+      'Activities',
+      'TasksCreated',
+      'TasksCompleted',
+    ];
     const rows = (report.series || []).map((r: any) => {
       return [r.bucketStart, r.activities, r.tasksCreated, r.tasksCompleted]
         .map(serializeCsvValue)
@@ -437,28 +466,89 @@ export class CrmController {
 
   // === Automation (simple rule engine) ===
   @Get('automation/stage-task-rules')
-  @ApiOperation({ summary: 'List automation rules: stage change -> create task' })
+  @ApiOperation({
+    summary: 'List automation rules: stage change -> create task',
+  })
   async listAutomationStageTaskRules(@User() user: CurrentUser) {
     return this.crmService.listAutomationStageTaskRules(user.tenantId, user);
   }
 
   @Post('automation/stage-task-rules')
-  @ApiOperation({ summary: 'Create automation rule: stage change -> create task' })
+  @ApiOperation({
+    summary: 'Create automation rule: stage change -> create task',
+  })
   async createAutomationStageTaskRule(
     @User() user: CurrentUser,
     @Body() dto: CreateAutomationStageTaskRuleDto,
   ) {
-    return this.crmService.createAutomationStageTaskRule(user.tenantId, user, dto);
+    return this.crmService.createAutomationStageTaskRule(
+      user.tenantId,
+      user,
+      dto,
+    );
   }
 
   @Patch('automation/stage-task-rules/:id')
-  @ApiOperation({ summary: 'Update automation rule: stage change -> create task' })
+  @ApiOperation({
+    summary: 'Update automation rule: stage change -> create task',
+  })
   async updateAutomationStageTaskRule(
     @User() user: CurrentUser,
     @Param('id') id: string,
     @Body() dto: UpdateAutomationStageTaskRuleDto,
   ) {
-    return this.crmService.updateAutomationStageTaskRule(user.tenantId, user, id, dto);
+    return this.crmService.updateAutomationStageTaskRule(
+      user.tenantId,
+      user,
+      id,
+      dto,
+    );
+  }
+
+  @Get('automation/stale-deal-rules')
+  @ApiOperation({ summary: 'List automation rules: stale deal -> create task' })
+  async listAutomationStaleDealRules(@User() user: CurrentUser) {
+    return this.crmService.listAutomationStaleDealRules(user.tenantId, user);
+  }
+
+  @Post('automation/stale-deal-rules')
+  @ApiOperation({
+    summary: 'Create automation rule: stale deal -> create task',
+  })
+  async createAutomationStaleDealRule(
+    @User() user: CurrentUser,
+    @Body() dto: CreateAutomationStaleDealRuleDto,
+  ) {
+    return this.crmService.createAutomationStaleDealRule(
+      user.tenantId,
+      user,
+      dto,
+    );
+  }
+
+  @Patch('automation/stale-deal-rules/:id')
+  @ApiOperation({
+    summary: 'Update automation rule: stale deal -> create task',
+  })
+  async updateAutomationStaleDealRule(
+    @User() user: CurrentUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateAutomationStaleDealRuleDto,
+  ) {
+    return this.crmService.updateAutomationStaleDealRule(
+      user.tenantId,
+      user,
+      id,
+      dto,
+    );
+  }
+
+  @Post('automation/run/stale-deals')
+  @ApiOperation({
+    summary: 'Run stale deal automation rules (best-effort) for current tenant',
+  })
+  async runAutomationStaleDeals(@User() user: CurrentUser) {
+    return this.crmService.runStaleDealAutomations(user.tenantId, user);
   }
 
   @Get('board')

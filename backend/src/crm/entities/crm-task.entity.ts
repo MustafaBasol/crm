@@ -46,6 +46,14 @@ export class CrmTask {
   completed: boolean;
 
   @Index()
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  source: string | null;
+
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  sourceRuleId: string | null;
+
+  @Index()
   @Column({ type: 'uuid', nullable: true })
   assigneeUserId: string | null;
 
